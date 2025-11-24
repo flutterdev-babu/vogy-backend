@@ -1,0 +1,479 @@
+import { prisma } from "../../config/prisma";
+
+/* ============================================
+    CREATE RIDE (USER)
+============================================ */
+export const createRide = async (
+  userId: string,
+  data: {
+    vehicleTypeId: string;
+    pickupLat: number;
+    pickupLng: number;
+    pickupAddress: string;
+    dropLat: number;
+    dropLng: number;
+    dropAddress: string;
+    distanceKm: number;
+  }
+) => {
+  // Verify vehicle type exists and is active
+  const vehicleType = await prisma.vehicleType.findUnique({
+    where: { id: data.vehicleTypeId },
+  });
+
+  if (!vehicleType) {
+    throw new Error("Vehicle type not found");
+  }
+
+  if (!vehicleType.isActive) {
+    throw new Error("Vehicle type is not available");
+  }
+
+  // Get active pricing config
+  const pricingConfig = await prisma.pricingConfig.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!pricingConfig) {
+    throw new Error("Pricing configuration not found");
+  }
+
+  // Calculate fare
+  const baseFare = vehicleType.pricePerKm;
+  const perKmPrice = vehicleType.pricePerKm;
+  const totalFare = perKmPrice * data.distanceKm;
+  const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
+  const commission = (totalFare * pricingConfig.appCommission) / 100;
+
+  // Create ride
+  const ride = await prisma.ride.create({
+    data: {
+      userId: userId,
+      vehicleTypeId: data.vehicleTypeId,
+      pickupLat: data.pickupLat,
+      pickupLng: data.pickupLng,
+      pickupAddress: data.pickupAddress,
+      dropLat: data.dropLat,
+      dropLng: data.dropLng,
+      dropAddress: data.dropAddress,
+      distanceKm: data.distanceKm,
+      baseFare: baseFare,
+      perKmPrice: perKmPrice,
+      totalFare: totalFare,
+      riderEarnings: riderEarnings,
+      commission: commission,
+      status: "PENDING",
+    },
+    include: {
+      vehicleType: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+        },
+      },
+    },
+  });
+
+  return ride;
+};
+
+/* ============================================
+    GET USER RIDES
+============================================ */
+export const getUserRides = async (userId: string, status?: string) => {
+  const rides = await prisma.ride.findMany({
+    where: {
+      userId: userId,
+      ...(status && { status: status as any }),
+    },
+    include: {
+      vehicleType: true,
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profileImage: true,
+          rating: true,
+          vehicleNumber: true,
+          vehicleModel: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rides;
+};
+
+/* ============================================
+    GET RIDE BY ID (USER)
+============================================ */
+export const getRideById = async (rideId: string, userId: string) => {
+  const ride = await prisma.ride.findUnique({
+    where: { id: rideId },
+    include: {
+      vehicleType: true,
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profileImage: true,
+          rating: true,
+          vehicleNumber: true,
+          vehicleModel: true,
+          currentLat: true,
+          currentLng: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+        },
+      },
+    },
+  });
+
+  if (!ride) {
+    throw new Error("Ride not found");
+  }
+
+  // Verify ride belongs to user
+  if (ride.userId !== userId) {
+    throw new Error("Unauthorized to access this ride");
+  }
+
+  return ride;
+};
+
+/* ============================================
+    CANCEL RIDE (USER)
+============================================ */
+export const cancelRide = async (rideId: string, userId: string) => {
+  const ride = await prisma.ride.findUnique({
+    where: { id: rideId },
+  });
+
+  if (!ride) {
+    throw new Error("Ride not found");
+  }
+
+  if (ride.userId !== userId) {
+    throw new Error("Unauthorized to cancel this ride");
+  }
+
+  if (ride.status === "COMPLETED") {
+    throw new Error("Cannot cancel a completed ride");
+  }
+
+  if (ride.status === "CANCELLED") {
+    throw new Error("Ride is already cancelled");
+  }
+
+  const updatedRide = await prisma.ride.update({
+    where: { id: rideId },
+    data: {
+      status: "CANCELLED",
+    },
+    include: {
+      vehicleType: true,
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+        },
+      },
+    },
+  });
+
+  return updatedRide;
+};
+
+/* ============================================
+    COMPLETE RIDE WITH OTP (USER)
+============================================ */
+export const completeRideWithOtp = async (
+  rideId: string,
+  userId: string,
+  userOtp: string
+) => {
+  // Get user to verify OTP
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // Verify OTP
+  if (user.uniqueOtp !== userOtp) {
+    throw new Error("Invalid OTP");
+  }
+
+  // Get ride
+  const ride = await prisma.ride.findUnique({
+    where: { id: rideId },
+    include: {
+      rider: true,
+    },
+  });
+
+  if (!ride) {
+    throw new Error("Ride not found");
+  }
+
+  if (ride.userId !== userId) {
+    throw new Error("Unauthorized to complete this ride");
+  }
+
+  if (ride.status !== "STARTED") {
+    throw new Error("Ride must be started before completion");
+  }
+
+  // Update ride status and rider earnings
+  const updatedRide = await prisma.ride.update({
+    where: { id: rideId },
+    data: {
+      status: "COMPLETED",
+      endTime: new Date(),
+      userOtp: userOtp,
+    },
+  });
+
+  // Update rider's total earnings if rider exists
+  if (ride.riderId && ride.riderEarnings) {
+    await prisma.rider.update({
+      where: { id: ride.riderId },
+      data: {
+        totalEarnings: {
+          increment: ride.riderEarnings,
+        },
+      },
+    });
+  }
+
+  return updatedRide;
+};
+
+/* ============================================
+    GET AVAILABLE RIDES FOR RIDER
+============================================ */
+export const getAvailableRides = async (
+  riderLat: number,
+  riderLng: number,
+  vehicleTypeId?: string
+) => {
+  // Get online riders with their vehicle types
+  const rides = await prisma.ride.findMany({
+    where: {
+      status: "PENDING",
+      ...(vehicleTypeId && { vehicleTypeId: vehicleTypeId }),
+      riderId: null, // Only rides not yet accepted
+    },
+    include: {
+      vehicleType: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profileImage: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" }, // Oldest first
+  });
+
+  // Calculate distance and filter nearby rides (within 10km)
+  const nearbyRides = rides
+    .map((ride) => {
+      const distance = calculateDistance(
+        riderLat,
+        riderLng,
+        ride.pickupLat,
+        ride.pickupLng
+      );
+      return { ...ride, distanceFromRider: distance };
+    })
+    .filter((ride) => ride.distanceFromRider <= 10) // Within 10km
+    .sort((a, b) => a.distanceFromRider - b.distanceFromRider); // Closest first
+
+  return nearbyRides;
+};
+
+/* ============================================
+    ACCEPT RIDE (RIDER)
+============================================ */
+export const acceptRide = async (rideId: string, riderId: string) => {
+  // Check if rider is online
+  const rider = await prisma.rider.findUnique({
+    where: { id: riderId },
+  });
+
+  if (!rider) {
+    throw new Error("Rider not found");
+  }
+
+  if (!rider.isOnline) {
+    throw new Error("Rider must be online to accept rides");
+  }
+
+  // Get ride
+  const ride = await prisma.ride.findUnique({
+    where: { id: rideId },
+  });
+
+  if (!ride) {
+    throw new Error("Ride not found");
+  }
+
+  if (ride.status !== "PENDING") {
+    throw new Error("Ride is not available for acceptance");
+  }
+
+  if (ride.riderId) {
+    throw new Error("Ride has already been accepted");
+  }
+
+  // Accept ride
+  const updatedRide = await prisma.ride.update({
+    where: { id: rideId },
+    data: {
+      riderId: riderId,
+      status: "ACCEPTED",
+      acceptedAt: new Date(),
+    },
+    include: {
+      vehicleType: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profileImage: true,
+        },
+      },
+    },
+  });
+
+  return updatedRide;
+};
+
+/* ============================================
+    GET RIDER RIDES
+============================================ */
+export const getRiderRides = async (riderId: string, status?: string) => {
+  const rides = await prisma.ride.findMany({
+    where: {
+      riderId: riderId,
+      ...(status && { status: status as any }),
+    },
+    include: {
+      vehicleType: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profileImage: true,
+          uniqueOtp: true, // Rider needs to see OTP for completion
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rides;
+};
+
+/* ============================================
+    UPDATE RIDE STATUS (RIDER)
+============================================ */
+export const updateRideStatus = async (
+  rideId: string,
+  riderId: string,
+  status: "ARRIVED" | "STARTED"
+) => {
+  const ride = await prisma.ride.findUnique({
+    where: { id: rideId },
+  });
+
+  if (!ride) {
+    throw new Error("Ride not found");
+  }
+
+  if (ride.riderId !== riderId) {
+    throw new Error("Unauthorized to update this ride");
+  }
+
+  // Validate status transition
+  if (status === "ARRIVED" && ride.status !== "ACCEPTED") {
+    throw new Error("Ride must be accepted before marking as arrived");
+  }
+
+  if (status === "STARTED" && ride.status !== "ARRIVED") {
+    throw new Error("Ride must be arrived before starting");
+  }
+
+  const updateData: any = {
+    status: status,
+  };
+
+  if (status === "ARRIVED") {
+    updateData.arrivedAt = new Date();
+  }
+
+  if (status === "STARTED") {
+    updateData.startTime = new Date();
+  }
+
+  const updatedRide = await prisma.ride.update({
+    where: { id: rideId },
+    data: updateData,
+    include: {
+      vehicleType: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profileImage: true,
+        },
+      },
+    },
+  });
+
+  return updatedRide;
+};
+
+/* ============================================
+    CALCULATE DISTANCE (Helper function)
+============================================ */
+const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const R = 6371; // Earth's radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+  return distance;
+};
+

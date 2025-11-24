@@ -1,0 +1,31 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.generateUnique4DigitOtp = void 0;
+const prisma_1 = require("../config/prisma");
+/**
+ * Generate a unique 4-digit OTP for user
+ * Ensures the OTP is unique in the database
+ */
+const generateUnique4DigitOtp = async () => {
+    let otp;
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 100;
+    while (!isUnique && attempts < maxAttempts) {
+        // Generate 4-digit OTP (1000-9999)
+        otp = Math.floor(1000 + Math.random() * 9000).toString();
+        // Check if OTP already exists (use findFirst for compatibility)
+        const exists = await prisma_1.prisma.user.findFirst({
+            where: { uniqueOtp: otp },
+        });
+        if (!exists) {
+            isUnique = true;
+        }
+        attempts++;
+    }
+    if (!isUnique) {
+        throw new Error("Failed to generate unique OTP. Please try again.");
+    }
+    return otp;
+};
+exports.generateUnique4DigitOtp = generateUnique4DigitOtp;

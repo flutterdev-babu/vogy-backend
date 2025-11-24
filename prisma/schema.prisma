@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+
+
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  phone        String   @unique
+  email        String?  @unique
+  profileImage String?
+  uniqueOtp    String   @unique // 4-digit unique OTP for ride verification
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // 1 user → many rides
+  rides        Ride[]   @relation("UserRides")
+}
+
+model Rider {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  phone          String   @unique
+  email          String?  @unique
+
+  aadharNumber   String?
+  licenseNumber  String?
+  licenseImage   String?
+  profileImage   String?
+  vehicleNumber  String?
+
+  vehicleModel   String?
+
+  isOnline       Boolean  @default(false)
+  currentLat     Float?
+  currentLng     Float?
+  rating         Float    @default(5)
+  totalEarnings  Float    @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // 1 rider → many rides
+  rides          Ride[]   @relation("RiderRides")
+}
+
+model Admin {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String    @unique
+  password  String
+  role      AdminRole @default(SUBADMIN)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Ride {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId        String?      @db.ObjectId
+  riderId       String?      @db.ObjectId
+  vehicleTypeId String?      @db.ObjectId
+
+  // Explicit 1-to-many relations
+  user          User?      @relation("UserRides", fields: [userId], references: [id])
+  rider         Rider?     @relation("RiderRides", fields: [riderId], references: [id])
+  vehicleType   VehicleType? @relation(fields: [vehicleTypeId], references: [id])
+
+  status        RideStatus @default(PENDING)
+
+  pickupLat     Float
+  pickupLng     Float
+  pickupAddress String
+
+  dropLat       Float
+  dropLng       Float
+  dropAddress   String
+
+  distanceKm    Float
+  
+  // Pricing details
+  baseFare      Float?      // Base fare from pricing config
+  perKmPrice    Float?      // Price per km for this vehicle type
+  totalFare     Float?      // Total calculated fare
+  riderEarnings Float?      // Amount rider receives (percentage)
+  commission    Float?      // App commission (percentage)
+
+  // OTP verification for ride completion
+  userOtp       String?     // User's OTP used to complete the ride
+
+  startTime     DateTime?
+  endTime       DateTime?
+  acceptedAt    DateTime?
+  arrivedAt     DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+enum RideStatus {
+  PENDING
+  ACCEPTED
+  ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+enum AdminRole {
+  SUPERADMIN
+  SUBADMIN
+}
+
+enum VehicleTypeEnum {
+  AUTO
+  BIKE
+  CAR
+  PREMIUM
+}
+
+model VehicleType {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        VehicleTypeEnum @unique
+  displayName String   // e.g., "Auto Rickshaw", "Bike", "Car", "Premium Car"
+  pricePerKm  Float    // Price per kilometer set by admin
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 1 vehicle type → many rides
+  rides       Ride[]
+}
+
+model PricingConfig {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  riderPercentage     Float    @default(80) // Percentage rider gets (e.g., 80%)
+  appCommission       Float    @default(20) // App commission percentage (e.g., 20%)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model OtpCode {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  phone     String
+  role      String   // USER or RIDER
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+

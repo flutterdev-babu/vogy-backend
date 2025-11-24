@@ -1,0 +1,27 @@
+import { Router } from "express";
+import rideController from "../../controllers/ride/ride.controller";
+import { authMiddleware } from "../../middleware/auth.middleware";
+
+const router = Router();
+
+/* ===============================
+        RIDER RIDE ROUTES
+================================ */
+
+// All routes require authentication and RIDER role
+router.use(authMiddleware(["RIDER"]));
+
+// Get available rides for rider (requires lat, lng query params)
+router.get("/available", rideController.getAvailableRides);
+
+// Accept a ride
+router.post("/:id/accept", rideController.acceptRide);
+
+// Get all rides for rider (optional status filter)
+router.get("/", rideController.getRiderRides);
+
+// Update ride status (ARRIVED or STARTED)
+router.patch("/:id/status", rideController.updateRideStatus);
+
+export default router;
+
