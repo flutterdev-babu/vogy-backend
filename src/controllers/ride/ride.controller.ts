@@ -407,5 +407,122 @@ export default {
       });
     }
   },
+
+  // Update rider's current location
+  updateLocation: async (req: AuthedRequest, res: Response) => {
+    try {
+      const riderId = req.user?.id;
+      const { lat, lng } = req.body;
+
+      if (!riderId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      if (lat === undefined || lng === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: "lat and lng are required",
+        });
+      }
+
+      const { prisma } = require("../../config/prisma");
+      const rider = await prisma.rider.update({
+        where: { id: riderId },
+        data: {
+          currentLat: parseFloat(lat),
+          currentLng: parseFloat(lng),
+        },
+        select: {
+          id: true,
+          name: true,
+          currentLat: true,
+          currentLng: true,
+          isOnline: true,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Location updated successfully",
+        data: rider,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to update location",
+      });
+    }
+  },
+
+  // Toggle rider online/offline status
+  toggleOnlineStatus: async (req: AuthedRequest, res: Response) => {
+    try {
+      const riderId = req.user?.id;
+      const { isOnline, lat, lng } = req.body;
+
+      if (!riderId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      if (isOnline === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: "isOnline is required",
+        });
+      }
+
+      const { prisma } = require("../../config/prisma");
+      
+      // If going online, require location
+      if (isOnline && (lat === undefined || lng === undefined)) {
+        return res.status(400).json({
+          success: false,
+          message: "Location (lat, lng) is required when going online",
+        });
+      }
+
+      const updateData: any = { isOnline };
+      if (isOnline && lat !== undefined && lng !== undefined) {
+        updateData.currentLat = parseFloat(lat);
+        updateData.currentLng = parseFloat(lng);
+      }
+
+      const rider = await prisma.rider.update({
+        where: { id: riderId },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          isOnline: true,
+          currentLat: true,
+          currentLng: true,
+          vehicleType: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+            },
+          },
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: isOnline ? "You are now online" : "You are now offline",
+        data: rider,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to update online status",
+      });
+    }
+  },
 };
 
