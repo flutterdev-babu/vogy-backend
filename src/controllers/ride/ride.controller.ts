@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthedRequest } from "../../middleware/auth.middleware";
 import {
   createRide,
+  createManualRide,
   getUserRides,
   getRideById as getUserRideById,
   cancelRide,
@@ -78,6 +79,76 @@ export default {
       return res.status(400).json({
         success: false,
         message: error.message || "Failed to create ride",
+      });
+    }
+  },
+
+  // Create a manual/scheduled ride request
+  createManualRide: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const {
+        vehicleTypeId,
+        pickupLat,
+        pickupLng,
+        pickupAddress,
+        dropLat,
+        dropLng,
+        dropAddress,
+        distanceKm,
+        scheduledDateTime,
+        bookingNotes,
+      } = req.body;
+
+      // Validate required fields
+      if (
+        !vehicleTypeId ||
+        pickupLat === undefined ||
+        pickupLng === undefined ||
+        !pickupAddress ||
+        dropLat === undefined ||
+        dropLng === undefined ||
+        !dropAddress ||
+        distanceKm === undefined ||
+        !scheduledDateTime
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, and scheduledDateTime are required",
+        });
+      }
+
+      const ride = await createManualRide(userId, {
+        vehicleTypeId,
+        pickupLat: parseFloat(pickupLat),
+        pickupLng: parseFloat(pickupLng),
+        pickupAddress,
+        dropLat: parseFloat(dropLat),
+        dropLng: parseFloat(dropLng),
+        dropAddress,
+        distanceKm: parseFloat(distanceKm),
+        scheduledDateTime: new Date(scheduledDateTime),
+        bookingNotes,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Scheduled ride booked successfully",
+        data: ride,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to create scheduled ride",
       });
     }
   },
