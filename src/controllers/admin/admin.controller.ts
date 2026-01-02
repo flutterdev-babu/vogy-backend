@@ -13,6 +13,10 @@ import {
   updateUserUniqueOtpByAdmin,
   getAllUsers,
   getUserById,
+  getAllRiders,
+  getRiderById,
+  getScheduledRides,
+  assignRiderToRide,
 } from "../../services/admin/admin.service";
 
 export default {
@@ -151,9 +155,9 @@ export default {
 
   updatePricingConfig: async (req: AuthedRequest, res: Response) => {
     try {
-      const { riderPercentage, appCommission } = req.body;
+      const { baseFare, riderPercentage, appCommission } = req.body;
 
-      if (!riderPercentage || !appCommission) {
+      if (riderPercentage === undefined || appCommission === undefined) {
         return res.status(400).json({
           success: false,
           message: "Rider percentage and app commission are required",
@@ -161,6 +165,7 @@ export default {
       }
 
       const config = await updatePricingConfig({
+        baseFare: baseFare ? parseFloat(baseFare) : undefined,
         riderPercentage: parseFloat(riderPercentage),
         appCommission: parseFloat(appCommission),
       });
@@ -283,5 +288,93 @@ export default {
       });
     }
   },
-};
 
+  /* ============================================
+      RIDER MANAGEMENT
+  ============================================ */
+
+  getAllRiders: async (req: AuthedRequest, res: Response) => {
+    try {
+      const riders = await getAllRiders();
+
+      return res.status(200).json({
+        success: true,
+        message: "Riders retrieved successfully",
+        data: riders,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get riders",
+      });
+    }
+  },
+
+  getRiderById: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const rider = await getRiderById(id);
+
+      return res.status(200).json({
+        success: true,
+        message: "Rider retrieved successfully",
+        data: rider,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get rider",
+      });
+    }
+  },
+
+  /* ============================================
+      SCHEDULED RIDE MANAGEMENT
+  ============================================ */
+
+  getScheduledRides: async (req: AuthedRequest, res: Response) => {
+    try {
+      const rides = await getScheduledRides();
+
+      return res.status(200).json({
+        success: true,
+        message: "Scheduled rides retrieved successfully",
+        data: rides,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get scheduled rides",
+      });
+    }
+  },
+
+  assignRiderToRide: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { riderId } = req.body;
+
+      if (!riderId) {
+        return res.status(400).json({
+          success: false,
+          message: "Rider ID is required",
+        });
+      }
+
+      const adminId = req.user?.id;
+      const ride = await assignRiderToRide(id, riderId, adminId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Rider assigned to ride successfully",
+        data: ride,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to assign rider to ride",
+      });
+    }
+  },
+};

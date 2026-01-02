@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth/auth.routes";
@@ -7,10 +8,15 @@ import userRoutes from "./routes/user/user.routes";
 import userRideRoutes from "./routes/ride/user.ride.routes";
 import riderRideRoutes from "./routes/ride/rider.ride.routes";
 import publicRideRoutes from "./routes/ride/public.routes";
+import { initializeSocket } from "./config/socket";
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+initializeSocket(server);
 
 // Middleware
 app.use(cors());
@@ -43,4 +49,4 @@ app.get("/", (req: Request, res: Response) => {
 
 // Start Server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT} with Socket.IO`));
