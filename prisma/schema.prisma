@@ -44,6 +44,10 @@ model Rider {
 
   vehicleModel   String?
 
+  // Vehicle type this rider drives
+  vehicleTypeId  String?  @db.ObjectId
+  vehicleType    VehicleType? @relation(fields: [vehicleTypeId], references: [id])
+
   isOnline       Boolean  @default(false)
   currentLat     Float?
   currentLng     Float?
@@ -148,6 +152,8 @@ model VehicleType {
 
   // 1 vehicle type → many rides
   rides       Ride[]
+  // 1 vehicle type → many riders
+  riders      Rider[]
 }
 
 model PricingConfig {
