@@ -26,19 +26,21 @@ export default {
 
   createVehicleType: async (req: AuthedRequest, res: Response) => {
     try {
-      const { name, displayName, pricePerKm } = req.body;
+      const { category, name, displayName, pricePerKm, baseFare } = req.body;
 
-      if (!name || !displayName || !pricePerKm) {
+      if (!category || !name || !displayName || pricePerKm === undefined) {
         return res.status(400).json({
           success: false,
-          message: "Name, displayName, and pricePerKm are required",
+          message: "category, name, displayName, and pricePerKm are required",
         });
       }
 
       const vehicleType = await createVehicleType({
+        category,
         name,
         displayName,
         pricePerKm: parseFloat(pricePerKm),
+        baseFare: baseFare ? parseFloat(baseFare) : undefined,
       });
 
       return res.status(201).json({
@@ -93,11 +95,12 @@ export default {
   updateVehicleType: async (req: AuthedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { displayName, pricePerKm, isActive } = req.body;
+      const { displayName, pricePerKm, baseFare, isActive } = req.body;
 
       const vehicleType = await updateVehicleType(id, {
         displayName,
-        pricePerKm: pricePerKm ? parseFloat(pricePerKm) : undefined,
+        pricePerKm: pricePerKm !== undefined ? parseFloat(pricePerKm) : undefined,
+        baseFare: baseFare !== undefined ? parseFloat(baseFare) : undefined,
         isActive,
       });
 
