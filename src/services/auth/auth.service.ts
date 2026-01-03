@@ -48,6 +48,24 @@ export const registerRider = async (data: any) => {
 
   if (exists) throw new Error("Rider already exists");
 
+  // Validate vehicleTypeId is provided
+  if (!data.vehicleTypeId) {
+    throw new Error("vehicleTypeId is required for rider registration");
+  }
+
+  // Validate vehicleType exists
+  const vehicleType = await prisma.vehicleType.findUnique({
+    where: { id: data.vehicleTypeId },
+  });
+
+  if (!vehicleType) {
+    throw new Error("Invalid vehicleTypeId. Vehicle type not found.");
+  }
+
+  if (!vehicleType.isActive) {
+    throw new Error("This vehicle type is not active. Please select another.");
+  }
+
   const rider = await prisma.rider.create({
     data: {
       name: data.name,
@@ -59,6 +77,17 @@ export const registerRider = async (data: any) => {
       licenseImage: data.licenseImage || null,
       vehicleNumber: data.vehicleNumber || null,
       vehicleModel: data.vehicleModel || null,
+      vehicleTypeId: data.vehicleTypeId,
+    },
+    include: {
+      vehicleType: {
+        select: {
+          id: true,
+          category: true,
+          name: true,
+          displayName: true,
+        },
+      },
     },
   });
 

@@ -7,24 +7,34 @@ import { emitRiderAssigned } from "../socket/socket.service";
 ============================================ */
 
 export const createVehicleType = async (data: {
+  category: "BIKE" | "AUTO" | "CAR";
   name: string;
   displayName: string;
   pricePerKm: number;
+  baseFare?: number;
 }) => {
-  // Check if vehicle type already exists
+  // Validate category
+  const validCategories = ["BIKE", "AUTO", "CAR"];
+  if (!validCategories.includes(data.category)) {
+    throw new Error("Invalid category. Must be BIKE, AUTO, or CAR.");
+  }
+
+  // Check if vehicle type with this name already exists
   const exists = await prisma.vehicleType.findUnique({
-    where: { name: data.name as any },
+    where: { name: data.name },
   });
 
   if (exists) {
-    throw new Error("Vehicle type already exists");
+    throw new Error("Vehicle type with this name already exists");
   }
 
   const vehicleType = await prisma.vehicleType.create({
     data: {
-      name: data.name as any,
+      category: data.category as any,
+      name: data.name,
       displayName: data.displayName,
       pricePerKm: data.pricePerKm,
+      baseFare: data.baseFare ?? null,
     },
   });
 
@@ -56,6 +66,7 @@ export const updateVehicleType = async (
   data: {
     displayName?: string;
     pricePerKm?: number;
+    baseFare?: number;
     isActive?: boolean;
   }
 ) => {
@@ -72,6 +83,7 @@ export const updateVehicleType = async (
     data: {
       ...(data.displayName && { displayName: data.displayName }),
       ...(data.pricePerKm !== undefined && { pricePerKm: data.pricePerKm }),
+      ...(data.baseFare !== undefined && { baseFare: data.baseFare }),
       ...(data.isActive !== undefined && { isActive: data.isActive }),
     },
   });

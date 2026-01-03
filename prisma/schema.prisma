@@ -134,21 +134,24 @@ enum AdminRole {
   SUBADMIN
 }
 
-enum VehicleTypeEnum {
-  AUTO
+// Vehicle categories (parent type)
+enum VehicleCategory {
   BIKE
+  AUTO
   CAR
-  PREMIUM
 }
 
+// Vehicle sub-types with individual pricing
 model VehicleType {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        VehicleTypeEnum @unique
-  displayName String   // e.g., "Auto Rickshaw", "Bike", "Car", "Premium Car"
-  pricePerKm  Float    // Price per kilometer set by admin
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  category    VehicleCategory // Parent category (BIKE, AUTO, CAR)
+  name        String          @unique  // Unique identifier e.g., "SEDAN", "SUV", "MPV", "STANDARD_BIKE"
+  displayName String          // Display name e.g., "Sedan", "SUV", "MPV", "Bike"
+  pricePerKm  Float           // Price per kilometer for this sub-type
+  baseFare    Float?          // Optional per-type base fare (overrides global if set)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   // 1 vehicle type → many rides
   rides       Ride[]

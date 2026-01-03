@@ -14,12 +14,14 @@ router.get("/vehicle-types", async (req, res) => {
       where: { isActive: true },
       select: {
         id: true,
+        category: true,
         name: true,
         displayName: true,
         pricePerKm: true,
+        baseFare: true,
         isActive: true,
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ category: "asc" }, { pricePerKm: "asc" }],
     });
 
     return res.status(200).json({
@@ -114,13 +116,15 @@ router.get("/fare-estimate", async (req, res) => {
 
     // Calculate fare for each vehicle type
     const fareEstimates = vehicleTypes.map((vehicleType) => {
-      const baseFare = pricingConfig.baseFare || 20;
+      // Use per-type baseFare if set, otherwise use global config
+      const baseFare = vehicleType.baseFare ?? pricingConfig.baseFare ?? 20;
       const totalFare = baseFare + (vehicleType.pricePerKm * distance);
       const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
       const appCommission = (totalFare * pricingConfig.appCommission) / 100;
 
       return {
         vehicleTypeId: vehicleType.id,
+        category: vehicleType.category,
         vehicleTypeName: vehicleType.name,
         displayName: vehicleType.displayName,
         pricePerKm: vehicleType.pricePerKm,
