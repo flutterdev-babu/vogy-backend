@@ -11,8 +11,11 @@ const router = Router();
 // All routes require authentication and USER role
 router.use(authMiddleware(["USER"]));
 
-// Create a new ride request
+// Create a new ride request (instant booking)
 router.post("/new-ride", rideController.createRide);
+
+// Create a manual/scheduled ride request
+router.post("/manual", rideController.createManualRide);
 
 // Get all rides for user (optional status filter)
 router.get("/all-rides", rideController.getUserRides);

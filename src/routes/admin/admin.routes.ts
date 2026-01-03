@@ -37,7 +37,13 @@ router.patch("/pricing-config", adminController.updatePricingConfig);
 
 // Ride Management
 router.get("/rides", adminController.getAllRides);
+router.get("/rides/scheduled", adminController.getScheduledRides);
 router.get("/rides/:id", adminController.getRideById);
+router.post("/rides/:id/assign-rider", adminController.assignRiderToRide);
+
+// Rider Management
+router.get("/riders", adminController.getAllRiders);
+router.get("/riders/:id", adminController.getRiderById);
 
 // User Management
 router.get("/users", adminController.getAllUsers);

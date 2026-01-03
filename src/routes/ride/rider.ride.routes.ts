@@ -11,6 +11,12 @@ const router = Router();
 // All routes require authentication and RIDER role
 router.use(authMiddleware(["RIDER"]));
 
+// Update rider's current location
+router.post("/location", rideController.updateLocation);
+
+// Toggle online/offline status
+router.post("/online-status", rideController.toggleOnlineStatus);
+
 // Get available rides for rider (requires lat, lng query params)
 router.get("/available", rideController.getAvailableRides);
 
@@ -24,4 +30,5 @@ router.get("/", rideController.getRiderRides);
 router.patch("/:id/status", rideController.updateRideStatus);
 
 export default router;
+
 

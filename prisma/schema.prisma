@@ -44,6 +44,10 @@ model Rider {
 
   vehicleModel   String?
 
+  // Vehicle type this rider drives
+  vehicleTypeId  String?  @db.ObjectId
+  vehicleType    VehicleType? @relation(fields: [vehicleTypeId], references: [id])
+
   isOnline       Boolean  @default(false)
   currentLat     Float?
   currentLng     Float?
@@ -107,10 +111,17 @@ model Ride {
   arrivedAt     DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+
+  // Manual booking fields
+  isManualBooking    Boolean   @default(false)
+  scheduledDateTime  DateTime?
+  assignedByAdminId  String?   @db.ObjectId
+  bookingNotes       String?
 }
 
 enum RideStatus {
   PENDING
+  SCHEDULED
   ACCEPTED
   ARRIVED
   STARTED
@@ -123,28 +134,34 @@ enum AdminRole {
   SUBADMIN
 }
 
-enum VehicleTypeEnum {
-  AUTO
+// Vehicle categories (parent type)
+enum VehicleCategory {
   BIKE
+  AUTO
   CAR
-  PREMIUM
 }
 
+// Vehicle sub-types with individual pricing
 model VehicleType {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        VehicleTypeEnum @unique
-  displayName String   // e.g., "Auto Rickshaw", "Bike", "Car", "Premium Car"
-  pricePerKm  Float    // Price per kilometer set by admin
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  category    VehicleCategory // Parent category (BIKE, AUTO, CAR)
+  name        String          @unique  // Unique identifier e.g., "SEDAN", "SUV", "MPV", "STANDARD_BIKE"
+  displayName String          // Display name e.g., "Sedan", "SUV", "MPV", "Bike"
+  pricePerKm  Float           // Price per kilometer for this sub-type
+  baseFare    Float?          // Optional per-type base fare (overrides global if set)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   // 1 vehicle type → many rides
   rides       Ride[]
+  // 1 vehicle type → many riders
+  riders      Rider[]
 }
 
 model PricingConfig {
   id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  baseFare            Float    @default(20) // Flat base fare for all rides
   riderPercentage     Float    @default(80) // Percentage rider gets (e.g., 80%)
   appCommission       Float    @default(20) // App commission percentage (e.g., 20%)
   isActive            Boolean  @default(true)

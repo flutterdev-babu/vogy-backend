@@ -1,29 +1,40 @@
 import { prisma } from "../../config/prisma";
 import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
+import { emitRiderAssigned } from "../socket/socket.service";
 
 /* ============================================
     VEHICLE TYPE MANAGEMENT
 ============================================ */
 
 export const createVehicleType = async (data: {
+  category: "BIKE" | "AUTO" | "CAR";
   name: string;
   displayName: string;
   pricePerKm: number;
+  baseFare?: number;
 }) => {
-  // Check if vehicle type already exists
+  // Validate category
+  const validCategories = ["BIKE", "AUTO", "CAR"];
+  if (!validCategories.includes(data.category)) {
+    throw new Error("Invalid category. Must be BIKE, AUTO, or CAR.");
+  }
+
+  // Check if vehicle type with this name already exists
   const exists = await prisma.vehicleType.findUnique({
-    where: { name: data.name as any },
+    where: { name: data.name },
   });
 
   if (exists) {
-    throw new Error("Vehicle type already exists");
+    throw new Error("Vehicle type with this name already exists");
   }
 
   const vehicleType = await prisma.vehicleType.create({
     data: {
-      name: data.name as any,
+      category: data.category as any,
+      name: data.name,
       displayName: data.displayName,
       pricePerKm: data.pricePerKm,
+      baseFare: data.baseFare ?? null,
     },
   });
 
@@ -55,6 +66,7 @@ export const updateVehicleType = async (
   data: {
     displayName?: string;
     pricePerKm?: number;
+    baseFare?: number;
     isActive?: boolean;
   }
 ) => {
@@ -71,6 +83,7 @@ export const updateVehicleType = async (
     data: {
       ...(data.displayName && { displayName: data.displayName }),
       ...(data.pricePerKm !== undefined && { pricePerKm: data.pricePerKm }),
+      ...(data.baseFare !== undefined && { baseFare: data.baseFare }),
       ...(data.isActive !== undefined && { isActive: data.isActive }),
     },
   });
@@ -118,6 +131,7 @@ export const getPricingConfig = async () => {
 };
 
 export const updatePricingConfig = async (data: {
+  baseFare?: number;
   riderPercentage: number;
   appCommission: number;
 }) => {
@@ -135,6 +149,7 @@ export const updatePricingConfig = async (data: {
   // Create new active config
   const config = await prisma.pricingConfig.create({
     data: {
+      baseFare: data.baseFare ?? 20,
       riderPercentage: data.riderPercentage,
       appCommission: data.appCommission,
       isActive: true,
@@ -142,6 +157,154 @@ export const updatePricingConfig = async (data: {
   });
 
   return config;
+};
+
+/* ============================================
+    RIDER MANAGEMENT
+============================================ */
+
+export const getAllRiders = async () => {
+  const riders = await prisma.rider.findMany({
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      profileImage: true,
+      vehicleNumber: true,
+      vehicleModel: true,
+      isOnline: true,
+      rating: true,
+      totalEarnings: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return riders;
+};
+
+export const getRiderById = async (riderId: string) => {
+  const rider = await prisma.rider.findUnique({
+    where: { id: riderId },
+    include: {
+      rides: {
+        select: {
+          id: true,
+          status: true,
+          totalFare: true,
+          riderEarnings: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      },
+    },
+  });
+
+  if (!rider) {
+    throw new Error("Rider not found");
+  }
+
+  return rider;
+};
+
+/* ============================================
+    SCHEDULED RIDE MANAGEMENT
+============================================ */
+
+export const getScheduledRides = async () => {
+  const rides = await prisma.ride.findMany({
+    where: {
+      status: "SCHEDULED",
+      isManualBooking: true,
+      riderId: null,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+        },
+      },
+      vehicleType: true,
+    },
+    orderBy: { scheduledDateTime: "asc" },
+  });
+
+  return rides;
+};
+
+export const assignRiderToRide = async (
+  rideId: string,
+  riderId: string,
+  adminId: string
+) => {
+  // Verify rider exists
+  const rider = await prisma.rider.findUnique({
+    where: { id: riderId },
+  });
+
+  if (!rider) {
+    throw new Error("Rider not found");
+  }
+
+  // Verify ride exists and is scheduled
+  const ride = await prisma.ride.findUnique({
+    where: { id: rideId },
+  });
+
+  if (!ride) {
+    throw new Error("Ride not found");
+  }
+
+  if (ride.status !== "SCHEDULED") {
+    throw new Error("Ride is not a scheduled ride or already assigned");
+  }
+
+  if (ride.riderId) {
+    throw new Error("Ride already has a rider assigned");
+  }
+
+  // Assign rider to ride
+  const updatedRide = await prisma.ride.update({
+    where: { id: rideId },
+    data: {
+      riderId: riderId,
+      assignedByAdminId: adminId,
+      status: "ACCEPTED",
+      acceptedAt: new Date(),
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+        },
+      },
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profileImage: true,
+          vehicleNumber: true,
+          vehicleModel: true,
+          rating: true,
+        },
+      },
+      vehicleType: true,
+    },
+  });
+
+  // Emit socket event to notify user and rider
+  emitRiderAssigned(updatedRide);
+
+  return updatedRide;
 };
 
 /* ============================================

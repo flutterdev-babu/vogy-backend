@@ -1,7 +1,16 @@
 import { prisma } from "../../config/prisma";
+import {
+  emitRideCreated,
+  emitManualRideCreated,
+  emitRideAccepted,
+  emitRideArrived,
+  emitRideStarted,
+  emitRideCompleted,
+  emitRideCancelled,
+} from "../socket/socket.service";
 
 /* ============================================
-    CREATE RIDE (USER)
+    CREATE RIDE (USER) - Instant Booking
 ============================================ */
 export const createRide = async (
   userId: string,
@@ -39,10 +48,11 @@ export const createRide = async (
     throw new Error("Pricing configuration not found");
   }
 
-  // Calculate fare
-  const baseFare = vehicleType.pricePerKm;
+  // Calculate fare with admin-controlled pricing
+  // TOTAL FARE = baseFare + (pricePerKm × distanceKm)
+  const baseFare = pricingConfig.baseFare || 20;
   const perKmPrice = vehicleType.pricePerKm;
-  const totalFare = perKmPrice * data.distanceKm;
+  const totalFare = baseFare + (perKmPrice * data.distanceKm);
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
   const commission = (totalFare * pricingConfig.appCommission) / 100;
 
@@ -64,6 +74,7 @@ export const createRide = async (
       riderEarnings: riderEarnings,
       commission: commission,
       status: "PENDING",
+      isManualBooking: false,
     },
     include: {
       vehicleType: true,
@@ -76,6 +87,103 @@ export const createRide = async (
       },
     },
   });
+
+  // Emit socket event for real-time updates
+  emitRideCreated(ride);
+
+  return ride;
+};
+
+/* ============================================
+    CREATE MANUAL/SCHEDULED RIDE (USER)
+============================================ */
+export const createManualRide = async (
+  userId: string,
+  data: {
+    vehicleTypeId: string;
+    pickupLat: number;
+    pickupLng: number;
+    pickupAddress: string;
+    dropLat: number;
+    dropLng: number;
+    dropAddress: string;
+    distanceKm: number;
+    scheduledDateTime: Date;
+    bookingNotes?: string;
+  }
+) => {
+  // Verify vehicle type exists and is active
+  const vehicleType = await prisma.vehicleType.findUnique({
+    where: { id: data.vehicleTypeId },
+  });
+
+  if (!vehicleType) {
+    throw new Error("Vehicle type not found");
+  }
+
+  if (!vehicleType.isActive) {
+    throw new Error("Vehicle type is not available");
+  }
+
+  // Validate scheduled date is in the future
+  const scheduledDate = new Date(data.scheduledDateTime);
+  if (scheduledDate <= new Date()) {
+    throw new Error("Scheduled date must be in the future");
+  }
+
+  // Get active pricing config
+  const pricingConfig = await prisma.pricingConfig.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!pricingConfig) {
+    throw new Error("Pricing configuration not found");
+  }
+
+  // Calculate fare with admin-controlled pricing
+  const baseFare = pricingConfig.baseFare || 20;
+  const perKmPrice = vehicleType.pricePerKm;
+  const totalFare = baseFare + (perKmPrice * data.distanceKm);
+  const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
+  const commission = (totalFare * pricingConfig.appCommission) / 100;
+
+  // Create scheduled ride
+  const ride = await prisma.ride.create({
+    data: {
+      userId: userId,
+      vehicleTypeId: data.vehicleTypeId,
+      pickupLat: data.pickupLat,
+      pickupLng: data.pickupLng,
+      pickupAddress: data.pickupAddress,
+      dropLat: data.dropLat,
+      dropLng: data.dropLng,
+      dropAddress: data.dropAddress,
+      distanceKm: data.distanceKm,
+      baseFare: baseFare,
+      perKmPrice: perKmPrice,
+      totalFare: totalFare,
+      riderEarnings: riderEarnings,
+      commission: commission,
+      status: "SCHEDULED",
+      isManualBooking: true,
+      scheduledDateTime: scheduledDate,
+      bookingNotes: data.bookingNotes || null,
+    },
+    include: {
+      vehicleType: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+        },
+      },
+    },
+  });
+
+  // Emit socket event for admins
+  emitManualRideCreated(ride);
 
   return ride;
 };
@@ -193,6 +301,9 @@ export const cancelRide = async (rideId: string, userId: string) => {
     },
   });
 
+  // Emit socket event to notify rider
+  emitRideCancelled(updatedRide, "USER");
+
   return updatedRide;
 };
 
@@ -246,6 +357,23 @@ export const completeRideWithOtp = async (
       endTime: new Date(),
       userOtp: userOtp,
     },
+    include: {
+      vehicleType: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+        },
+      },
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+        },
+      },
+    },
   });
 
   // Update rider's total earnings if rider exists
@@ -259,6 +387,9 @@ export const completeRideWithOtp = async (
       },
     });
   }
+
+  // Emit socket event
+  emitRideCompleted(updatedRide);
 
   return updatedRide;
 };
@@ -361,8 +492,22 @@ export const acceptRide = async (rideId: string, riderId: string) => {
           profileImage: true,
         },
       },
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profileImage: true,
+          vehicleNumber: true,
+          vehicleModel: true,
+          rating: true,
+        },
+      },
     },
   });
+
+  // Emit socket event to notify user
+  emitRideAccepted(updatedRide);
 
   return updatedRide;
 };
@@ -448,8 +593,25 @@ export const updateRideStatus = async (
           profileImage: true,
         },
       },
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profileImage: true,
+          vehicleNumber: true,
+          vehicleModel: true,
+        },
+      },
     },
   });
+
+  // Emit socket event based on status
+  if (status === "ARRIVED") {
+    emitRideArrived(updatedRide);
+  } else if (status === "STARTED") {
+    emitRideStarted(updatedRide);
+  }
 
   return updatedRide;
 };
