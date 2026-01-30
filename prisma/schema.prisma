@@ -13,8 +13,65 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================
+// ENUMS
+// ============================================
 
+enum RideStatus {
+  PENDING
+  SCHEDULED
+  ACCEPTED
+  ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
 
+enum AdminRole {
+  SUPERADMIN
+  SUBADMIN
+}
+
+enum VehicleCategory {
+  BIKE
+  AUTO
+  CAR
+}
+
+enum VendorStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum PartnerStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum CorporateStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum PaymentMode {
+  CASH
+  CREDIT
+  UPI
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  PARTIAL
+}
+
+// ============================================
+// EXISTING MODELS (maintained for backward compatibility)
+// ============================================
 
 model User {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -71,20 +128,278 @@ model Admin {
   updatedAt DateTime  @updatedAt
 }
 
+// ============================================
+// CITY CODE & PRICING MODELS
+// ============================================
+
+model CityCode {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  code        String   @unique   // e.g., "BLR", "HYD", "MUM"
+  cityName    String              // e.g., "Bangalore", "Hyderabad"
+  isActive    Boolean  @default(true)
+  
+  // Agent who manages this city
+  agentId     String   @db.ObjectId
+  agent       Agent    @relation(fields: [agentId], references: [id])
+  
+  // Fare pricing for this city (per vehicle type)
+  pricing     CityPricing[]
+  
+  // Entities registered in this city
+  vendors     Vendor[]
+  partners    Partner[]
+  vehicles    Vehicle[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CityPricing {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // City this pricing belongs to
+  cityCodeId     String       @db.ObjectId
+  cityCode       CityCode     @relation(fields: [cityCodeId], references: [id])
+  
+  // Vehicle type for this pricing
+  vehicleTypeId  String       @db.ObjectId
+  vehicleType    VehicleType  @relation(fields: [vehicleTypeId], references: [id])
+  
+  // Pricing details
+  baseKm         Float        // e.g., 2 km
+  baseFare       Float        // e.g., ₹50 for first 2 km
+  perKmAfterBase Float        // e.g., ₹12 per km after base
+  
+  isActive       Boolean      @default(true)
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  // Unique constraint: one pricing per city per vehicle type
+  @@unique([cityCodeId, vehicleTypeId])
+}
+
+// ============================================
+// NEW ENTITY MODELS
+// ============================================
+
+model Vendor {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  customId      String?      @unique  // e.g., "ICBLR-V01"
+  name          String
+  companyName   String
+  phone         String       @unique
+  email         String?      @unique
+  password      String
+  address       String?
+  profileImage  String?
+  status        VendorStatus @default(PENDING)
+  
+  // City code for ID generation
+  cityCodeId    String?      @db.ObjectId
+  cityCode      CityCode?    @relation(fields: [cityCodeId], references: [id])
+  
+  // Agent relationship
+  agentId       String?      @db.ObjectId
+  agent         Agent?       @relation(fields: [agentId], references: [id])
+  
+  // Owned vehicles
+  vehicles      Vehicle[]
+  
+  // Rides assigned to this vendor
+  rides         Ride[]       @relation("VendorRides")
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Partner {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  customId       String?       @unique  // e.g., "ICBLR-P01"
+  name           String
+  phone          String        @unique
+  email          String?       @unique
+  password       String
+  profileImage   String?
+  
+  // Documents
+  aadharNumber   String?
+  licenseNumber  String?
+  licenseImage   String?
+  
+  status         PartnerStatus @default(PENDING)
+  isOnline       Boolean       @default(false)
+  currentLat     Float?
+  currentLng     Float?
+  rating         Float         @default(5)
+  totalEarnings  Float         @default(0)
+  
+  // City code for ID generation
+  cityCodeId     String?       @db.ObjectId
+  cityCode       CityCode?     @relation(fields: [cityCodeId], references: [id])
+  
+  // Assigned vehicle (one partner per vehicle)
+  vehicleId      String?       @unique @db.ObjectId
+  vehicle        Vehicle?      @relation(fields: [vehicleId], references: [id])
+  
+  // Rides driven by this partner
+  rides          Ride[]        @relation("PartnerRides")
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Vehicle {
+  id                 String       @id @default(auto()) @map("_id") @db.ObjectId
+  customId           String?      @unique  // e.g., "ICBLR-VH01"
+  registrationNumber String       @unique
+  vehicleModel       String
+  
+  // City code for ID generation
+  cityCodeId         String?      @db.ObjectId
+  cityCode           CityCode?    @relation(fields: [cityCodeId], references: [id])
+  
+  // Vehicle type (category + pricing)
+  vehicleTypeId      String       @db.ObjectId
+  vehicleType        VehicleType  @relation("VehicleToType", fields: [vehicleTypeId], references: [id])
+  
+  // Owner vendor
+  vendorId           String       @db.ObjectId
+  vendor             Vendor       @relation(fields: [vendorId], references: [id])
+  
+  // Assigned partner/driver (optional - one partner per vehicle)
+  partner            Partner?
+  
+  isAvailable        Boolean      @default(true)
+  isActive           Boolean      @default(true)
+  
+  // Rides using this vehicle
+  rides              Ride[]       @relation("VehicleRides")
+  
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model Agent {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  phone        String     @unique
+  email        String?    @unique
+  password     String
+  profileImage String?
+  
+  // City codes managed by this agent
+  cityCodes    CityCode[]
+  
+  // Vendors registered under this agent
+  vendors      Vendor[]
+  
+  // Corporates registered under this agent
+  corporates   Corporate[]
+  
+  // Rides sourced through this agent
+  rides        Ride[]     @relation("AgentRides")
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Corporate {
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  companyName   String
+  contactPerson String
+  phone         String          @unique
+  email         String          @unique
+  password      String
+  address       String?
+  gstNumber     String?
+  
+  status        CorporateStatus @default(PENDING)
+  
+  // Credit system
+  creditLimit   Float           @default(0)
+  creditUsed    Float           @default(0)
+  creditBalance Float           @default(0)
+  
+  // Agent relationship
+  agentId       String?         @db.ObjectId
+  agent         Agent?          @relation(fields: [agentId], references: [id])
+  
+  // Rides booked by this corporate
+  rides         Ride[]          @relation("CorporateRides")
+  
+  // Billing records
+  billings      CorporateBilling[]
+  
+  // Payment records
+  payments      CorporatePayment[]
+  
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model CorporateBilling {
+  id                 String        @id @default(auto()) @map("_id") @db.ObjectId
+  
+  corporateId        String        @db.ObjectId
+  corporate          Corporate     @relation(fields: [corporateId], references: [id])
+  
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  totalAmount        Float
+  paidAmount         Float         @default(0)
+  status             PaymentStatus @default(PENDING)
+  
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
+
+model CorporatePayment {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  
+  corporateId   String      @db.ObjectId
+  corporate     Corporate   @relation(fields: [corporateId], references: [id])
+  
+  amount        Float
+  paymentMode   PaymentMode
+  transactionId String?
+  notes         String?
+  
+  createdAt     DateTime    @default(now())
+}
+
+// ============================================
+// RIDE MODEL (Updated with new entity relationships)
+// ============================================
+
 model Ride {
   id            String     @id @default(auto()) @map("_id") @db.ObjectId
 
-  userId        String?      @db.ObjectId
-  riderId       String?      @db.ObjectId
-  vehicleTypeId String?      @db.ObjectId
+  // Legacy relationships (for backward compatibility)
+  userId        String?    @db.ObjectId
+  riderId       String?    @db.ObjectId
+  vehicleTypeId String?    @db.ObjectId
 
-  // Explicit 1-to-many relations
   user          User?      @relation("UserRides", fields: [userId], references: [id])
   rider         Rider?     @relation("RiderRides", fields: [riderId], references: [id])
   vehicleType   VehicleType? @relation(fields: [vehicleTypeId], references: [id])
 
+  // NEW: Entity relationships
+  vendorId      String?    @db.ObjectId
+  partnerId     String?    @db.ObjectId
+  vehicleId     String?    @db.ObjectId
+  agentId       String?    @db.ObjectId
+  corporateId   String?    @db.ObjectId
+
+  vendor        Vendor?    @relation("VendorRides", fields: [vendorId], references: [id])
+  partner       Partner?   @relation("PartnerRides", fields: [partnerId], references: [id])
+  vehicle       Vehicle?   @relation("VehicleRides", fields: [vehicleId], references: [id])
+  agent         Agent?     @relation("AgentRides", fields: [agentId], references: [id])
+  corporate     Corporate? @relation("CorporateRides", fields: [corporateId], references: [id])
+
   status        RideStatus @default(PENDING)
 
+  // Location details
   pickupLat     Float
   pickupLng     Float
   pickupAddress String
@@ -101,6 +416,10 @@ model Ride {
   totalFare     Float?      // Total calculated fare
   riderEarnings Float?      // Amount rider receives (percentage)
   commission    Float?      // App commission (percentage)
+
+  // Payment tracking
+  paymentMode   PaymentMode   @default(CASH)
+  paymentStatus PaymentStatus @default(PENDING)
 
   // OTP verification for ride completion
   userOtp       String?     // User's OTP used to complete the ride
@@ -119,29 +438,10 @@ model Ride {
   bookingNotes       String?
 }
 
-enum RideStatus {
-  PENDING
-  SCHEDULED
-  ACCEPTED
-  ARRIVED
-  STARTED
-  COMPLETED
-  CANCELLED
-}
+// ============================================
+// VEHICLE TYPE MODEL (Updated with Vehicle relation)
+// ============================================
 
-enum AdminRole {
-  SUPERADMIN
-  SUBADMIN
-}
-
-// Vehicle categories (parent type)
-enum VehicleCategory {
-  BIKE
-  AUTO
-  CAR
-}
-
-// Vehicle sub-types with individual pricing
 model VehicleType {
   id          String          @id @default(auto()) @map("_id") @db.ObjectId
   category    VehicleCategory // Parent category (BIKE, AUTO, CAR)
@@ -155,9 +455,17 @@ model VehicleType {
 
   // 1 vehicle type → many rides
   rides       Ride[]
-  // 1 vehicle type → many riders
+  // 1 vehicle type → many riders (legacy)
   riders      Rider[]
+  // 1 vehicle type → many vehicles (new)
+  vehicles    Vehicle[]       @relation("VehicleToType")
+  // City pricing for this vehicle type
+  cityPricing CityPricing[]
 }
+
+// ============================================
+// PRICING & OTP MODELS
+// ============================================
 
 model PricingConfig {
   id                  String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -172,9 +480,8 @@ model PricingConfig {
 model OtpCode {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   phone     String
-  role      String   // USER or RIDER
+  role      String   // USER, RIDER, VENDOR, PARTNER, AGENT, CORPORATE
   code      String
   expiresAt DateTime
   createdAt DateTime @default(now())
 }
-
