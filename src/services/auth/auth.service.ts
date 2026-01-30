@@ -48,6 +48,15 @@ export const registerRider = async (data: any) => {
 
   if (exists) throw new Error("Rider already exists");
 
+  // Check if phone already exists as a Partner (prevent dual registration)
+  const existsAsPartner = await prisma.partner.findUnique({
+    where: { phone: data.phone },
+  });
+
+  if (existsAsPartner) {
+    throw new Error("This phone number is already registered as a Partner. The same person cannot register as both Rider and Partner.");
+  }
+
   // Validate vehicleTypeId is provided
   if (!data.vehicleTypeId) {
     throw new Error("vehicleTypeId is required for rider registration");
