@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma";
 import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
+import { generateEntityCustomId } from "../city/city.service";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 
@@ -16,6 +17,7 @@ export const registerCorporate = async (data: {
   address?: string;
   gstNumber?: string;
   agentId?: string;
+  cityCodeId?: string;  // For custom ID generation
 }) => {
   // Check if corporate already exists
   const existsByPhone = await prisma.corporate.findUnique({
@@ -38,12 +40,23 @@ export const registerCorporate = async (data: {
     if (!agent) throw new Error("Invalid agent ID");
   }
 
+  // Generate custom ID if cityCodeId provided
+  let customId = null;
+  if (data.cityCodeId) {
+    const cityCode = await prisma.cityCode.findUnique({
+      where: { id: data.cityCodeId },
+    });
+    if (!cityCode) throw new Error("Invalid city code ID");
+    customId = await generateEntityCustomId(cityCode.code, "CORPORATE");
+  }
+
   // Hash password
   const hashedPassword = await hashPassword(data.password);
 
   // Create corporate
   const corporate = await prisma.corporate.create({
     data: {
+      customId,
       companyName: data.companyName,
       contactPerson: data.contactPerson,
       phone: data.phone,
@@ -52,6 +65,7 @@ export const registerCorporate = async (data: {
       address: data.address || null,
       gstNumber: data.gstNumber || null,
       agentId: data.agentId || null,
+      cityCodeId: data.cityCodeId || null,
     },
     include: {
       agent: {
@@ -59,6 +73,13 @@ export const registerCorporate = async (data: {
           id: true,
           name: true,
           phone: true,
+        },
+      },
+      cityCode: {
+        select: {
+          id: true,
+          code: true,
+          cityName: true,
         },
       },
     },
