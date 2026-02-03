@@ -31,7 +31,7 @@ export const registerAgent = async (data: {
   // Hash password
   const hashedPassword = await hashPassword(data.password);
 
-  // Create agent
+  // Create agent (customId will be generated when agent creates their first city code)
   const agent = await prisma.agent.create({
     data: {
       name: data.name,

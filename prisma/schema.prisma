@@ -140,7 +140,7 @@ model CityCode {
   
   // Agent who manages this city
   agentId     String   @db.ObjectId
-  agent       Agent    @relation(fields: [agentId], references: [id])
+  agent       Agent    @relation("AgentManagesCityCodes", fields: [agentId], references: [id])
   
   // Fare pricing for this city (per vehicle type)
   pricing     CityPricing[]
@@ -149,6 +149,7 @@ model CityCode {
   vendors     Vendor[]
   partners    Partner[]
   vehicles    Vehicle[]
+  corporates  Corporate[] @relation("CorporateCityCode")
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -282,14 +283,15 @@ model Vehicle {
 
 model Agent {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  customId     String?    @unique  // e.g., "ICABLR01"
   name         String
   phone        String     @unique
   email        String?    @unique
   password     String
   profileImage String?
   
-  // City codes managed by this agent
-  cityCodes    CityCode[]
+  // City codes managed by this agent (first one used for ID generation)
+  cityCodes    CityCode[] @relation("AgentManagesCityCodes")
   
   // Vendors registered under this agent
   vendors      Vendor[]
@@ -306,6 +308,7 @@ model Agent {
 
 model Corporate {
   id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  customId      String?         @unique  // e.g., "ICCBLR01"
   companyName   String
   contactPerson String
   phone         String          @unique
@@ -315,6 +318,10 @@ model Corporate {
   gstNumber     String?
   
   status        CorporateStatus @default(PENDING)
+  
+  // City code for ID generation
+  cityCodeId    String?         @db.ObjectId
+  cityCode      CityCode?       @relation("CorporateCityCode", fields: [cityCodeId], references: [id])
   
   // Credit system
   creditLimit   Float           @default(0)

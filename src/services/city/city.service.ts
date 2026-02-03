@@ -5,9 +5,16 @@ import { prisma } from "../../config/prisma";
 ============================================ */
 const generateCustomId = async (
   cityCode: string,
-  entityType: "VENDOR" | "PARTNER" | "VEHICLE"
+  entityType: "VENDOR" | "PARTNER" | "VEHICLE" | "AGENT" | "CORPORATE"
 ): Promise<string> => {
-  const prefix = entityType === "VENDOR" ? "V" : entityType === "PARTNER" ? "P" : "VH";
+  const prefixMap = {
+    VENDOR: "V",
+    PARTNER: "P",
+    VEHICLE: "VH",
+    AGENT: "A",
+    CORPORATE: "C",
+  };
+  const prefix = prefixMap[entityType];
   
   // Count existing entities with this city code
   let count = 0;
@@ -20,8 +27,17 @@ const generateCustomId = async (
     count = await prisma.partner.count({
       where: { cityCode: { code: cityCode } },
     });
-  } else {
+  } else if (entityType === "VEHICLE") {
     count = await prisma.vehicle.count({
+      where: { cityCode: { code: cityCode } },
+    });
+  } else if (entityType === "AGENT") {
+    // Agents manage city codes, so count by cityCodes (plural) relation
+    count = await prisma.agent.count({
+      where: { cityCodes: { some: { code: cityCode } } },
+    });
+  } else if (entityType === "CORPORATE") {
+    count = await prisma.corporate.count({
       where: { cityCode: { code: cityCode } },
     });
   }
@@ -29,8 +45,11 @@ const generateCustomId = async (
   // Generate next serial number (padded to 2 digits)
   const serialNumber = String(count + 1).padStart(2, "0");
   
-  return `IC${cityCode}-${prefix}${serialNumber}`;
+  // Format: IC + prefix + cityCode + serial (no hyphen)
+  // e.g., ICVBLR01, ICPBLR01, ICABLR01, ICCBLR01
+  return `IC${prefix}${cityCode}${serialNumber}`;
 };
+
 
 /* ============================================
     CREATE CITY CODE (Agent only)
@@ -56,6 +75,17 @@ export const createCityCode = async (
 
   if (existingCode) throw new Error("City code already exists");
 
+  // Generate agent's custom ID if they don't have one yet (first city code)
+  let agentCustomId = agent.customId;
+  if (!agentCustomId) {
+    agentCustomId = await generateCustomId(data.code.toUpperCase(), "AGENT");
+    // Update agent with their custom ID
+    await prisma.agent.update({
+      where: { id: agentId },
+      data: { customId: agentCustomId },
+    });
+  }
+
   // Create city code
   const cityCode = await prisma.cityCode.create({
     data: {
@@ -67,6 +97,7 @@ export const createCityCode = async (
       agent: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
