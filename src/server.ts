@@ -19,6 +19,7 @@ import corporateRoutes from "./routes/corporate/corporate.routes";
 
 // Public routes
 import cityRoutes from "./routes/public/city.routes";
+import paymentRoutes from "./routes/payment/payment.routes";
 
 import { initializeSocket } from "./config/socket";
 
@@ -80,6 +81,9 @@ app.use("/api/corporate", corporateRoutes);
 // City codes (for signup forms - no auth required)
 app.use("/api/city-codes", cityRoutes);
 
+// Payment routes
+app.use("/api/payment", paymentRoutes);
+
 // Health check
 app.get("/", (req: Request, res: Response) => {
   res.send("API is running...");
@@ -87,4 +91,17 @@ app.get("/", (req: Request, res: Response) => {
 
 // Start Server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT} with Socket.IO`));
+
+// Import startup utilities
+import { fixAgentCustomIds } from "./utils/fixCustomIds";
+import { migrateRidersToPartners } from "./utils/migrateRidersToPartners";
+
+server.listen(PORT, async () => {
+  console.log(`🚀 Server running on port ${PORT} with Socket.IO`);
+  
+  // Migrate legacy Riders to unified Partners
+  await migrateRidersToPartners();
+
+  // Fix any agents with missing or improper customIds
+  await fixAgentCustomIds();
+});

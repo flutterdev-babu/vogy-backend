@@ -2,6 +2,7 @@ import { prisma } from "../../config/prisma";
 import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateEntityCustomId } from "../city/city.service";
+import { validatePhoneNumber } from "../../utils/phoneValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 
@@ -33,6 +34,9 @@ export const registerVendor = async (data: {
   ifscCode?: string;
   accountHolderName?: string;
 }) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(data.phone);
+
   // Check if vendor already exists
   const existsByPhone = await prisma.vendor.findUnique({
     where: { phone: data.phone },
@@ -123,6 +127,9 @@ export const registerVendor = async (data: {
     VENDOR LOGIN
 ============================================ */
 export const loginVendor = async (phone: string, password: string) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(phone);
+
   // Find vendor by phone
   const vendor = await prisma.vendor.findUnique({
     where: { phone },

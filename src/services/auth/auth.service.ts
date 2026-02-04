@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import twilio from "twilio";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
+import { validatePhoneNumber } from "../../utils/phoneValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 
@@ -19,6 +20,9 @@ const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 const otpExpiry = () => new Date(Date.now() + 5 * 60 * 1000);
 
 export const registerUser = async (data: any) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(data.phone);
+
   const exists = await prisma.user.findUnique({
     where: { phone: data.phone },
   });
@@ -41,69 +45,13 @@ export const registerUser = async (data: any) => {
   return user;
 };
 
-export const registerRider = async (data: any) => {
-  const exists = await prisma.rider.findUnique({
-    where: { phone: data.phone },
-  });
+// Note: Partner registration is handled in partner.auth.service.ts
+// The old registerRider function has been removed - use Partner auth instead
 
-  if (exists) throw new Error("Rider already exists");
+export const sendOtp = async (role: "USER" | "PARTNER", phone: string) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(phone);
 
-  // Check if phone already exists as a Partner (prevent dual registration)
-  const existsAsPartner = await prisma.partner.findUnique({
-    where: { phone: data.phone },
-  });
-
-  if (existsAsPartner) {
-    throw new Error("This phone number is already registered as a Partner. The same person cannot register as both Rider and Partner.");
-  }
-
-  // Validate vehicleTypeId is provided
-  if (!data.vehicleTypeId) {
-    throw new Error("vehicleTypeId is required for rider registration");
-  }
-
-  // Validate vehicleType exists
-  const vehicleType = await prisma.vehicleType.findUnique({
-    where: { id: data.vehicleTypeId },
-  });
-
-  if (!vehicleType) {
-    throw new Error("Invalid vehicleTypeId. Vehicle type not found.");
-  }
-
-  if (!vehicleType.isActive) {
-    throw new Error("This vehicle type is not active. Please select another.");
-  }
-
-  const rider = await prisma.rider.create({
-    data: {
-      name: data.name,
-      phone: data.phone,
-      email: data.email || null,
-      profileImage: data.profileImage || null,
-      aadharNumber: data.aadharNumber || null,
-      licenseNumber: data.licenseNumber || null,
-      licenseImage: data.licenseImage || null,
-      vehicleNumber: data.vehicleNumber || null,
-      vehicleModel: data.vehicleModel || null,
-      vehicleTypeId: data.vehicleTypeId,
-    },
-    include: {
-      vehicleType: {
-        select: {
-          id: true,
-          category: true,
-          name: true,
-          displayName: true,
-        },
-      },
-    },
-  });
-
-  return rider;
-};
-
-export const sendOtp = async (role: "USER" | "RIDER", phone: string) => {
   // Verify phone number is registered
   let exists = false;
   if (role === "USER") {
@@ -111,11 +59,11 @@ export const sendOtp = async (role: "USER" | "RIDER", phone: string) => {
       where: { phone },
     });
     exists = !!user;
-  } else if (role === "RIDER") {
-    const rider = await prisma.rider.findUnique({
+  } else if (role === "PARTNER") {
+    const partner = await prisma.partner.findUnique({
       where: { phone },
     });
-    exists = !!rider;
+    exists = !!partner;
   }
 
   if (!exists) {
@@ -145,10 +93,13 @@ export const sendOtp = async (role: "USER" | "RIDER", phone: string) => {
 };
 
 export const verifyOtp = async (
-  role: "USER" | "RIDER",
+  role: "USER" | "PARTNER",
   phone: string,
   code: string
 ) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(phone);
+
   const otpRecord = await prisma.otpCode.findFirst({
     where: { phone, role, code },
     orderBy: { createdAt: "desc" },
@@ -157,7 +108,7 @@ export const verifyOtp = async (
   if (!otpRecord) throw new Error("Invalid OTP");
   if (otpRecord.expiresAt < new Date()) throw new Error("OTP expired");
 
-  // Verify phone number is registered (for login, user/rider must exist)
+  // Verify phone number is registered (for login, user/partner must exist)
   let user;
   if (role === "USER") {
     user = await prisma.user.findUnique({
@@ -165,10 +116,20 @@ export const verifyOtp = async (
     });
     if (!user) throw new Error("User not found. Please register first.");
   } else {
-    user = await prisma.rider.findUnique({
+    user = await prisma.partner.findUnique({
       where: { phone },
+      include: {
+        vehicle: {
+          select: {
+            id: true,
+            customId: true,
+            registrationNumber: true,
+            vehicleModel: true,
+          },
+        },
+      },
     });
-    if (!user) throw new Error("Rider not found. Please register first.");
+    if (!user) throw new Error("Partner not found. Please register first.");
   }
 
   // Generate JWT

@@ -2,6 +2,7 @@ import { prisma } from "../../config/prisma";
 import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateEntityCustomId } from "../city/city.service";
+import { validatePhoneNumber } from "../../utils/phoneValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 
@@ -26,6 +27,9 @@ export const registerPartner = async (data: {
   localAddress?: string;
   permanentAddress?: string;
 }) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(data.phone);
+
   // Check if partner already exists
   const existsByPhone = await prisma.partner.findUnique({
     where: { phone: data.phone },
@@ -33,14 +37,7 @@ export const registerPartner = async (data: {
 
   if (existsByPhone) throw new Error("Partner with this phone already exists");
 
-  // Check if phone already exists as a Rider (prevent dual registration)
-  const existsAsRider = await prisma.rider.findUnique({
-    where: { phone: data.phone },
-  });
-
-  if (existsAsRider) {
-    throw new Error("This phone number is already registered as a Rider. The same person cannot register as both Partner and Rider.");
-  }
+  // Note: Rider model has been removed - all drivers are now Partners
 
   if (data.email) {
     const existsByEmail = await prisma.partner.findUnique({
@@ -103,6 +100,9 @@ export const registerPartner = async (data: {
     PARTNER LOGIN
 ============================================ */
 export const loginPartner = async (phone: string, password: string) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(phone);
+
   // Find partner by phone
   const partner = await prisma.partner.findUnique({
     where: { phone },

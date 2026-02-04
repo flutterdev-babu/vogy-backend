@@ -32,6 +32,7 @@ export const getAllVendors = async (filters?: {
     where,
     select: {
       id: true,
+      customId: true,
       name: true,
       companyName: true,
       phone: true,
@@ -231,7 +232,18 @@ export const getVendorRides = async (vendorId: string, filters?: {
   startDate?: Date;
   endDate?: Date;
 }) => {
-  const where: any = { vendorId };
+  const where: any = {
+    OR: [
+      { vendorId: vendorId },
+      { 
+        partner: {
+          vehicle: {
+            vendorId: vendorId
+          }
+        }
+      }
+    ]
+  };
 
   if (filters?.status) {
     where.status = filters.status;

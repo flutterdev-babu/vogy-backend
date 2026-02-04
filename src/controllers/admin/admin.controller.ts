@@ -13,10 +13,10 @@ import {
   updateUserUniqueOtpByAdmin,
   getAllUsers,
   getUserById,
-  getAllRiders,
-  getRiderById,
+  getAllPartners,
+  getPartnerById,
   getScheduledRides,
-  assignRiderToRide,
+  assignPartnerToRide,
 } from "../../services/admin/admin.service";
 
 export default {
@@ -192,13 +192,13 @@ export default {
 
   getAllRides: async (req: AuthedRequest, res: Response) => {
     try {
-      const { status, vehicleType, userId, riderId } = req.query;
+      const { status, vehicleType, userId, partnerId } = req.query;
 
       const rides = await getAllRides({
         status: status as string,
         vehicleType: vehicleType as string,
         userId: userId as string,
-        riderId: riderId as string,
+        partnerId: partnerId as string,
       });
 
       return res.status(200).json({
@@ -298,12 +298,12 @@ export default {
 
   getAllRiders: async (req: AuthedRequest, res: Response) => {
     try {
-      const riders = await getAllRiders();
+      const partners = await getAllPartners();
 
       return res.status(200).json({
         success: true,
-        message: "Riders retrieved successfully",
-        data: riders,
+        message: "Partners retrieved successfully",
+        data: partners,
       });
     } catch (error: any) {
       return res.status(400).json({
@@ -317,12 +317,12 @@ export default {
     try {
       const { id } = req.params;
 
-      const rider = await getRiderById(id);
+      const partner = await getPartnerById(id);
 
       return res.status(200).json({
         success: true,
-        message: "Rider retrieved successfully",
-        data: rider,
+        message: "Partner retrieved successfully",
+        data: partner,
       });
     } catch (error: any) {
       return res.status(400).json({
@@ -356,21 +356,21 @@ export default {
   assignRiderToRide: async (req: AuthedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { riderId } = req.body;
+      const { partnerId } = req.body;
 
-      if (!riderId) {
+      if (!partnerId) {
         return res.status(400).json({
           success: false,
-          message: "Rider ID is required",
+          message: "Partner ID is required",
         });
       }
 
       const adminId = req.user?.id;
-      const ride = await assignRiderToRide(id, riderId, adminId);
+      const ride = await assignPartnerToRide(id, partnerId, adminId);
 
       return res.status(200).json({
         success: true,
-        message: "Rider assigned to ride successfully",
+        message: "Partner assigned to ride successfully",
         data: ride,
       });
     } catch (error: any) {
