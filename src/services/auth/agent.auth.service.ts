@@ -84,11 +84,20 @@ export const getAgentProfile = async (agentId: string) => {
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
     include: {
+      cityCodes: {
+        select: {
+          id: true,
+          code: true,
+          cityName: true,
+          isActive: true,
+        },
+      },
       _count: {
         select: {
           vendors: true,
           corporates: true,
           rides: true,
+          cityCodes: true,
         },
       },
     },

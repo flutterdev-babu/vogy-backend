@@ -40,6 +40,27 @@ router.get("/rides", agentController.getAgentRides);
 router.get("/analytics", agentController.getAgentAnalytics);
 
 /* ===============================
+        VENDOR MANAGEMENT
+================================ */
+
+// Create vendor under this agent
+router.post("/vendors", agentController.createVendor);
+
+/* ===============================
+        CORPORATE MANAGEMENT
+================================ */
+
+// Create corporate under this agent
+router.post("/corporates", agentController.createCorporate);
+
+/* ===============================
+        ALL AGENTS LIST
+================================ */
+
+// View all agents in the system
+router.get("/all-agents", agentController.getAllAgents);
+
+/* ===============================
         CITY CODE MANAGEMENT
 ================================ */
 
@@ -62,4 +83,15 @@ router.put("/city-codes/:cityCodeId/pricing", cityController.setCityPricing);
 router.patch("/city-codes/:cityCodeId/pricing", cityController.setCityPricing);
 router.delete("/city-codes/:cityCodeId/pricing/:vehicleTypeId", cityController.deleteCityPricing);
 
+/* ===============================
+        USER/RIDER MANAGEMENT
+================================ */
+
+// List all users/riders
+router.get("/users", agentController.getAllUsers);
+
+// Create a new user/rider
+router.post("/users", agentController.createUser);
+
 export default router;
+

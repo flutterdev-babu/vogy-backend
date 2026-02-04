@@ -2,6 +2,8 @@ import { Response } from "express";
 import { AuthedRequest } from "../../middleware/auth.middleware";
 import * as agentAuthService from "../../services/auth/agent.auth.service";
 import * as agentService from "../../services/agent/agent.service";
+import * as vendorAuthService from "../../services/auth/vendor.auth.service";
+import * as corporateAuthService from "../../services/auth/corporate.auth.service";
 
 export default {
   /* ============================================
@@ -89,6 +91,38 @@ export default {
   },
 
   /* ============================================
+      VENDOR/CORPORATE CREATION (Agent endpoints)
+  ============================================ */
+
+  async createVendor(req: AuthedRequest, res: Response) {
+    try {
+      // Agent creates vendor with their agentId auto-set
+      const vendorData = {
+        ...req.body,
+        agentId: req.user.id,
+      };
+      const vendor = await vendorAuthService.registerVendor(vendorData);
+      res.status(201).json({ success: true, data: vendor });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async createCorporate(req: AuthedRequest, res: Response) {
+    try {
+      // Agent creates corporate with their agentId auto-set
+      const corporateData = {
+        ...req.body,
+        agentId: req.user.id,
+      };
+      const corporate = await corporateAuthService.registerCorporate(corporateData);
+      res.status(201).json({ success: true, data: corporate });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
       AGENT MANAGEMENT (Admin endpoints)
   ============================================ */
 
@@ -170,6 +204,29 @@ export default {
     try {
       const result = await agentService.deleteAgent(req.params.id);
       res.json({ success: true, data: result });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      USER/RIDER MANAGEMENT (Agent endpoints)
+  ============================================ */
+
+  async getAllUsers(req: AuthedRequest, res: Response) {
+    try {
+      const { search } = req.query;
+      const users = await agentService.getAllUsers(search as string);
+      res.json({ success: true, data: users });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async createUser(req: AuthedRequest, res: Response) {
+    try {
+      const user = await agentService.createUser(req.body);
+      res.status(201).json({ success: true, data: user });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
     }
