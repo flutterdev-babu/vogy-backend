@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma";
 import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
+import { validatePhoneNumber } from "../../utils/phoneValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 
@@ -14,6 +15,9 @@ export const registerAgent = async (data: {
   password: string;
   profileImage?: string;
 }) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(data.phone);
+
   // Check if agent already exists
   const existsByPhone = await prisma.agent.findUnique({
     where: { phone: data.phone },
@@ -51,6 +55,9 @@ export const registerAgent = async (data: {
     AGENT LOGIN
 ============================================ */
 export const loginAgent = async (phone: string, password: string) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(phone);
+
   // Find agent by phone
   const agent = await prisma.agent.findUnique({
     where: { phone },

@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthedRequest } from "../../middleware/auth.middleware";
 import * as agentAuthService from "../../services/auth/agent.auth.service";
 import * as agentService from "../../services/agent/agent.service";
+import * as agentRideService from "../../services/agent/agent.ride.service";
 import * as vendorAuthService from "../../services/auth/vendor.auth.service";
 import * as corporateAuthService from "../../services/auth/corporate.auth.service";
 
@@ -229,6 +230,91 @@ export default {
       res.status(201).json({ success: true, data: user });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      RIDE MANAGEMENT (Agent endpoints)
+  ============================================ */
+
+  async getOverallRides(req: AuthedRequest, res: Response) {
+    try {
+      const { status, startDate, endDate, search } = req.query;
+      const rides = await agentRideService.getOverallRides({
+        status: status as string,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        search: search as string,
+      });
+      res.json({ success: true, data: rides });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async getVendorRides(req: AuthedRequest, res: Response) {
+    try {
+      const { status, vendorId } = req.query;
+      const rides = await agentRideService.getAgentVendorRides(req.user.id, {
+        status: status as string,
+        vendorId: vendorId as string,
+      });
+      res.json({ success: true, data: rides });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async getAgentPartners(req: AuthedRequest, res: Response) {
+    try {
+      const { status, search } = req.query;
+      const partners = await agentRideService.getAgentPartners(req.user.id, {
+        status: status as string,
+        search: search as string,
+      });
+      res.json({ success: true, data: partners });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async createManualRide(req: AuthedRequest, res: Response) {
+    try {
+      const ride = await agentRideService.createAgentManualRide(req.user.id, req.body);
+      res.status(201).json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async updateRideStatus(req: AuthedRequest, res: Response) {
+    try {
+      const { status, reason } = req.body;
+      const ride = await agentRideService.updateAgentRideStatus(req.user.id, req.params.id, status, reason);
+      res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async assignPartnerToRide(req: AuthedRequest, res: Response) {
+    try {
+      const { partnerId, vehicleId } = req.body;
+      const ride = await agentRideService.assignPartnerToRide(req.user.id, req.params.id, partnerId, vehicleId);
+      res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async getFareEstimate(req: AuthedRequest, res: Response) {
+    try {
+      const { distanceKm } = req.query;
+      if (!distanceKm) return res.status(400).json({ success: false, message: "distanceKm is required" });
+      const estimates = await agentRideService.getFareEstimate(parseFloat(distanceKm as string));
+      res.json({ success: true, data: estimates });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
     }
   },
 };

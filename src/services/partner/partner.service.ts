@@ -38,6 +38,7 @@ export const getAllPartners = async (filters?: {
     where,
     select: {
       id: true,
+      customId: true,
       name: true,
       phone: true,
       email: true,
@@ -50,6 +51,18 @@ export const getAllPartners = async (filters?: {
       currentLng: true,
       rating: true,
       totalEarnings: true,
+      hasOwnVehicle: true,
+      ownVehicleNumber: true,
+      ownVehicleModel: true,
+      ownVehicleTypeId: true,
+      ownVehicleType: {
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          category: true,
+        }
+      },
       vehicle: {
         select: {
           id: true,
@@ -116,6 +129,8 @@ export const getPartnerById = async (partnerId: string) => {
           },
         },
       },
+      ownVehicleType: true,
+      cityCode: true,
       _count: {
         select: {
           rides: true,

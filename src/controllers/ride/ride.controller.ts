@@ -9,7 +9,7 @@ import {
   completeRideWithOtp,
   getAvailableRides,
   acceptRide,
-  getRiderRides,
+  getPartnerRides,
   updateRideStatus,
 } from "../../services/ride/ride.service";
 
@@ -274,16 +274,16 @@ export default {
   },
 
   /* ============================================
-      RIDER RIDE CONTROLLERS
+      PARTNER RIDE CONTROLLERS
   ============================================ */
 
-  // Get available rides for rider
+  // Get available rides for partner
   getAvailableRides: async (req: AuthedRequest, res: Response) => {
     try {
-      const riderId = req.user?.id;
+      const partnerId = req.user?.id;
       const { lat, lng, vehicleTypeId } = req.query;
 
-      if (!riderId) {
+      if (!partnerId) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
@@ -293,7 +293,7 @@ export default {
       if (lat === undefined || lng === undefined) {
         return res.status(400).json({
           success: false,
-          message: "Rider location (lat, lng) is required",
+          message: "Partner location (lat, lng) is required",
         });
       }
 
@@ -319,17 +319,17 @@ export default {
   // Accept a ride
   acceptRide: async (req: AuthedRequest, res: Response) => {
     try {
-      const riderId = req.user?.id;
+      const partnerId = req.user?.id;
       const { id } = req.params;
 
-      if (!riderId) {
+      if (!partnerId) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
         });
       }
 
-      const ride = await acceptRide(id, riderId);
+      const ride = await acceptRide(id, partnerId);
 
       return res.status(200).json({
         success: true,
@@ -344,20 +344,20 @@ export default {
     }
   },
 
-  // Get all rides for a rider
-  getRiderRides: async (req: AuthedRequest, res: Response) => {
+  // Get all rides for a partner
+  getPartnerRides: async (req: AuthedRequest, res: Response) => {
     try {
-      const riderId = req.user?.id;
+      const partnerId = req.user?.id;
       const { status } = req.query;
 
-      if (!riderId) {
+      if (!partnerId) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
         });
       }
 
-      const rides = await getRiderRides(riderId, status as string);
+      const rides = await getPartnerRides(partnerId, status as string);
 
       return res.status(200).json({
         success: true,
@@ -375,11 +375,11 @@ export default {
   // Update ride status (ARRIVED, STARTED)
   updateRideStatus: async (req: AuthedRequest, res: Response) => {
     try {
-      const riderId = req.user?.id;
+      const partnerId = req.user?.id;
       const { id } = req.params;
       const { status } = req.body;
 
-      if (!riderId) {
+      if (!partnerId) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
@@ -393,7 +393,7 @@ export default {
         });
       }
 
-      const ride = await updateRideStatus(id, riderId, status);
+      const ride = await updateRideStatus(id, partnerId, status);
 
       return res.status(200).json({
         success: true,
@@ -408,13 +408,13 @@ export default {
     }
   },
 
-  // Update rider's current location
+  // Update partner's current location
   updateLocation: async (req: AuthedRequest, res: Response) => {
     try {
-      const riderId = req.user?.id;
+      const partnerId = req.user?.id;
       const { lat, lng } = req.body;
 
-      if (!riderId) {
+      if (!partnerId) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
@@ -429,14 +429,15 @@ export default {
       }
 
       const { prisma } = require("../../config/prisma");
-      const rider = await prisma.rider.update({
-        where: { id: riderId },
+      const partner = await prisma.partner.update({
+        where: { id: partnerId },
         data: {
           currentLat: parseFloat(lat),
           currentLng: parseFloat(lng),
         },
         select: {
           id: true,
+          customId: true,
           name: true,
           currentLat: true,
           currentLng: true,
@@ -447,7 +448,7 @@ export default {
       return res.status(200).json({
         success: true,
         message: "Location updated successfully",
-        data: rider,
+        data: partner,
       });
     } catch (error: any) {
       return res.status(400).json({
@@ -457,13 +458,13 @@ export default {
     }
   },
 
-  // Toggle rider online/offline status
+  // Toggle partner online/offline status
   toggleOnlineStatus: async (req: AuthedRequest, res: Response) => {
     try {
-      const riderId = req.user?.id;
+      const partnerId = req.user?.id;
       const { isOnline, lat, lng } = req.body;
 
-      if (!riderId) {
+      if (!partnerId) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
@@ -493,20 +494,23 @@ export default {
         updateData.currentLng = parseFloat(lng);
       }
 
-      const rider = await prisma.rider.update({
-        where: { id: riderId },
+      const partner = await prisma.partner.update({
+        where: { id: partnerId },
         data: updateData,
         select: {
           id: true,
+          customId: true,
           name: true,
           isOnline: true,
           currentLat: true,
           currentLng: true,
-          vehicleType: {
+          hasOwnVehicle: true,
+          vehicle: {
             select: {
               id: true,
-              name: true,
-              displayName: true,
+              customId: true,
+              registrationNumber: true,
+              vehicleModel: true,
             },
           },
         },
@@ -515,7 +519,7 @@ export default {
       return res.status(200).json({
         success: true,
         message: isOnline ? "You are now online" : "You are now offline",
-        data: rider,
+        data: partner,
       });
     } catch (error: any) {
       return res.status(400).json({
@@ -525,4 +529,3 @@ export default {
     }
   },
 };
-

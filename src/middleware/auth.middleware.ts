@@ -26,7 +26,8 @@ export const authMiddleware = (allowedRoles: string[] = []) => {
           account = await prisma.user.findUnique({ where: { id: payload.id } });
           break;
         case "RIDER":
-          account = await prisma.rider.findUnique({ where: { id: payload.id } });
+          // RIDER role is now deprecated - treat as PARTNER for backward compatibility
+          account = await prisma.partner.findUnique({ where: { id: payload.id } });
           break;
         case "ADMIN":
           account = await prisma.admin.findUnique({ where: { id: payload.id } });

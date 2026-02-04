@@ -18,6 +18,7 @@ export const getAllAgents = async (search?: string) => {
     where,
     select: {
       id: true,
+      customId: true,
       name: true,
       phone: true,
       email: true,
@@ -50,6 +51,7 @@ export const getAgentById = async (agentId: string) => {
       vendors: {
         select: {
           id: true,
+          customId: true,
           name: true,
           companyName: true,
           phone: true,
@@ -275,7 +277,7 @@ export const deleteAgent = async (agentId: string) => {
 };
 
 /* ============================================
-    GET ALL USERS/RIDERS (For Agent)
+    GET ALL USERS (For Agent)
 ============================================ */
 export const getAllUsers = async (search?: string) => {
   const where: any = {};
@@ -288,7 +290,7 @@ export const getAllUsers = async (search?: string) => {
     ];
   }
 
-  const users = await prisma.rider.findMany({
+  const users = await prisma.user.findMany({
     where,
     select: {
       id: true,
@@ -313,7 +315,7 @@ export const getAllUsers = async (search?: string) => {
 };
 
 /* ============================================
-    CREATE USER/RIDER (For Agent)
+    CREATE USER (For Agent)
 ============================================ */
 export const createUser = async (data: {
   name: string;
@@ -321,8 +323,8 @@ export const createUser = async (data: {
   email?: string;
   profileImage?: string;
 }) => {
-  // Check if rider already exists by phone
-  const existingByPhone = await prisma.rider.findUnique({
+  // Check if user already exists by phone
+  const existingByPhone = await prisma.user.findUnique({
     where: { phone: data.phone },
   });
 
@@ -332,7 +334,7 @@ export const createUser = async (data: {
 
   // Check if email exists
   if (data.email) {
-    const existingByEmail = await prisma.rider.findUnique({
+    const existingByEmail = await prisma.user.findUnique({
       where: { email: data.email },
     });
     if (existingByEmail) {
@@ -340,21 +342,17 @@ export const createUser = async (data: {
     }
   }
 
-  // Check if phone already exists as Partner (prevent dual registration)
-  const existsAsPartner = await prisma.partner.findUnique({
-    where: { phone: data.phone },
-  });
+  // Generate unique OTP for the user
+  const { generateUnique4DigitOtp } = require("../../utils/generateUniqueOtp");
+  const uniqueOtp = await generateUnique4DigitOtp();
 
-  if (existsAsPartner) {
-    throw new Error("This phone number is already registered as a Partner.");
-  }
-
-  const rider = await prisma.rider.create({
+  const user = await prisma.user.create({
     data: {
       name: data.name,
       phone: data.phone,
       email: data.email || null,
       profileImage: data.profileImage || null,
+      uniqueOtp: uniqueOtp,
     },
     select: {
       id: true,
@@ -366,6 +364,5 @@ export const createUser = async (data: {
     },
   });
 
-  return rider;
+  return user;
 };
-

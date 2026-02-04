@@ -19,6 +19,7 @@ datasource db {
 
 enum RideStatus {
   PENDING
+  INITIATED
   SCHEDULED
   ACCEPTED
   ARRIVED
@@ -61,6 +62,7 @@ enum PaymentMode {
   CREDIT
   UPI
   CARD
+  ONLINE
 }
 
 enum PaymentStatus {
@@ -101,36 +103,8 @@ model User {
   rides        Ride[]   @relation("UserRides")
 }
 
-model Rider {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  name           String
-  phone          String   @unique
-  email          String?  @unique
-
-  aadharNumber   String?
-  licenseNumber  String?
-  licenseImage   String?
-  profileImage   String?
-  vehicleNumber  String?
-
-  vehicleModel   String?
-
-  // Vehicle type this rider drives
-  vehicleTypeId  String?  @db.ObjectId
-  vehicleType    VehicleType? @relation(fields: [vehicleTypeId], references: [id])
-
-  isOnline       Boolean  @default(false)
-  currentLat     Float?
-  currentLng     Float?
-  rating         Float    @default(5)
-  totalEarnings  Float    @default(0)
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // 1 rider → many rides
-  rides          Ride[]   @relation("RiderRides")
-}
+// Rider model removed - Partner is now the unified driver entity
+// Partners can either be assigned to a vendor's vehicle OR have their own vehicle
 
 model Admin {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
@@ -279,9 +253,16 @@ model Partner {
   cityCodeId     String?       @db.ObjectId
   cityCode       CityCode?     @relation(fields: [cityCodeId], references: [id])
   
-  // Assigned vehicle (one partner per vehicle)
+  // Assigned vehicle from vendor (one partner per vehicle)
   vehicleId      String?       @unique @db.ObjectId
   vehicle        Vehicle?      @relation(fields: [vehicleId], references: [id])
+  
+  // Own vehicle details (for partners who have their own vehicle)
+  hasOwnVehicle      Boolean      @default(false)
+  ownVehicleNumber   String?
+  ownVehicleModel    String?
+  ownVehicleTypeId   String?      @db.ObjectId
+  ownVehicleType     VehicleType? @relation("PartnerOwnVehicle", fields: [ownVehicleTypeId], references: [id])
   
   // Rides driven by this partner
   rides          Ride[]        @relation("PartnerRides")
@@ -429,13 +410,11 @@ model CorporatePayment {
 model Ride {
   id            String     @id @default(auto()) @map("_id") @db.ObjectId
 
-  // Legacy relationships (for backward compatibility)
+  // User who booked the ride
   userId        String?    @db.ObjectId
-  riderId       String?    @db.ObjectId
   vehicleTypeId String?    @db.ObjectId
 
   user          User?      @relation("UserRides", fields: [userId], references: [id])
-  rider         Rider?     @relation("RiderRides", fields: [riderId], references: [id])
   vehicleType   VehicleType? @relation(fields: [vehicleTypeId], references: [id])
 
   // NEW: Entity relationships
@@ -490,6 +469,11 @@ model Ride {
   scheduledDateTime  DateTime?
   assignedByAdminId  String?   @db.ObjectId
   bookingNotes       String?
+
+  // Razorpay integration
+  razorpayOrderId    String?
+  razorpayPaymentId  String?
+  razorpaySignature  String?
 }
 
 // ============================================
@@ -509,9 +493,9 @@ model VehicleType {
 
   // 1 vehicle type → many rides
   rides       Ride[]
-  // 1 vehicle type → many riders (legacy)
-  riders      Rider[]
-  // 1 vehicle type → many vehicles (new)
+  // 1 vehicle type → many partners with own vehicles
+  ownVehiclePartners Partner[] @relation("PartnerOwnVehicle")
+  // 1 vehicle type → many vehicles (vendor vehicles)
   vehicles    Vehicle[]       @relation("VehicleToType")
   // City pricing for this vehicle type
   cityPricing CityPricing[]
@@ -538,4 +522,25 @@ model OtpCode {
   code      String
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+// TEMPORARY: Rider model for migration (to be removed after migration)
+model Rider {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  phone          String   @unique
+  email          String?  @unique
+  aadharNumber   String?
+  licenseNumber  String?
+  licenseImage   String?
+  profileImage   String?
+  vehicleNumber  String?
+  vehicleModel   String?
+  vehicleTypeId  String?  @db.ObjectId
+  isOnline       Boolean  @default(false)
+  currentLat     Float?
+  currentLng     Float?
+  rating         Float    @default(5)
+  totalEarnings  Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

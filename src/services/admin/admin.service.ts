@@ -160,34 +160,51 @@ export const updatePricingConfig = async (data: {
 };
 
 /* ============================================
-    RIDER MANAGEMENT
+    PARTNER MANAGEMENT
 ============================================ */
 
-export const getAllRiders = async () => {
-  const riders = await prisma.rider.findMany({
+export const getAllPartners = async () => {
+  const partners = await prisma.partner.findMany({
     select: {
       id: true,
+      customId: true,
       name: true,
       phone: true,
       email: true,
       profileImage: true,
-      vehicleNumber: true,
-      vehicleModel: true,
       isOnline: true,
       rating: true,
       totalEarnings: true,
+      hasOwnVehicle: true,
+      ownVehicleNumber: true,
+      ownVehicleModel: true,
       createdAt: true,
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
+          vehicleModel: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return riders;
+  return partners;
 };
 
-export const getRiderById = async (riderId: string) => {
-  const rider = await prisma.rider.findUnique({
-    where: { id: riderId },
+export const getPartnerById = async (partnerId: string) => {
+  const partner = await prisma.partner.findUnique({
+    where: { id: partnerId },
     include: {
+      vehicle: {
+        include: {
+          vehicleType: true,
+          vendor: true,
+        },
+      },
+      ownVehicleType: true,
       rides: {
         select: {
           id: true,
@@ -202,11 +219,11 @@ export const getRiderById = async (riderId: string) => {
     },
   });
 
-  if (!rider) {
-    throw new Error("Rider not found");
+  if (!partner) {
+    throw new Error("Partner not found");
   }
 
-  return rider;
+  return partner;
 };
 
 /* ============================================
@@ -218,7 +235,7 @@ export const getScheduledRides = async () => {
     where: {
       status: "SCHEDULED",
       isManualBooking: true,
-      riderId: null,
+      partnerId: null,
     },
     include: {
       user: {
@@ -237,18 +254,21 @@ export const getScheduledRides = async () => {
   return rides;
 };
 
-export const assignRiderToRide = async (
+export const assignPartnerToRide = async (
   rideId: string,
-  riderId: string,
+  partnerId: string,
   adminId: string
 ) => {
-  // Verify rider exists
-  const rider = await prisma.rider.findUnique({
-    where: { id: riderId },
+  // Verify partner exists
+  const partner = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    include: {
+      vehicle: true
+    }
   });
 
-  if (!rider) {
-    throw new Error("Rider not found");
+  if (!partner) {
+    throw new Error("Partner not found");
   }
 
   // Verify ride exists and is scheduled
@@ -264,18 +284,22 @@ export const assignRiderToRide = async (
     throw new Error("Ride is not a scheduled ride or already assigned");
   }
 
-  if (ride.riderId) {
-    throw new Error("Ride already has a rider assigned");
+  if (ride.partnerId) {
+    throw new Error("Ride already has a partner assigned");
   }
 
-  // Assign rider to ride
+  // Assign partner to ride
   const updatedRide = await prisma.ride.update({
     where: { id: rideId },
     data: {
-      riderId: riderId,
+      partnerId: partnerId,
       assignedByAdminId: adminId,
       status: "ACCEPTED",
       acceptedAt: new Date(),
+      // If partner has an assigned vehicle, link it
+      ...(partner.vehicleId && { vehicleId: partner.vehicleId }),
+      // If partner has an assigned vehicle, use its vendor
+      ...(partner.vehicle?.vendorId && { vendorId: partner.vehicle.vendorId }),
     },
     include: {
       user: {
@@ -286,22 +310,30 @@ export const assignRiderToRide = async (
           email: true,
         },
       },
-      rider: {
+      partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
           profileImage: true,
-          vehicleNumber: true,
-          vehicleModel: true,
           rating: true,
+        },
+      },
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
+          vehicleModel: true,
         },
       },
       vehicleType: true,
     },
   });
 
-  // Emit socket event to notify user and rider
+  // Emit socket event to notify user and partner
+  // Note: Function renamed or logic updated to emitRiderAssigned with Partner data
   emitRiderAssigned(updatedRide);
 
   return updatedRide;
@@ -315,7 +347,7 @@ export const getAllRides = async (filters?: {
   status?: string;
   vehicleType?: string;
   userId?: string;
-  riderId?: string;
+  partnerId?: string;
 }) => {
   const rides = await prisma.ride.findMany({
     where: {
@@ -326,7 +358,7 @@ export const getAllRides = async (filters?: {
         },
       }),
       ...(filters?.userId && { userId: filters.userId }),
-      ...(filters?.riderId && { riderId: filters.riderId }),
+      ...(filters?.partnerId && { partnerId: filters.partnerId }),
     },
     include: {
       user: {
@@ -337,15 +369,18 @@ export const getAllRides = async (filters?: {
           email: true,
         },
       },
-      rider: {
+      partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
           email: true,
         },
       },
       vehicleType: true,
+      vehicle: true,
+      vendor: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -365,15 +400,18 @@ export const getRideById = async (id: string) => {
           email: true,
         },
       },
-      rider: {
+      partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
           email: true,
         },
       },
       vehicleType: true,
+      vehicle: true,
+      vendor: true,
     },
   });
 

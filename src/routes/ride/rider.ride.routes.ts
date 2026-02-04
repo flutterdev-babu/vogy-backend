@@ -5,11 +5,11 @@ import { authMiddleware } from "../../middleware/auth.middleware";
 const router = Router();
 
 /* ===============================
-        RIDER RIDE ROUTES
+        PARTNER RIDE ROUTES
 ================================ */
 
-// All routes require authentication and RIDER role
-router.use(authMiddleware(["RIDER"]));
+// All routes require authentication and PARTNER role
+router.use(authMiddleware(["PARTNER"]));
 
 // Update rider's current location
 router.post("/location", rideController.updateLocation);
@@ -23,8 +23,8 @@ router.get("/available", rideController.getAvailableRides);
 // Accept a ride
 router.post("/:id/accept", rideController.acceptRide);
 
-// Get all rides for rider (optional status filter)
-router.get("/", rideController.getRiderRides);
+// Get all rides for partner (optional status filter)
+router.get("/", rideController.getPartnerRides);
 
 // Update ride status (ARRIVED or STARTED)
 router.patch("/:id/status", rideController.updateRideStatus);

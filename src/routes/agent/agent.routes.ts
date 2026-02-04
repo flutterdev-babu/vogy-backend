@@ -84,14 +84,38 @@ router.patch("/city-codes/:cityCodeId/pricing", cityController.setCityPricing);
 router.delete("/city-codes/:cityCodeId/pricing/:vehicleTypeId", cityController.deleteCityPricing);
 
 /* ===============================
-        USER/RIDER MANAGEMENT
+        USER MANAGEMENT
 ================================ */
 
-// List all users/riders
+// List all users
 router.get("/users", agentController.getAllUsers);
 
-// Create a new user/rider
+// Create a new user
 router.post("/users", agentController.createUser);
 
-export default router;
+/* ===============================
+        RIDE MANAGEMENT
+================================ */
 
+// Get all rides in system
+router.get("/rides/all", agentController.getOverallRides);
+
+// Get rides from agent's vendors
+router.get("/rides/vendor", agentController.getVendorRides);
+
+// Get partners under agent's vendors
+router.get("/partners", agentController.getAgentPartners);
+
+// Create a manual ride with partner/vehicle assignment
+router.post("/rides/manual", agentController.createManualRide);
+
+// Get fare estimate for manual booking
+router.get("/rides/estimate", agentController.getFareEstimate);
+
+// Update ride status
+router.patch("/rides/:id/status", agentController.updateRideStatus);
+
+// Assign partner to a ride
+router.post("/rides/:id/assign", agentController.assignPartnerToRide);
+
+export default router;

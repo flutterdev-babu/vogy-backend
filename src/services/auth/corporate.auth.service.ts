@@ -2,6 +2,7 @@ import { prisma } from "../../config/prisma";
 import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateEntityCustomId } from "../city/city.service";
+import { validatePhoneNumber } from "../../utils/phoneValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 
@@ -19,6 +20,9 @@ export const registerCorporate = async (data: {
   agentId?: string;
   cityCodeId?: string;  // For custom ID generation
 }) => {
+  // Validate phone number format (E.164)
+  validatePhoneNumber(data.phone);
+
   // Check if corporate already exists
   const existsByPhone = await prisma.corporate.findUnique({
     where: { phone: data.phone },
