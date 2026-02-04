@@ -11,6 +11,12 @@ export const createVehicle = async (data: {
   vendorId: string;
   partnerId: string;    // Partner is required
   cityCodeId: string;   // City code for ID generation
+  // New vehicle details
+  color?: string;
+  fuelType?: "PETROL" | "DIESEL" | "CNG" | "ELECTRIC" | "HYBRID";
+  seatingCapacity?: number;
+  rtoTaxExpiryDate?: string;  // ISO date string
+  speedGovernor?: boolean;
 }) => {
   // Check if vehicle with registration number already exists
   const existingVehicle = await prisma.vehicle.findUnique({
@@ -66,6 +72,12 @@ export const createVehicle = async (data: {
       vehicleTypeId: data.vehicleTypeId,
       vendorId: data.vendorId,
       cityCodeId: data.cityCodeId,
+      // New vehicle details
+      color: data.color || null,
+      fuelType: data.fuelType || null,
+      seatingCapacity: data.seatingCapacity || null,
+      rtoTaxExpiryDate: data.rtoTaxExpiryDate ? new Date(data.rtoTaxExpiryDate) : null,
+      speedGovernor: data.speedGovernor ?? false,
     },
     include: {
       vehicleType: {

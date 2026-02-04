@@ -273,3 +273,99 @@ export const deleteAgent = async (agentId: string) => {
 
   return { message: "Agent deleted successfully" };
 };
+
+/* ============================================
+    GET ALL USERS/RIDERS (For Agent)
+============================================ */
+export const getAllUsers = async (search?: string) => {
+  const where: any = {};
+
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { phone: { contains: search } },
+      { email: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const users = await prisma.rider.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      profileImage: true,
+      _count: {
+        select: {
+          rides: true,
+        },
+      },
+      createdAt: true,
+      updatedAt: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return users;
+};
+
+/* ============================================
+    CREATE USER/RIDER (For Agent)
+============================================ */
+export const createUser = async (data: {
+  name: string;
+  phone: string;
+  email?: string;
+  profileImage?: string;
+}) => {
+  // Check if rider already exists by phone
+  const existingByPhone = await prisma.rider.findUnique({
+    where: { phone: data.phone },
+  });
+
+  if (existingByPhone) {
+    throw new Error("User with this phone already exists");
+  }
+
+  // Check if email exists
+  if (data.email) {
+    const existingByEmail = await prisma.rider.findUnique({
+      where: { email: data.email },
+    });
+    if (existingByEmail) {
+      throw new Error("User with this email already exists");
+    }
+  }
+
+  // Check if phone already exists as Partner (prevent dual registration)
+  const existsAsPartner = await prisma.partner.findUnique({
+    where: { phone: data.phone },
+  });
+
+  if (existsAsPartner) {
+    throw new Error("This phone number is already registered as a Partner.");
+  }
+
+  const rider = await prisma.rider.create({
+    data: {
+      name: data.name,
+      phone: data.phone,
+      email: data.email || null,
+      profileImage: data.profileImage || null,
+    },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      profileImage: true,
+      createdAt: true,
+    },
+  });
+
+  return rider;
+};
+

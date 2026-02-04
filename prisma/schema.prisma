@@ -69,6 +69,20 @@ enum PaymentStatus {
   PARTIAL
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  CNG
+  ELECTRIC
+  HYBRID
+}
+
 // ============================================
 // EXISTING MODELS (maintained for backward compatibility)
 // ============================================
@@ -186,7 +200,7 @@ model CityPricing {
 
 model Vendor {
   id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  customId      String?      @unique  // e.g., "ICBLR-V01"
+  customId      String?      @unique  // e.g., "ICVBLR01"
   name          String
   companyName   String
   phone         String       @unique
@@ -195,6 +209,22 @@ model Vendor {
   address       String?
   profileImage  String?
   status        VendorStatus @default(PENDING)
+  
+  // Additional contact details
+  gstNumber        String?
+  panNumber        String?
+  ccMobile         String?      // CC Mobile Number
+  primaryNumber    String?      // Primary Contact
+  secondaryNumber  String?      // Secondary Contact
+  ownerContact     String?      // Owner Contact Number
+  officeLandline   String?      // Office Landline
+  officeAddress    String?      // Office Address
+  
+  // Banking details (for payments)
+  accountNumber    String?
+  bankName         String?
+  ifscCode         String?
+  accountHolderName String?
   
   // City code for ID generation
   cityCodeId    String?      @db.ObjectId
@@ -216,12 +246,22 @@ model Vendor {
 
 model Partner {
   id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  customId       String?       @unique  // e.g., "ICBLR-P01"
-  name           String
+  customId       String?       @unique  // e.g., "ICPBLR01"
+  
+  // Personal details (split name)
+  firstName      String?
+  lastName       String?
+  name           String        // Full name (for backward compatibility)
   phone          String        @unique
   email          String?       @unique
   password       String
   profileImage   String?
+  
+  // Additional personal info
+  dateOfBirth    DateTime?
+  gender         Gender?
+  localAddress   String?       // Current Address
+  permanentAddress String?     // Address as on Aadhar Card
   
   // Documents
   aadharNumber   String?
@@ -252,9 +292,16 @@ model Partner {
 
 model Vehicle {
   id                 String       @id @default(auto()) @map("_id") @db.ObjectId
-  customId           String?      @unique  // e.g., "ICBLR-VH01"
+  customId           String?      @unique  // e.g., "ICVHBLR01"
   registrationNumber String       @unique
   vehicleModel       String
+  
+  // Additional vehicle details
+  color              String?
+  fuelType           FuelType?
+  seatingCapacity    Int?
+  rtoTaxExpiryDate   DateTime?
+  speedGovernor      Boolean?     @default(false)
   
   // City code for ID generation
   cityCodeId         String?      @db.ObjectId

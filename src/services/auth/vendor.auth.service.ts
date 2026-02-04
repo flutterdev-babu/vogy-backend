@@ -18,6 +18,20 @@ export const registerVendor = async (data: {
   profileImage?: string;
   agentId?: string;
   cityCodeId?: string;  // For custom ID generation
+  // New contact fields
+  gstNumber?: string;
+  panNumber?: string;
+  ccMobile?: string;
+  primaryNumber?: string;
+  secondaryNumber?: string;
+  ownerContact?: string;
+  officeLandline?: string;
+  officeAddress?: string;
+  // Banking details
+  accountNumber?: string;
+  bankName?: string;
+  ifscCode?: string;
+  accountHolderName?: string;
 }) => {
   // Check if vendor already exists
   const existsByPhone = await prisma.vendor.findUnique({
@@ -67,6 +81,20 @@ export const registerVendor = async (data: {
       profileImage: data.profileImage || null,
       agentId: data.agentId || null,
       cityCodeId: data.cityCodeId || null,
+      // New contact fields
+      gstNumber: data.gstNumber || null,
+      panNumber: data.panNumber || null,
+      ccMobile: data.ccMobile || null,
+      primaryNumber: data.primaryNumber || null,
+      secondaryNumber: data.secondaryNumber || null,
+      ownerContact: data.ownerContact || null,
+      officeLandline: data.officeLandline || null,
+      officeAddress: data.officeAddress || null,
+      // Banking details
+      accountNumber: data.accountNumber || null,
+      bankName: data.bankName || null,
+      ifscCode: data.ifscCode || null,
+      accountHolderName: data.accountHolderName || null,
     },
     include: {
       agent: {
@@ -142,9 +170,17 @@ export const getVendorProfile = async (vendorId: string) => {
   const vendor = await prisma.vendor.findUnique({
     where: { id: vendorId },
     include: {
+      cityCode: {
+        select: {
+          id: true,
+          code: true,
+          cityName: true,
+        },
+      },
       agent: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
@@ -162,6 +198,7 @@ export const getVendorProfile = async (vendorId: string) => {
           partner: {
             select: {
               id: true,
+              customId: true,
               name: true,
               phone: true,
               status: true,

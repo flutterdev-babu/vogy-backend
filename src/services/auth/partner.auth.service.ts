@@ -18,6 +18,13 @@ export const registerPartner = async (data: {
   licenseNumber?: string;
   licenseImage?: string;
   cityCodeId?: string;  // For custom ID generation
+  // New personal info fields
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;  // ISO date string
+  gender?: "MALE" | "FEMALE" | "OTHER";
+  localAddress?: string;
+  permanentAddress?: string;
 }) => {
   // Check if partner already exists
   const existsByPhone = await prisma.partner.findUnique({
@@ -68,6 +75,13 @@ export const registerPartner = async (data: {
       licenseNumber: data.licenseNumber || null,
       licenseImage: data.licenseImage || null,
       cityCodeId: data.cityCodeId || null,
+      // New personal info fields
+      firstName: data.firstName || null,
+      lastName: data.lastName || null,
+      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+      gender: data.gender || null,
+      localAddress: data.localAddress || null,
+      permanentAddress: data.permanentAddress || null,
     },
     include: {
       cityCode: {
@@ -148,6 +162,13 @@ export const getPartnerProfile = async (partnerId: string) => {
   const partner = await prisma.partner.findUnique({
     where: { id: partnerId },
     include: {
+      cityCode: {
+        select: {
+          id: true,
+          code: true,
+          cityName: true,
+        },
+      },
       vehicle: {
         include: {
           vehicleType: {
@@ -161,6 +182,7 @@ export const getPartnerProfile = async (partnerId: string) => {
           vendor: {
             select: {
               id: true,
+              customId: true,
               name: true,
               companyName: true,
               phone: true,

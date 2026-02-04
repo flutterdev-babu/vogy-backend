@@ -141,9 +141,17 @@ export const getCorporateProfile = async (corporateId: string) => {
   const corporate = await prisma.corporate.findUnique({
     where: { id: corporateId },
     include: {
+      cityCode: {
+        select: {
+          id: true,
+          code: true,
+          cityName: true,
+        },
+      },
       agent: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
