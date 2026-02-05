@@ -1,5 +1,5 @@
 import { prisma } from "../../config/prisma";
-import { razorpay } from "../../config/razorpay";
+import { getRazorpayInstance } from "../../config/razorpay";
 import crypto from "crypto";
 
 /**
@@ -25,6 +25,7 @@ export const createRazorpayOrder = async (rideId: string) => {
   };
 
   try {
+    const razorpay = getRazorpayInstance();
     const order = await razorpay.orders.create(options);
 
     // Update ride with order ID
