@@ -32,6 +32,7 @@ export const getAllCorporates = async (filters?: {
     where,
     select: {
       id: true,
+      customId: true,
       companyName: true,
       contactPerson: true,
       phone: true,
@@ -238,6 +239,7 @@ export const getCorporateRides = async (corporateId: string, filters?: {
       vendor: {
         select: {
           id: true,
+          customId: true,
           name: true,
           companyName: true,
         },
@@ -245,6 +247,7 @@ export const getCorporateRides = async (corporateId: string, filters?: {
       partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
@@ -252,6 +255,7 @@ export const getCorporateRides = async (corporateId: string, filters?: {
       vehicle: {
         select: {
           id: true,
+          customId: true,
           registrationNumber: true,
           vehicleModel: true,
         },

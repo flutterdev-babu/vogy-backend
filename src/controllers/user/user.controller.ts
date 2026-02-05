@@ -107,21 +107,17 @@ export default {
         dropLng,
         dropAddress,
         distanceKm,
+        cityCodeId, // NEW
       } = req.body;
 
       if (
-        !vehicleTypeId ||
-        !pickupLat ||
-        !pickupLng ||
-        !pickupAddress ||
-        !dropLat ||
-        !dropLng ||
         !dropAddress ||
-        !distanceKm
+        !distanceKm ||
+        !cityCodeId // NEW
       ) {
         return res.status(400).json({
           success: false,
-          message: "All fields are required",
+          message: "All fields are required including cityCodeId",
         });
       }
 
@@ -134,6 +130,7 @@ export default {
         dropLng: parseFloat(dropLng),
         dropAddress,
         distanceKm: parseFloat(distanceKm),
+        cityCodeId, // NEW
       });
 
       return res.status(201).json({

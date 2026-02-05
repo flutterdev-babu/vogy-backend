@@ -1,24 +1,32 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserById = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.getRideById = exports.getAllRides = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
+exports.getUserById = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
 const prisma_1 = require("../../config/prisma");
 const generateUniqueOtp_1 = require("../../utils/generateUniqueOtp");
+const socket_service_1 = require("../socket/socket.service");
 /* ============================================
     VEHICLE TYPE MANAGEMENT
 ============================================ */
 const createVehicleType = async (data) => {
-    // Check if vehicle type already exists
+    // Validate category
+    const validCategories = ["BIKE", "AUTO", "CAR"];
+    if (!validCategories.includes(data.category)) {
+        throw new Error("Invalid category. Must be BIKE, AUTO, or CAR.");
+    }
+    // Check if vehicle type with this name already exists
     const exists = await prisma_1.prisma.vehicleType.findUnique({
         where: { name: data.name },
     });
     if (exists) {
-        throw new Error("Vehicle type already exists");
+        throw new Error("Vehicle type with this name already exists");
     }
     const vehicleType = await prisma_1.prisma.vehicleType.create({
         data: {
+            category: data.category,
             name: data.name,
             displayName: data.displayName,
             pricePerKm: data.pricePerKm,
+            baseFare: data.baseFare ?? null,
         },
     });
     return vehicleType;
@@ -53,6 +61,7 @@ const updateVehicleType = async (id, data) => {
         data: {
             ...(data.displayName && { displayName: data.displayName }),
             ...(data.pricePerKm !== undefined && { pricePerKm: data.pricePerKm }),
+            ...(data.baseFare !== undefined && { baseFare: data.baseFare }),
             ...(data.isActive !== undefined && { isActive: data.isActive }),
         },
     });
@@ -105,6 +114,7 @@ const updatePricingConfig = async (data) => {
     // Create new active config
     const config = await prisma_1.prisma.pricingConfig.create({
         data: {
+            baseFare: data.baseFare ?? 20,
             riderPercentage: data.riderPercentage,
             appCommission: data.appCommission,
             isActive: true,
@@ -113,6 +123,168 @@ const updatePricingConfig = async (data) => {
     return config;
 };
 exports.updatePricingConfig = updatePricingConfig;
+/* ============================================
+    PARTNER MANAGEMENT
+============================================ */
+const getAllPartners = async () => {
+    const partners = await prisma_1.prisma.partner.findMany({
+        select: {
+            id: true,
+            customId: true,
+            name: true,
+            phone: true,
+            email: true,
+            profileImage: true,
+            isOnline: true,
+            rating: true,
+            totalEarnings: true,
+            hasOwnVehicle: true,
+            ownVehicleNumber: true,
+            ownVehicleModel: true,
+            createdAt: true,
+            vehicle: {
+                select: {
+                    id: true,
+                    customId: true,
+                    registrationNumber: true,
+                    vehicleModel: true,
+                },
+            },
+        },
+        orderBy: { createdAt: "desc" },
+    });
+    return partners;
+};
+exports.getAllPartners = getAllPartners;
+const getPartnerById = async (partnerId) => {
+    const partner = await prisma_1.prisma.partner.findUnique({
+        where: { id: partnerId },
+        include: {
+            vehicle: {
+                include: {
+                    vehicleType: true,
+                    vendor: true,
+                },
+            },
+            ownVehicleType: true,
+            rides: {
+                select: {
+                    id: true,
+                    status: true,
+                    totalFare: true,
+                    riderEarnings: true,
+                    createdAt: true,
+                },
+                orderBy: { createdAt: "desc" },
+                take: 20,
+            },
+        },
+    });
+    if (!partner) {
+        throw new Error("Partner not found");
+    }
+    return partner;
+};
+exports.getPartnerById = getPartnerById;
+/* ============================================
+    SCHEDULED RIDE MANAGEMENT
+============================================ */
+const getScheduledRides = async () => {
+    const rides = await prisma_1.prisma.ride.findMany({
+        where: {
+            status: "SCHEDULED",
+            isManualBooking: true,
+            partnerId: null,
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    phone: true,
+                    email: true,
+                },
+            },
+            vehicleType: true,
+        },
+        orderBy: { scheduledDateTime: "asc" },
+    });
+    return rides;
+};
+exports.getScheduledRides = getScheduledRides;
+const assignPartnerToRide = async (rideId, partnerId, adminId) => {
+    // Verify partner exists
+    const partner = await prisma_1.prisma.partner.findUnique({
+        where: { id: partnerId },
+        include: {
+            vehicle: true
+        }
+    });
+    if (!partner) {
+        throw new Error("Partner not found");
+    }
+    // Verify ride exists and is scheduled
+    const ride = await prisma_1.prisma.ride.findUnique({
+        where: { id: rideId },
+    });
+    if (!ride) {
+        throw new Error("Ride not found");
+    }
+    if (ride.status !== "SCHEDULED") {
+        throw new Error("Ride is not a scheduled ride or already assigned");
+    }
+    if (ride.partnerId) {
+        throw new Error("Ride already has a partner assigned");
+    }
+    // Assign partner to ride
+    const updatedRide = await prisma_1.prisma.ride.update({
+        where: { id: rideId },
+        data: {
+            partnerId: partnerId,
+            assignedByAdminId: adminId,
+            status: "ACCEPTED",
+            acceptedAt: new Date(),
+            // If partner has an assigned vehicle, link it
+            ...(partner.vehicleId && { vehicleId: partner.vehicleId }),
+            // If partner has an assigned vehicle, use its vendor
+            ...(partner.vehicle?.vendorId && { vendorId: partner.vehicle.vendorId }),
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    phone: true,
+                    email: true,
+                },
+            },
+            partner: {
+                select: {
+                    id: true,
+                    customId: true,
+                    name: true,
+                    phone: true,
+                    profileImage: true,
+                    rating: true,
+                },
+            },
+            vehicle: {
+                select: {
+                    id: true,
+                    customId: true,
+                    registrationNumber: true,
+                    vehicleModel: true,
+                },
+            },
+            vehicleType: true,
+        },
+    });
+    // Emit socket event to notify user and partner
+    // Note: Function renamed or logic updated to emitRiderAssigned with Partner data
+    (0, socket_service_1.emitRiderAssigned)(updatedRide);
+    return updatedRide;
+};
+exports.assignPartnerToRide = assignPartnerToRide;
 /* ============================================
     ADMIN RIDE MANAGEMENT
 ============================================ */
@@ -126,7 +298,7 @@ const getAllRides = async (filters) => {
                 },
             }),
             ...(filters?.userId && { userId: filters.userId }),
-            ...(filters?.riderId && { riderId: filters.riderId }),
+            ...(filters?.partnerId && { partnerId: filters.partnerId }),
         },
         include: {
             user: {
@@ -137,15 +309,18 @@ const getAllRides = async (filters) => {
                     email: true,
                 },
             },
-            rider: {
+            partner: {
                 select: {
                     id: true,
+                    customId: true,
                     name: true,
                     phone: true,
                     email: true,
                 },
             },
             vehicleType: true,
+            vehicle: true,
+            vendor: true,
         },
         orderBy: { createdAt: "desc" },
     });
@@ -164,15 +339,18 @@ const getRideById = async (id) => {
                     email: true,
                 },
             },
-            rider: {
+            partner: {
                 select: {
                     id: true,
+                    customId: true,
                     name: true,
                     phone: true,
                     email: true,
                 },
             },
             vehicleType: true,
+            vehicle: true,
+            vendor: true,
         },
     });
     if (!ride) {

@@ -130,6 +130,7 @@ export const updateVendorStatus = async (vendorId: string, status: VendorStatus)
       companyName: true,
       phone: true,
       status: true,
+      customId: true,
       updatedAt: true,
     },
   });
@@ -261,6 +262,7 @@ export const getVendorRides = async (vendorId: string, filters?: {
       partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
@@ -268,6 +270,7 @@ export const getVendorRides = async (vendorId: string, filters?: {
       vehicle: {
         select: {
           id: true,
+          customId: true,
           registrationNumber: true,
           vehicleModel: true,
         },

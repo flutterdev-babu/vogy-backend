@@ -138,6 +138,7 @@ model CityCode {
   partners    Partner[]
   vehicles    Vehicle[]
   corporates  Corporate[] @relation("CorporateCityCode")
+  rides       Ride[]      @relation("RideCityCode")
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -429,6 +430,12 @@ model Ride {
   vehicle       Vehicle?   @relation("VehicleRides", fields: [vehicleId], references: [id])
   agent         Agent?     @relation("AgentRides", fields: [agentId], references: [id])
   corporate     Corporate? @relation("CorporateRides", fields: [corporateId], references: [id])
+
+  // NEW: City relationship for customId generation
+  cityCodeId    String?    @db.ObjectId
+  cityCode      CityCode?  @relation("RideCityCode", fields: [cityCodeId], references: [id])
+
+  customId      String?    @unique  // e.g., "ICRBLR0001" (10 chars)
 
   status        RideStatus @default(PENDING)
 

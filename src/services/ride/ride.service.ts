@@ -8,6 +8,7 @@ import {
   emitRideCompleted,
   emitRideCancelled,
 } from "../socket/socket.service";
+import { generateEntityCustomId } from "../city/city.service";
 
 /* ============================================
     CREATE RIDE (USER) - Instant Booking
@@ -23,8 +24,20 @@ export const createRide = async (
     dropLng: number;
     dropAddress: string;
     distanceKm: number;
+    cityCodeId: string; // NEW: Required for customId generation
   }
 ) => {
+  // Get city code for ID generation
+  const cityCodeEntry = await prisma.cityCode.findUnique({
+    where: { id: data.cityCodeId },
+  });
+
+  if (!cityCodeEntry) {
+    throw new Error("Invalid city code ID");
+  }
+
+  const customId = await generateEntityCustomId(cityCodeEntry.code, "RIDE");
+
   // Verify vehicle type exists and is active
   const vehicleType = await prisma.vehicleType.findUnique({
     where: { id: data.vehicleTypeId },
@@ -75,6 +88,8 @@ export const createRide = async (
       commission: commission,
       status: "PENDING",
       isManualBooking: false,
+      cityCodeId: data.cityCodeId,
+      customId: customId,
     },
     include: {
       vehicleType: true,
@@ -110,8 +125,20 @@ export const createManualRide = async (
     distanceKm: number;
     scheduledDateTime: Date;
     bookingNotes?: string;
+    cityCodeId: string; // NEW: Required for customId generation
   }
 ) => {
+  // Get city code for ID generation
+  const cityCodeEntry = await prisma.cityCode.findUnique({
+    where: { id: data.cityCodeId },
+  });
+
+  if (!cityCodeEntry) {
+    throw new Error("Invalid city code ID");
+  }
+
+  const customId = await generateEntityCustomId(cityCodeEntry.code, "RIDE");
+
   // Verify vehicle type exists and is active
   const vehicleType = await prisma.vehicleType.findUnique({
     where: { id: data.vehicleTypeId },
@@ -169,6 +196,8 @@ export const createManualRide = async (
       isManualBooking: true,
       scheduledDateTime: scheduledDate,
       bookingNotes: data.bookingNotes || null,
+      cityCodeId: data.cityCodeId,
+      customId: customId,
     },
     include: {
       vehicleType: true,

@@ -75,18 +75,15 @@ exports.default = {
                     message: "Unauthorized",
                 });
             }
-            const { vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, } = req.body;
-            if (!vehicleTypeId ||
-                !pickupLat ||
-                !pickupLng ||
-                !pickupAddress ||
-                !dropLat ||
-                !dropLng ||
-                !dropAddress ||
-                !distanceKm) {
+            const { vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, cityCodeId, // NEW
+             } = req.body;
+            if (!dropAddress ||
+                !distanceKm ||
+                !cityCodeId // NEW
+            ) {
                 return res.status(400).json({
                     success: false,
-                    message: "All fields are required",
+                    message: "All fields are required including cityCodeId",
                 });
             }
             const ride = await (0, ride_service_1.createRide)(userId, {
@@ -98,6 +95,7 @@ exports.default = {
                 dropLng: parseFloat(dropLng),
                 dropAddress,
                 distanceKm: parseFloat(distanceKm),
+                cityCodeId, // NEW
             });
             return res.status(201).json({
                 success: true,

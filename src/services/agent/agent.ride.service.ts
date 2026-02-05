@@ -239,8 +239,21 @@ export const createAgentManualRide = async (
     paymentMode: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
     scheduledDateTime?: Date;
     bookingNotes?: string;
+    cityCodeId: string; // NEW: Required for customId generation
   }
 ) => {
+  // Get city code for ID generation
+  const cityCodeEntry = await prisma.cityCode.findUnique({
+    where: { id: data.cityCodeId },
+  });
+
+  if (!cityCodeEntry) {
+    throw new Error("Invalid city code ID");
+  }
+
+  const { generateEntityCustomId } = require("../city/city.service");
+  const customId = await generateEntityCustomId(cityCodeEntry.code, "RIDE");
+
   let user = await prisma.user.findUnique({
     where: { phone: data.userPhone },
   });
@@ -284,6 +297,8 @@ export const createAgentManualRide = async (
       bookingNotes: data.bookingNotes || null,
       acceptedAt: data.scheduledDateTime ? null : new Date(),
       assignedByAdminId: agentId,
+      cityCodeId: data.cityCodeId,
+      customId: customId,
     },
     include: {
       user: true,

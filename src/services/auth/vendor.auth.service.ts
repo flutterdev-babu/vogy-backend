@@ -266,6 +266,7 @@ export const updateVendorProfile = async (
       agent: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
