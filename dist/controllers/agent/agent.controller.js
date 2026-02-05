@@ -307,6 +307,10 @@ exports.default = {
     },
     async createManualRide(req, res) {
         try {
+            const { cityCodeId } = req.body;
+            if (!cityCodeId) {
+                return res.status(400).json({ success: false, message: "cityCodeId is required" });
+            }
             const ride = await agentRideService.createAgentManualRide(req.user.id, req.body);
             res.status(201).json({ success: true, data: ride });
         }

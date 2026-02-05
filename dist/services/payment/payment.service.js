@@ -26,7 +26,8 @@ const createRazorpayOrder = async (rideId) => {
         receipt: `receipt_ride_${ride.id}`,
     };
     try {
-        const order = await razorpay_1.razorpay.orders.create(options);
+        const razorpay = (0, razorpay_1.getRazorpayInstance)();
+        const order = await razorpay.orders.create(options);
         // Update ride with order ID
         await prisma_1.prisma.ride.update({
             where: { id: ride.id },
