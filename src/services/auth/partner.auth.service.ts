@@ -120,6 +120,7 @@ export const loginPartner = async (phone: string, password: string) => {
           vendor: {
             select: {
               id: true,
+              customId: true,
               name: true,
               companyName: true,
             },

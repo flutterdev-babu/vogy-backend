@@ -67,6 +67,7 @@ export const getAgentById = async (agentId: string) => {
       corporates: {
         select: {
           id: true,
+          customId: true,
           companyName: true,
           contactPerson: true,
           phone: true,
@@ -125,6 +126,7 @@ export const registerVendorUnderAgent = async (vendorId: string, agentId: string
       companyName: true,
       phone: true,
       status: true,
+      customId: true,
       agent: {
         select: {
           id: true,
@@ -166,6 +168,7 @@ export const registerCorporateUnderAgent = async (corporateId: string, agentId: 
       contactPerson: true,
       phone: true,
       status: true,
+      customId: true,
       agent: {
         select: {
           id: true,

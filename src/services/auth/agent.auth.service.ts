@@ -166,6 +166,7 @@ export const getAgentVendors = async (agentId: string) => {
       phone: true,
       email: true,
       status: true,
+      customId: true,
       _count: {
         select: {
           vehicles: true,
@@ -190,6 +191,7 @@ export const getAgentCorporates = async (agentId: string) => {
     where: { agentId },
     select: {
       id: true,
+      customId: true,
       companyName: true,
       contactPerson: true,
       phone: true,

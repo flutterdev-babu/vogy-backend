@@ -71,6 +71,7 @@ export const getAllPartners = async (filters?: {
           vendor: {
             select: {
               id: true,
+              customId: true,
               name: true,
               companyName: true,
             },
@@ -113,6 +114,7 @@ export const getPartnerById = async (partnerId: string) => {
           vendor: {
             select: {
               id: true,
+              customId: true,
               name: true,
               companyName: true,
               phone: true,
@@ -158,6 +160,7 @@ export const updatePartnerStatus = async (partnerId: string, status: PartnerStat
       name: true,
       phone: true,
       status: true,
+      customId: true,
       updatedAt: true,
     },
   });
@@ -195,6 +198,7 @@ export const updatePartnerByAdmin = async (
           vendor: {
             select: {
               id: true,
+              customId: true, // ADDED
               name: true,
               companyName: true,
             },
@@ -255,6 +259,7 @@ export const assignPartnerToVehicle = async (partnerId: string, vehicleId: strin
           vendor: {
             select: {
               id: true,
+              customId: true, // ADDED
               name: true,
               companyName: true,
             },
@@ -320,6 +325,7 @@ export const getPartnerRides = async (partnerId: string, filters?: {
       vendor: {
         select: {
           id: true,
+          customId: true,
           name: true,
           companyName: true,
         },
@@ -327,6 +333,7 @@ export const getPartnerRides = async (partnerId: string, filters?: {
       vehicle: {
         select: {
           id: true,
+          customId: true,
           registrationNumber: true,
           vehicleModel: true,
         },

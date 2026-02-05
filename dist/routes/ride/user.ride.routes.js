@@ -12,8 +12,10 @@ const router = (0, express_1.Router)();
 ================================ */
 // All routes require authentication and USER role
 router.use((0, auth_middleware_1.authMiddleware)(["USER"]));
-// Create a new ride request
+// Create a new ride request (instant booking)
 router.post("/new-ride", ride_controller_1.default.createRide);
+// Create a manual/scheduled ride request
+router.post("/manual", ride_controller_1.default.createManualRide);
 // Get all rides for user (optional status filter)
 router.get("/all-rides", ride_controller_1.default.getUserRides);
 // Get a specific ride by ID

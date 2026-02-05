@@ -7,17 +7,19 @@ exports.default = {
     ============================================ */
     createVehicleType: async (req, res) => {
         try {
-            const { name, displayName, pricePerKm } = req.body;
-            if (!name || !displayName || !pricePerKm) {
+            const { category, name, displayName, pricePerKm, baseFare } = req.body;
+            if (!category || !name || !displayName || pricePerKm === undefined) {
                 return res.status(400).json({
                     success: false,
-                    message: "Name, displayName, and pricePerKm are required",
+                    message: "category, name, displayName, and pricePerKm are required",
                 });
             }
             const vehicleType = await (0, admin_service_1.createVehicleType)({
+                category,
                 name,
                 displayName,
                 pricePerKm: parseFloat(pricePerKm),
+                baseFare: baseFare ? parseFloat(baseFare) : undefined,
             });
             return res.status(201).json({
                 success: true,
@@ -68,10 +70,11 @@ exports.default = {
     updateVehicleType: async (req, res) => {
         try {
             const { id } = req.params;
-            const { displayName, pricePerKm, isActive } = req.body;
+            const { displayName, pricePerKm, baseFare, isActive } = req.body;
             const vehicleType = await (0, admin_service_1.updateVehicleType)(id, {
                 displayName,
-                pricePerKm: pricePerKm ? parseFloat(pricePerKm) : undefined,
+                pricePerKm: pricePerKm !== undefined ? parseFloat(pricePerKm) : undefined,
+                baseFare: baseFare !== undefined ? parseFloat(baseFare) : undefined,
                 isActive,
             });
             return res.status(200).json({
@@ -124,14 +127,15 @@ exports.default = {
     },
     updatePricingConfig: async (req, res) => {
         try {
-            const { riderPercentage, appCommission } = req.body;
-            if (!riderPercentage || !appCommission) {
+            const { baseFare, riderPercentage, appCommission } = req.body;
+            if (riderPercentage === undefined || appCommission === undefined) {
                 return res.status(400).json({
                     success: false,
                     message: "Rider percentage and app commission are required",
                 });
             }
             const config = await (0, admin_service_1.updatePricingConfig)({
+                baseFare: baseFare ? parseFloat(baseFare) : undefined,
                 riderPercentage: parseFloat(riderPercentage),
                 appCommission: parseFloat(appCommission),
             });
@@ -153,12 +157,12 @@ exports.default = {
     ============================================ */
     getAllRides: async (req, res) => {
         try {
-            const { status, vehicleType, userId, riderId } = req.query;
+            const { status, vehicleType, userId, partnerId } = req.query;
             const rides = await (0, admin_service_1.getAllRides)({
                 status: status,
                 vehicleType: vehicleType,
                 userId: userId,
-                riderId: riderId,
+                partnerId: partnerId,
             });
             return res.status(200).json({
                 success: true,
@@ -240,6 +244,86 @@ exports.default = {
             return res.status(400).json({
                 success: false,
                 message: error.message || "Failed to update user unique OTP",
+            });
+        }
+    },
+    /* ============================================
+        RIDER MANAGEMENT
+    ============================================ */
+    getAllRiders: async (req, res) => {
+        try {
+            const partners = await (0, admin_service_1.getAllPartners)();
+            return res.status(200).json({
+                success: true,
+                message: "Partners retrieved successfully",
+                data: partners,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to get riders",
+            });
+        }
+    },
+    getRiderById: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const partner = await (0, admin_service_1.getPartnerById)(id);
+            return res.status(200).json({
+                success: true,
+                message: "Partner retrieved successfully",
+                data: partner,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to get rider",
+            });
+        }
+    },
+    /* ============================================
+        SCHEDULED RIDE MANAGEMENT
+    ============================================ */
+    getScheduledRides: async (req, res) => {
+        try {
+            const rides = await (0, admin_service_1.getScheduledRides)();
+            return res.status(200).json({
+                success: true,
+                message: "Scheduled rides retrieved successfully",
+                data: rides,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to get scheduled rides",
+            });
+        }
+    },
+    assignRiderToRide: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { partnerId } = req.body;
+            if (!partnerId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Partner ID is required",
+                });
+            }
+            const adminId = req.user?.id;
+            const ride = await (0, admin_service_1.assignPartnerToRide)(id, partnerId, adminId);
+            return res.status(200).json({
+                success: true,
+                message: "Partner assigned to ride successfully",
+                data: ride,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to assign rider to ride",
             });
         }
     },

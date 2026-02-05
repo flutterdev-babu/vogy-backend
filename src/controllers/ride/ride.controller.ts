@@ -39,6 +39,7 @@ export default {
         dropLng,
         dropAddress,
         distanceKm,
+        cityCodeId, // NEW
       } = req.body;
 
       // Validate required fields
@@ -50,12 +51,13 @@ export default {
         dropLat === undefined ||
         dropLng === undefined ||
         !dropAddress ||
-        distanceKm === undefined
+        distanceKm === undefined ||
+        !cityCodeId // NEW
       ) {
         return res.status(400).json({
           success: false,
           message:
-            "vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, and distanceKm are required",
+            "vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, and cityCodeId are required",
         });
       }
 
@@ -68,6 +70,7 @@ export default {
         dropLng: parseFloat(dropLng),
         dropAddress,
         distanceKm: parseFloat(distanceKm),
+        cityCodeId, // NEW
       });
 
       return res.status(201).json({
@@ -106,6 +109,7 @@ export default {
         distanceKm,
         scheduledDateTime,
         bookingNotes,
+        cityCodeId, // NEW
       } = req.body;
 
       // Validate required fields
@@ -118,12 +122,13 @@ export default {
         dropLng === undefined ||
         !dropAddress ||
         distanceKm === undefined ||
-        !scheduledDateTime
+        !scheduledDateTime ||
+        !cityCodeId // NEW
       ) {
         return res.status(400).json({
           success: false,
           message:
-            "vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, and scheduledDateTime are required",
+            "vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, scheduledDateTime, and cityCodeId are required",
         });
       }
 
@@ -138,6 +143,7 @@ export default {
         distanceKm: parseFloat(distanceKm),
         scheduledDateTime: new Date(scheduledDateTime),
         bookingNotes,
+        cityCodeId, // NEW
       });
 
       return res.status(201).json({

@@ -201,6 +201,7 @@ export const updateCorporateProfile = async (
       agent: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
@@ -223,6 +224,7 @@ export const getCorporateRides = async (corporateId: string) => {
       vendor: {
         select: {
           id: true,
+          customId: true,
           name: true,
           companyName: true,
         },
@@ -230,6 +232,7 @@ export const getCorporateRides = async (corporateId: string) => {
       partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
@@ -237,6 +240,7 @@ export const getCorporateRides = async (corporateId: string) => {
       vehicle: {
         select: {
           id: true,
+          customId: true,
           registrationNumber: true,
           vehicleModel: true,
         },
