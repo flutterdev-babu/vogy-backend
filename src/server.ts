@@ -19,6 +19,8 @@ import corporateRoutes from "./routes/corporate/corporate.routes";
 
 // Public routes
 import cityRoutes from "./routes/public/city.routes";
+import vehicleTypeRoutes from "./routes/public/vehicleType.routes";
+import lookupRoutes from "./routes/public/lookup.routes";
 import paymentRoutes from "./routes/payment/payment.routes";
 
 import { initializeSocket } from "./config/socket";
@@ -80,6 +82,12 @@ app.use("/api/corporate", corporateRoutes);
 
 // City codes (for signup forms - no auth required)
 app.use("/api/city-codes", cityRoutes);
+
+// Vehicle types
+app.use("/api/vehicle-types", vehicleTypeRoutes);
+
+// Lookups for forms
+app.use("/api/lookup", lookupRoutes);
 
 // Payment routes
 app.use("/api/payment", paymentRoutes);

@@ -5,6 +5,7 @@ import * as agentService from "../../services/agent/agent.service";
 import * as agentRideService from "../../services/agent/agent.ride.service";
 import * as vendorAuthService from "../../services/auth/vendor.auth.service";
 import * as corporateAuthService from "../../services/auth/corporate.auth.service";
+import * as partnerAuthService from "../../services/auth/partner.auth.service";
 
 export default {
   /* ============================================
@@ -118,6 +119,15 @@ export default {
       };
       const corporate = await corporateAuthService.registerCorporate(corporateData);
       res.status(201).json({ success: true, data: corporate });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async createPartner(req: AuthedRequest, res: Response) {
+    try {
+      const partner = await partnerAuthService.registerPartner(req.body);
+      res.status(201).json({ success: true, data: partner });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
     }
@@ -273,6 +283,19 @@ export default {
         search: search as string,
       });
       res.json({ success: true, data: partners });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async getAgentVehicles(req: AuthedRequest, res: Response) {
+    try {
+      const { vehicleTypeId, search } = req.query;
+      const vehicles = await agentRideService.getAgentVehicles(req.user.id, {
+        vehicleTypeId: vehicleTypeId as string,
+        search: search as string,
+      });
+      res.json({ success: true, data: vehicles });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
