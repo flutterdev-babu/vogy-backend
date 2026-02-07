@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthedRequest } from "../../middleware/auth.middleware";
 import * as vendorAuthService from "../../services/auth/vendor.auth.service";
 import * as vendorService from "../../services/vendor/vendor.service";
+import * as partnerService from "../../services/partner/partner.service";
 
 export default {
   /* ============================================
@@ -138,6 +139,21 @@ export default {
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async getVendorPartners(req: AuthedRequest, res: Response) {
+    try {
+      const vendorId = req.params.id || req.user.id;
+      const { status, search } = req.query;
+      const partners = await partnerService.getAllPartners({
+        vendorId,
+        status: status as any,
+        search: search as string,
+      });
+      res.json({ success: true, data: partners });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
     }
   },
 };

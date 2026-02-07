@@ -26,6 +26,8 @@ export const registerPartner = async (data: {
   gender?: "MALE" | "FEMALE" | "OTHER";
   localAddress?: string;
   permanentAddress?: string;
+  vendorId?: string;
+  vendorCustomId?: string; // Optional: for linking by custom ID
 }) => {
   // Validate phone number format (E.164)
   validatePhoneNumber(data.phone);
@@ -56,6 +58,16 @@ export const registerPartner = async (data: {
     customId = await generateEntityCustomId(cityCode.code, "PARTNER");
   }
 
+  // Handle Vendor linking
+  let linkedVendorId = data.vendorId || null;
+  if (data.vendorCustomId && !linkedVendorId) {
+    const vendor = await prisma.vendor.findUnique({
+      where: { customId: data.vendorCustomId },
+    });
+    if (!vendor) throw new Error("Invalid vendor custom ID");
+    linkedVendorId = vendor.id;
+  }
+
   // Hash password
   const hashedPassword = await hashPassword(data.password);
 
@@ -79,6 +91,7 @@ export const registerPartner = async (data: {
       gender: data.gender || null,
       localAddress: data.localAddress || null,
       permanentAddress: data.permanentAddress || null,
+      vendorId: linkedVendorId,
     },
     include: {
       cityCode: {
@@ -189,6 +202,14 @@ export const getPartnerProfile = async (partnerId: string) => {
               phone: true,
             },
           },
+        },
+      },
+      vendor: {
+        select: {
+          id: true,
+          customId: true,
+          name: true,
+          companyName: true,
         },
       },
       _count: {

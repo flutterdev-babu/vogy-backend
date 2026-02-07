@@ -26,10 +26,9 @@ router.get("/profile", vendorController.getProfile);
 router.put("/profile", vendorController.updateProfile);
 router.patch("/profile", vendorController.updateProfile);
 
-// Own vehicles
+// Vendor-specific listings (scoped to self)
 router.get("/vehicles", vendorController.getVendorVehicles);
-
-// Own rides
+router.get("/partners", vendorController.getVendorPartners);
 router.get("/rides", vendorController.getVendorRides);
 
 // Analytics

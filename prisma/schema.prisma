@@ -57,6 +57,11 @@ enum CorporateStatus {
   SUSPENDED
 }
 
+enum VendorType {
+  INDIVIDUAL
+  BUSINESS
+}
+
 enum PaymentMode {
   CASH
   CREDIT
@@ -184,6 +189,7 @@ model Vendor {
   address       String?
   profileImage  String?
   status        VendorStatus @default(PENDING)
+  type          VendorType   @default(BUSINESS)
   
   // Additional contact details
   gstNumber        String?
@@ -211,6 +217,9 @@ model Vendor {
   
   // Owned vehicles
   vehicles      Vehicle[]
+  
+  // Partners linked to this vendor
+  partners      Partner[]    @relation("VendorPartners")
   
   // Rides assigned to this vendor
   rides         Ride[]       @relation("VendorRides")
@@ -257,6 +266,10 @@ model Partner {
   // Assigned vehicle from vendor (one partner per vehicle)
   vehicleId      String?       @unique @db.ObjectId
   vehicle        Vehicle?      @relation(fields: [vehicleId], references: [id])
+
+  // Vendor relationship
+  vendorId       String?       @db.ObjectId
+  vendor         Vendor?       @relation("VendorPartners", fields: [vendorId], references: [id])
   
   // Own vehicle details (for partners who have their own vehicle)
   hasOwnVehicle      Boolean      @default(false)

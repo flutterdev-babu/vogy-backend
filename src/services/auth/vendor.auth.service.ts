@@ -33,6 +33,7 @@ export const registerVendor = async (data: {
   bankName?: string;
   ifscCode?: string;
   accountHolderName?: string;
+  type?: "INDIVIDUAL" | "BUSINESS";
 }) => {
   // Validate phone number format (E.164)
   validatePhoneNumber(data.phone);
@@ -99,6 +100,7 @@ export const registerVendor = async (data: {
       bankName: data.bankName || null,
       ifscCode: data.ifscCode || null,
       accountHolderName: data.accountHolderName || null,
+      type: data.type || "BUSINESS",
     },
     include: {
       agent: {
@@ -211,6 +213,15 @@ export const getVendorProfile = async (vendorId: string) => {
               status: true,
             },
           },
+        },
+      },
+      partners: {
+        select: {
+          id: true,
+          customId: true,
+          name: true,
+          phone: true,
+          status: true,
         },
       },
       _count: {

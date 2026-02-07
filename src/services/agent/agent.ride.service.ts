@@ -156,15 +156,8 @@ export const getAgentPartners = async (agentId: string, filters?: {
 
   const vendorIds = vendors.map(v => v.id);
 
-  const vehicles = await prisma.vehicle.findMany({
-    where: { vendorId: { in: vendorIds } },
-    select: { id: true },
-  });
-
-  const vehicleIds = vehicles.map(v => v.id);
-
   const where: any = {
-    vehicleId: { in: vehicleIds },
+    vendorId: { in: vendorIds },
   };
 
   if (filters?.status) {
@@ -211,6 +204,54 @@ export const getAgentPartners = async (agentId: string, filters?: {
   });
 
   return partners;
+};
+
+/* ============================================
+    GET AGENT VEHICLES (Vehicles under agent's vendors)
+============================================ */
+export const getAgentVehicles = async (agentId: string, filters?: {
+  vehicleTypeId?: string;
+  search?: string;
+}) => {
+  const vendors = await prisma.vendor.findMany({
+    where: { agentId },
+    select: { id: true },
+  });
+
+  const vendorIds = vendors.map(v => v.id);
+
+  const where: any = {
+    vendorId: { in: vendorIds },
+  };
+
+  if (filters?.vehicleTypeId) {
+    where.vehicleTypeId = filters.vehicleTypeId;
+  }
+
+  if (filters?.search) {
+    where.OR = [
+      { registrationNumber: { contains: filters.search, mode: "insensitive" } },
+      { vehicleModel: { contains: filters.search, mode: "insensitive" } },
+      { customId: { contains: filters.search, mode: "insensitive" } },
+    ];
+  }
+
+  const vehicles = await prisma.vehicle.findMany({
+    where,
+    include: {
+      vehicleType: true,
+      partner: {
+        select: { id: true, name: true, phone: true, customId: true },
+      },
+      vendor: {
+        select: { id: true, name: true, companyName: true, customId: true },
+      },
+      cityCode: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return vehicles;
 };
 
 /* ============================================

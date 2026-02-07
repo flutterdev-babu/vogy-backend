@@ -46,6 +46,9 @@ router.get("/analytics", agentController.getAgentAnalytics);
 // Create vendor under this agent
 router.post("/vendors", agentController.createVendor);
 
+// Create partner under this agent
+router.post("/partners", agentController.createPartner);
+
 /* ===============================
         CORPORATE MANAGEMENT
 ================================ */
@@ -105,6 +108,9 @@ router.get("/rides/vendor", agentController.getVendorRides);
 
 // Get partners under agent's vendors
 router.get("/partners", agentController.getAgentPartners);
+
+// Get vehicles under agent's vendors
+router.get("/vehicles", agentController.getAgentVehicles);
 
 // Create a manual ride with partner/vehicle assignment
 router.post("/rides/manual", agentController.createManualRide);
