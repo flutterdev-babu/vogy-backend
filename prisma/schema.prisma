@@ -29,6 +29,8 @@ enum RideStatus {
   COMPLETED
   CANCELLED
   CNR
+  INITIATED
+  PENDING
 }
 
 enum AdminRole {
@@ -144,6 +146,10 @@ model CityCode {
   corporates  Corporate[] @relation("CorporateCityCode")
   rides       Ride[]      @relation("RideCityCode")
   
+  // DEPRECATED: Linked Agent (Governance shifting to Admin)
+  agentId     String?     @db.ObjectId
+  agent       Agent?      @relation("AgentCityCodes", fields: [agentId], references: [id])
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -222,6 +228,10 @@ model Vendor {
   // NEW: Attachments
   attachments   Attachment[]
   
+  // DEPRECATED: Linked Agent (Governance shifting to Admin)
+  agentId       String?      @db.ObjectId
+  agent         Agent?       @relation("AgentVendors", fields: [agentId], references: [id])
+
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 }
@@ -340,6 +350,11 @@ model Agent {
   // Rides sourced through this agent (via agentCode)
   rides        Ride[]     @relation("AgentRides")
   
+  // DEPRECATED: Legacy relationships
+  vendors      Vendor[]   @relation("AgentVendors")
+  corporates   Corporate[] @relation("AgentCorporates")
+  cityCodes    CityCode[] @relation("AgentCityCodes")
+
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
@@ -375,6 +390,10 @@ model Corporate {
   // Payment records
   payments      CorporatePayment[]
   
+  // DEPRECATED: Linked Agent (Governance shifting to Admin)
+  agentId       String?         @db.ObjectId
+  agent         Agent?          @relation("AgentCorporates", fields: [agentId], references: [id])
+
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 }
