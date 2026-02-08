@@ -1,6 +1,11 @@
 import { prisma } from "../../config/prisma";
 import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
-import { emitRiderAssigned } from "../socket/socket.service";
+import { emitRiderAssigned, emitManualRideCreated } from "../socket/socket.service";
+import * as vendorAuthService from "../auth/vendor.auth.service";
+import * as partnerAuthService from "../auth/partner.auth.service";
+import { generateEntityCustomId } from "../city/city.service";
+import { validatePhoneNumber } from "../../utils/phoneValidation";
+import { hashPassword } from "../../utils/hash";
 
 /* ============================================
     VEHICLE TYPE MANAGEMENT
@@ -503,5 +508,329 @@ export const getUserById = async (userId: string) => {
   }
 
   return user;
+};
+
+/* ============================================
+    VENDOR MANAGEMENT (Moved to Admin)
+============================================ */
+
+export const getAllVendors = async (search?: string) => {
+  const where: any = {};
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { companyName: { contains: search, mode: "insensitive" } },
+      { phone: { contains: search } },
+    ];
+  }
+
+  return await prisma.vendor.findMany({
+    where,
+    include: {
+      _count: {
+        select: {
+          vehicles: true,
+          partners: true,
+          rides: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+export const getVendorById = async (id: string) => {
+  const vendor = await prisma.vendor.findUnique({
+    where: { id },
+    include: {
+      vehicles: true,
+      partners: true,
+      attachments: {
+        include: {
+          partner: true,
+          vehicle: true,
+        },
+      },
+    },
+  });
+  if (!vendor) throw new Error("Vendor not found");
+  return vendor;
+};
+
+export const updateVendor = async (id: string, data: any) => {
+  return await prisma.vendor.update({
+    where: { id },
+    data,
+  });
+};
+
+/* ============================================
+    CORPORATE MANAGEMENT (Moved to Admin)
+============================================ */
+
+export const getAllCorporates = async (search?: string) => {
+  const where: any = {};
+  if (search) {
+    where.OR = [
+      { companyName: { contains: search, mode: "insensitive" } },
+      { contactPerson: { contains: search, mode: "insensitive" } },
+      { phone: { contains: search } },
+    ];
+  }
+
+  return await prisma.corporate.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+export const getCorporateById = async (id: string) => {
+  const corporate = await prisma.corporate.findUnique({
+    where: { id },
+    include: {
+      rides: true,
+      billings: true,
+      payments: true,
+    },
+  });
+  if (!corporate) throw new Error("Corporate not found");
+  return corporate;
+};
+
+export const updateCorporate = async (id: string, data: any) => {
+  return await prisma.corporate.update({
+    where: { id },
+    data,
+  });
+};
+
+/* ============================================
+    CITY CODE MANAGEMENT (Moved to Admin)
+============================================ */
+
+export const getAllCityCodes = async () => {
+  return await prisma.cityCode.findMany({
+    include: {
+      pricing: {
+        include: {
+          vehicleType: true,
+        },
+      },
+    },
+    orderBy: { cityName: "asc" },
+  });
+};
+
+export const createCityCode = async (data: any) => {
+  return await prisma.cityCode.create({
+    data,
+  });
+};
+
+export const updateCityCode = async (id: string, data: any) => {
+  return await prisma.cityCode.update({
+    where: { id },
+    data,
+  });
+};
+
+/* ============================================
+    ATTACHMENT MANAGEMENT
+============================================ */
+
+export const createAttachment = async (data: {
+  vendorId: string;
+  partnerId: string;
+  vehicleId: string;
+}) => {
+  // Validate basic entities exist
+  const vendor = await prisma.vendor.findUnique({ where: { id: data.vendorId } });
+  const partner = await prisma.partner.findUnique({ where: { id: data.partnerId } });
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: data.vehicleId } });
+
+  if (!vendor || !partner || !vehicle) {
+    throw new Error("Vendor, Partner, or Vehicle not found");
+  }
+
+  // Check if attachment already exists
+  const existing = await prisma.attachment.findFirst({
+    where: {
+      vendorId: data.vendorId,
+      partnerId: data.partnerId,
+      vehicleId: data.vehicleId,
+    },
+  });
+
+  if (existing) {
+    throw new Error("This attachment already exists");
+  }
+
+  // Create attachment
+  const attachment = await prisma.attachment.create({
+    data: {
+      vendorId: data.vendorId,
+      partnerId: data.partnerId,
+      vehicleId: data.vehicleId,
+    },
+    include: {
+      vendor: true,
+      partner: true,
+      vehicle: true,
+    },
+  });
+
+  return attachment;
+};
+
+export const getAllAttachments = async () => {
+  return await prisma.attachment.findMany({
+    include: {
+      vendor: true,
+      partner: true,
+      vehicle: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+export const toggleAttachmentStatus = async (id: string, isActive: boolean) => {
+  return await prisma.attachment.update({
+    where: { id },
+    data: { isActive },
+  });
+};
+
+export const deleteAttachment = async (id: string) => {
+  return await prisma.attachment.delete({
+    where: { id },
+  });
+};
+
+/* ============================================
+    ADMIN ENTITY CREATION
+============================================ */
+
+export const createVendorByAdmin = async (data: any) => {
+  return await vendorAuthService.registerVendor(data);
+};
+
+export const createPartnerByAdmin = async (data: any) => {
+  return await partnerAuthService.registerPartner(data);
+};
+
+export const createManualRideByAdmin = async (
+  adminId: string,
+  data: {
+    userId?: string;
+    userPhone?: string; // If user doesn't exist, we might need to find/create
+    userName?: string;
+    vehicleTypeId: string;
+    pickupLat: number;
+    pickupLng: number;
+    pickupAddress: string;
+    dropLat: number;
+    dropLng: number;
+    dropAddress: string;
+    distanceKm: number;
+    scheduledDateTime: Date;
+    bookingNotes?: string;
+    cityCodeId: string;
+  }
+) => {
+  // 1. Handle User (Find or Create)
+  let user;
+  if (data.userId) {
+    user = await prisma.user.findUnique({ where: { id: data.userId } });
+  } else if (data.userPhone) {
+    user = await prisma.user.findUnique({ where: { phone: data.userPhone } });
+    if (!user) {
+      if (!data.userName) throw new Error("User name is required for new user creation");
+      const uniqueOtp = await generateUnique4DigitOtp();
+      user = await prisma.user.create({
+        data: {
+          name: data.userName,
+          phone: data.userPhone,
+          uniqueOtp,
+        },
+      });
+    }
+  }
+
+  if (!user) throw new Error("User identification failed");
+
+  // 2. Fare Calculation (Similar to ride.service.ts)
+  const vehicleType = await prisma.vehicleType.findUnique({
+    where: { id: data.vehicleTypeId },
+  });
+
+  if (!vehicleType) throw new Error("Vehicle type not found");
+
+  // Check city pricing first
+  const cityPricing = await prisma.cityPricing.findUnique({
+    where: {
+      cityCodeId_vehicleTypeId: {
+        cityCodeId: data.cityCodeId,
+        vehicleTypeId: data.vehicleTypeId,
+      },
+    },
+  });
+
+  let baseFare, perKmPrice, totalFare;
+  if (cityPricing) {
+    baseFare = cityPricing.baseFare;
+    perKmPrice = cityPricing.perKmAfterBase;
+    const billableKm = Math.max(0, data.distanceKm - cityPricing.baseKm);
+    totalFare = baseFare + (billableKm * perKmPrice);
+  } else {
+    // Fallback to global config
+    const pricingConfig = await prisma.pricingConfig.findFirst({
+      where: { isActive: true },
+    });
+    if (!pricingConfig) throw new Error("Pricing configuration not found");
+    baseFare = vehicleType.baseFare || pricingConfig.baseFare;
+    perKmPrice = vehicleType.pricePerKm;
+    totalFare = baseFare + (perKmPrice * data.distanceKm);
+  }
+
+  // 3. Generate Custom ID
+  const cityCodeEntry = await prisma.cityCode.findUnique({
+    where: { id: data.cityCodeId },
+  });
+  if (!cityCodeEntry) throw new Error("Invalid city code ID");
+  const customId = await generateEntityCustomId(cityCodeEntry.code, "RIDE");
+
+  // 4. Create Ride
+  const ride = await prisma.ride.create({
+    data: {
+      userId: user.id,
+      vehicleTypeId: data.vehicleTypeId,
+      pickupLat: data.pickupLat,
+      pickupLng: data.pickupLng,
+      pickupAddress: data.pickupAddress,
+      dropLat: data.dropLat,
+      dropLng: data.dropLng,
+      dropAddress: data.dropAddress,
+      distanceKm: data.distanceKm,
+      baseFare,
+      perKmPrice,
+      totalFare,
+      status: "SCHEDULED",
+      isManualBooking: true,
+      scheduledDateTime: new Date(data.scheduledDateTime),
+      bookingNotes: data.bookingNotes || null,
+      cityCodeId: data.cityCodeId,
+      customId,
+      assignedByAdminId: adminId,
+    },
+    include: {
+      user: true,
+      vehicleType: true,
+    },
+  });
+
+  // 5. Notify
+  emitManualRideCreated(ride);
+
+  return ride;
 };
 

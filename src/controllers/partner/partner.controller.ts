@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthedRequest } from "../../middleware/auth.middleware";
 import * as partnerAuthService from "../../services/auth/partner.auth.service";
 import * as partnerService from "../../services/partner/partner.service";
+import * as adminService from "../../services/admin/admin.service";
 
 export default {
   /* ============================================
@@ -185,6 +186,20 @@ export default {
     try {
       const result = await partnerService.deletePartner(req.params.id);
       res.json({ success: true, data: result });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async createAttachment(req: AuthedRequest, res: Response) {
+    try {
+      const { vendorId, vehicleId } = req.body;
+      const attachment = await adminService.createAttachment({
+        vendorId,
+        partnerId: req.user.id,
+        vehicleId,
+      });
+      res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
     }

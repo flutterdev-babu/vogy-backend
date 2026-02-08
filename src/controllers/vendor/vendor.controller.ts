@@ -3,6 +3,7 @@ import { AuthedRequest } from "../../middleware/auth.middleware";
 import * as vendorAuthService from "../../services/auth/vendor.auth.service";
 import * as vendorService from "../../services/vendor/vendor.service";
 import * as partnerService from "../../services/partner/partner.service";
+import * as adminService from "../../services/admin/admin.service";
 
 export default {
   /* ============================================
@@ -154,6 +155,20 @@ export default {
       res.json({ success: true, data: partners });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async createAttachment(req: AuthedRequest, res: Response) {
+    try {
+      const { partnerId, vehicleId } = req.body;
+      const attachment = await adminService.createAttachment({
+        vendorId: req.user.id,
+        partnerId,
+        vehicleId,
+      });
+      res.status(201).json({ success: true, data: attachment });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
     }
   },
 };

@@ -69,6 +69,19 @@ export const createRide = async (
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
   const commission = (totalFare * pricingConfig.appCommission) / 100;
 
+  // NEW: Handle agentCode if provided
+  let agentId = null;
+  let agentCode = null;
+  if ((data as any).agentCode) {
+    const agent = await prisma.agent.findUnique({
+      where: { agentCode: (data as any).agentCode },
+    });
+    if (agent) {
+      agentId = agent.id;
+      agentCode = agent.agentCode;
+    }
+  }
+
   // Create ride
   const ride = await prisma.ride.create({
     data: {
@@ -86,10 +99,12 @@ export const createRide = async (
       totalFare: totalFare,
       riderEarnings: riderEarnings,
       commission: commission,
-      status: "PENDING",
+      status: "UPCOMING",
       isManualBooking: false,
       cityCodeId: data.cityCodeId,
       customId: customId,
+      agentId: agentId,
+      agentCode: agentCode,
     },
     include: {
       vehicleType: true,
@@ -225,7 +240,7 @@ export const getUserRides = async (userId: string, status?: string) => {
 
   if (status === "FUTURE") {
     where.status = { 
-      in: ["PENDING", "INITIATED", "SCHEDULED", "ACCEPTED", "ARRIVED"] 
+      in: ["UPCOMING", "ASSIGNED", "STARTED", "ARRIVED", "ONGOING", "STOPPED"] 
     };
   } else if (status) {
     where.status = status as any;
@@ -463,7 +478,7 @@ export const getAvailableRides = async (
   // Get pending rides not yet accepted
   const rides = await prisma.ride.findMany({
     where: {
-      status: "PENDING",
+      status: "UPCOMING",
       ...(vehicleTypeId && { vehicleTypeId: vehicleTypeId }),
       partnerId: null, // Only rides not yet accepted
     },
@@ -527,7 +542,7 @@ export const acceptRide = async (rideId: string, partnerId: string) => {
     throw new Error("Ride not found");
   }
 
-  if (ride.status !== "PENDING") {
+  if (ride.status !== "UPCOMING") {
     throw new Error("Ride is not available for acceptance");
   }
 
@@ -544,7 +559,7 @@ export const acceptRide = async (rideId: string, partnerId: string) => {
     data: {
       partnerId: partnerId,
       vehicleId: vehicleId,
-      status: "ACCEPTED",
+      status: "ASSIGNED",
       acceptedAt: new Date(),
     },
     include: {
@@ -643,8 +658,8 @@ export const updateRideStatus = async (
   }
 
   // Validate status transition
-  if (status === "ARRIVED" && ride.status !== "ACCEPTED") {
-    throw new Error("Ride must be accepted before marking as arrived");
+  if (status === "ARRIVED" && ride.status !== "ASSIGNED") {
+    throw new Error("Ride must be assigned before marking as arrived");
   }
 
   if (status === "STARTED" && ride.status !== "ARRIVED") {
