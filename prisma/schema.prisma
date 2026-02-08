@@ -18,14 +18,17 @@ datasource db {
 // ============================================
 
 enum RideStatus {
-  PENDING
-  INITIATED
+  UPCOMING
   SCHEDULED
   ACCEPTED
-  ARRIVED
+  ASSIGNED
   STARTED
+  ARRIVED
+  ONGOING
+  STOPPED
   COMPLETED
   CANCELLED
+  CNR
 }
 
 enum AdminRole {
@@ -131,10 +134,6 @@ model CityCode {
   cityName    String              // e.g., "Bangalore", "Hyderabad"
   isActive    Boolean  @default(true)
   
-  // Agent who manages this city
-  agentId     String   @db.ObjectId
-  agent       Agent    @relation("AgentManagesCityCodes", fields: [agentId], references: [id])
-  
   // Fare pricing for this city (per vehicle type)
   pricing     CityPricing[]
   
@@ -211,10 +210,6 @@ model Vendor {
   cityCodeId    String?      @db.ObjectId
   cityCode      CityCode?    @relation(fields: [cityCodeId], references: [id])
   
-  // Agent relationship
-  agentId       String?      @db.ObjectId
-  agent         Agent?       @relation(fields: [agentId], references: [id])
-  
   // Owned vehicles
   vehicles      Vehicle[]
   
@@ -223,6 +218,9 @@ model Vendor {
   
   // Rides assigned to this vendor
   rides         Ride[]       @relation("VendorRides")
+
+  // NEW: Attachments
+  attachments   Attachment[]
   
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -280,6 +278,9 @@ model Partner {
   
   // Rides driven by this partner
   rides          Ride[]        @relation("PartnerRides")
+
+  // NEW: Attachments
+  attachments    Attachment[]
   
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -318,6 +319,9 @@ model Vehicle {
   
   // Rides using this vehicle
   rides              Ride[]       @relation("VehicleRides")
+
+  // NEW: Attachments
+  attachments        Attachment[]
   
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -326,22 +330,14 @@ model Vehicle {
 model Agent {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
   customId     String?    @unique  // e.g., "ICABLR01"
+  agentCode    String?    @unique  // Code for customers to get discount
   name         String
   phone        String     @unique
   email        String?    @unique
   password     String
   profileImage String?
   
-  // City codes managed by this agent (first one used for ID generation)
-  cityCodes    CityCode[] @relation("AgentManagesCityCodes")
-  
-  // Vendors registered under this agent
-  vendors      Vendor[]
-  
-  // Corporates registered under this agent
-  corporates   Corporate[]
-  
-  // Rides sourced through this agent
+  // Rides sourced through this agent (via agentCode)
   rides        Ride[]     @relation("AgentRides")
   
   createdAt    DateTime   @default(now())
@@ -370,10 +366,6 @@ model Corporate {
   creditUsed    Float           @default(0)
   creditBalance Float           @default(0)
   
-  // Agent relationship
-  agentId       String?         @db.ObjectId
-  agent         Agent?          @relation(fields: [agentId], references: [id])
-  
   // Rides booked by this corporate
   rides         Ride[]          @relation("CorporateRides")
   
@@ -385,6 +377,25 @@ model Corporate {
   
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+}
+
+model Attachment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  customId    String?  @unique
+  
+  vendorId    String   @db.ObjectId
+  partnerId   String   @db.ObjectId
+  vehicleId   String   @db.ObjectId
+  
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  partner     Partner  @relation(fields: [partnerId], references: [id])
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([vendorId, partnerId, vehicleId])
 }
 
 model CorporateBilling {
@@ -444,13 +455,16 @@ model Ride {
   agent         Agent?     @relation("AgentRides", fields: [agentId], references: [id])
   corporate     Corporate? @relation("CorporateRides", fields: [corporateId], references: [id])
 
+  // NEW: Agent Code tracking
+  agentCode     String?
+
   // NEW: City relationship for customId generation
   cityCodeId    String?    @db.ObjectId
   cityCode      CityCode?  @relation("RideCityCode", fields: [cityCodeId], references: [id])
 
   customId      String?    @unique  // e.g., "ICRBLR0001" (10 chars)
 
-  status        RideStatus @default(PENDING)
+  status        RideStatus @default(UPCOMING)
 
   // Location details
   pickupLat     Float

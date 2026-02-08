@@ -40,4 +40,7 @@ router.get("/rides", partnerController.getPartnerRides);
 // Analytics
 router.get("/analytics", partnerController.getPartnerAnalytics);
 
+// Attachments
+router.post("/attachments", partnerController.createAttachment);
+
 export default router;

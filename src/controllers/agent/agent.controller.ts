@@ -74,8 +74,11 @@ export default {
 
   async getAgentRides(req: AuthedRequest, res: Response) {
     try {
-      const agentId = req.params.id || req.user.id;
-      const rides = await agentAuthService.getAgentRides(agentId);
+      const agent = await agentAuthService.getAgentProfile(req.user.id);
+      if (!agent.agentCode) {
+        return res.json({ success: true, data: [], message: "No agent code assigned" });
+      }
+      const rides = await agentService.getAgentRides(agent.agentCode);
       res.json({ success: true, data: rides });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -89,47 +92,6 @@ export default {
       res.json({ success: true, data: analytics });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
-    }
-  },
-
-  /* ============================================
-      VENDOR/CORPORATE CREATION (Agent endpoints)
-  ============================================ */
-
-  async createVendor(req: AuthedRequest, res: Response) {
-    try {
-      // Agent creates vendor with their agentId auto-set
-      const vendorData = {
-        ...req.body,
-        agentId: req.user.id,
-      };
-      const vendor = await vendorAuthService.registerVendor(vendorData);
-      res.status(201).json({ success: true, data: vendor });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
-    }
-  },
-
-  async createCorporate(req: AuthedRequest, res: Response) {
-    try {
-      // Agent creates corporate with their agentId auto-set
-      const corporateData = {
-        ...req.body,
-        agentId: req.user.id,
-      };
-      const corporate = await corporateAuthService.registerCorporate(corporateData);
-      res.status(201).json({ success: true, data: corporate });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
-    }
-  },
-
-  async createPartner(req: AuthedRequest, res: Response) {
-    try {
-      const partner = await partnerAuthService.registerPartner(req.body);
-      res.status(201).json({ success: true, data: partner });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
     }
   },
 
@@ -160,52 +122,6 @@ export default {
     try {
       const agent = await agentService.updateAgentByAdmin(req.params.id, req.body);
       res.json({ success: true, data: agent });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
-    }
-  },
-
-  async registerVendorUnderAgent(req: AuthedRequest, res: Response) {
-    try {
-      const { vendorId } = req.body;
-      if (!vendorId) {
-        return res.status(400).json({ success: false, message: "vendorId is required" });
-      }
-      const vendor = await agentService.registerVendorUnderAgent(vendorId, req.params.id);
-      res.json({ success: true, data: vendor });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
-    }
-  },
-
-  async registerCorporateUnderAgent(req: AuthedRequest, res: Response) {
-    try {
-      const { corporateId } = req.body;
-      if (!corporateId) {
-        return res.status(400).json({ success: false, message: "corporateId is required" });
-      }
-      const corporate = await agentService.registerCorporateUnderAgent(corporateId, req.params.id);
-      res.json({ success: true, data: corporate });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
-    }
-  },
-
-  async unassignVendorFromAgent(req: AuthedRequest, res: Response) {
-    try {
-      const { vendorId } = req.params;
-      const vendor = await agentService.unassignVendorFromAgent(vendorId);
-      res.json({ success: true, data: vendor });
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
-    }
-  },
-
-  async unassignCorporateFromAgent(req: AuthedRequest, res: Response) {
-    try {
-      const { corporateId } = req.params;
-      const corporate = await agentService.unassignCorporateFromAgent(corporateId);
-      res.json({ success: true, data: corporate });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
     }

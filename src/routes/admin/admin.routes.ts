@@ -48,6 +48,7 @@ router.patch("/pricing-config", adminController.updatePricingConfig);
 // ============================================
 // RIDE MANAGEMENT (Legacy)
 // ============================================
+router.post("/rides", adminController.createManualRide);
 router.get("/rides", adminController.getAllRides);
 router.get("/rides/scheduled", adminController.getScheduledRides);
 router.get("/rides/:id", adminController.getRideById);
@@ -71,20 +72,16 @@ router.patch("/users/:id/unique-otp", adminController.updateUserUniqueOtp);
 // ============================================
 // VENDOR MANAGEMENT
 // ============================================
-router.get("/vendors", vendorController.getAllVendors);
-router.get("/vendors/:id", vendorController.getVendorById);
-router.put("/vendors/:id", vendorController.updateVendorByAdmin);
-router.patch("/vendors/:id", vendorController.updateVendorByAdmin);
-router.put("/vendors/:id/status", vendorController.updateVendorStatus);
-router.patch("/vendors/:id/status", vendorController.updateVendorStatus);
-router.get("/vendors/:id/vehicles", vendorController.getVendorVehicles);
-router.get("/vendors/:id/rides", vendorController.getVendorRides);
-router.get("/vendors/:id/analytics", vendorController.getVendorAnalytics);
-router.delete("/vendors/:id", vendorController.deleteVendor);
+router.post("/vendors", adminController.createVendor);
+router.get("/vendors", adminController.getAllVendors);
+router.get("/vendors/:id", adminController.getVendorById);
+router.put("/vendors/:id", adminController.updateVendor);
+router.patch("/vendors/:id", adminController.updateVendor);
 
 // ============================================
 // PARTNER MANAGEMENT
 // ============================================
+router.post("/partners", adminController.createPartner);
 router.get("/partners", partnerController.getAllPartners);
 router.get("/partners/available", partnerController.getAvailablePartners);
 router.get("/partners/:id", partnerController.getPartnerById);
@@ -97,6 +94,14 @@ router.delete("/partners/:id/unassign-vehicle", partnerController.unassignPartne
 router.get("/partners/:id/rides", partnerController.getPartnerRides);
 router.get("/partners/:id/analytics", partnerController.getPartnerAnalytics);
 router.delete("/partners/:id", partnerController.deletePartner);
+
+// ============================================
+// ATTACHMENT MANAGEMENT
+// ============================================
+router.post("/attachments", adminController.createAttachment);
+router.get("/attachments", adminController.getAllAttachments);
+router.put("/attachments/:id/status", adminController.toggleAttachmentStatus);
+router.delete("/attachments/:id", adminController.deleteAttachment);
 
 // ============================================
 // VEHICLE MANAGEMENT
@@ -118,27 +123,15 @@ router.get("/agents", agentController.getAllAgents);
 router.get("/agents/:id", agentController.getAgentById);
 router.put("/agents/:id", agentController.updateAgentByAdmin);
 router.patch("/agents/:id", agentController.updateAgentByAdmin);
-router.get("/agents/:id/vendors", agentController.getAgentVendors);
-router.get("/agents/:id/corporates", agentController.getAgentCorporates);
-router.get("/agents/:id/rides", agentController.getAgentRides);
-router.get("/agents/:id/analytics", agentController.getAgentAnalytics);
-router.post("/agents/:id/assign-vendor", agentController.registerVendorUnderAgent);
-router.post("/agents/:id/assign-corporate", agentController.registerCorporateUnderAgent);
 router.delete("/agents/:id", agentController.deleteAgent);
 
 // ============================================
 // CORPORATE MANAGEMENT
 // ============================================
-router.get("/corporates", corporateController.getAllCorporates);
-router.get("/corporates/:id", corporateController.getCorporateById);
-router.put("/corporates/:id", corporateController.updateCorporateByAdmin);
-router.patch("/corporates/:id", corporateController.updateCorporateByAdmin);
-router.put("/corporates/:id/status", corporateController.updateCorporateStatus);
-router.patch("/corporates/:id/status", corporateController.updateCorporateStatus);
-router.put("/corporates/:id/credit-limit", corporateController.updateCorporateCreditLimit);
-router.patch("/corporates/:id/credit-limit", corporateController.updateCorporateCreditLimit);
-router.get("/corporates/:id/rides", corporateController.getCorporateRides);
-router.get("/corporates/:id/billing", corporateController.getCorporateBillingHistory);
+router.get("/corporates", adminController.getAllCorporates);
+router.get("/corporates/:id", adminController.getCorporateById);
+router.put("/corporates/:id", adminController.updateCorporate);
+router.patch("/corporates/:id", adminController.updateCorporate);
 router.delete("/corporates/:id", corporateController.deleteCorporate);
 
 // ============================================
