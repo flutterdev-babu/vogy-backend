@@ -21,6 +21,9 @@ router.post("/auth/login", partnerController.login);
 // All routes below require PARTNER authentication
 router.use(authMiddleware(["PARTNER"]));
 
+// Dashboard
+router.get("/dashboard", partnerController.getDashboard);
+
 // Profile management
 router.get("/profile", partnerController.getProfile);
 router.put("/profile", partnerController.updateProfile);
@@ -34,8 +37,15 @@ router.patch("/location", partnerController.updateLocation);
 router.put("/online-status", partnerController.toggleOnlineStatus);
 router.patch("/online-status", partnerController.toggleOnlineStatus);
 
-// Own rides
+// Vehicle info
+router.get("/vehicle", partnerController.getVehicleInfo);
+
+// Rides
 router.get("/rides", partnerController.getPartnerRides);
+router.get("/rides/:id", partnerController.getPartnerRideDetail);
+
+// Earnings
+router.get("/earnings", partnerController.getPartnerEarningsSummary);
 
 // Analytics
 router.get("/analytics", partnerController.getPartnerAnalytics);

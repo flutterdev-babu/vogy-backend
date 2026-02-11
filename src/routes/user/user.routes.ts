@@ -18,6 +18,13 @@ router.get("/profile", userController.getProfile);
 router.put("/profile", userController.updateProfile);
 router.patch("/profile", userController.updateProfile);
 
+// Ride summary & active ride
+router.get("/rides/summary", userController.getRideSummary);
+router.get("/rides/active", userController.getActiveRide);
+
+// Spend summary
+router.get("/spend-summary", userController.getSpendSummary);
+
 // Get user unique OTP
 router.get("/unique-otp", userController.getUniqueOtp);
 
@@ -27,4 +34,3 @@ router.put("/unique-otp", userController.updateUniqueOtp);
 router.patch("/unique-otp", userController.updateUniqueOtp);
 
 export default router;
-

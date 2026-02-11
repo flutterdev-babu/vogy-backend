@@ -171,4 +171,45 @@ export default {
       res.status(400).json({ success: false, message: err.message });
     }
   },
+
+  /* ============================================
+      VENDOR DASHBOARD ENDPOINTS
+  ============================================ */
+
+  async getDashboard(req: AuthedRequest, res: Response) {
+    try {
+      const dashboard = await vendorService.getVendorDashboard(req.user.id);
+      res.json({ success: true, data: dashboard });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async getVendorAttachmentsList(req: AuthedRequest, res: Response) {
+    try {
+      const attachments = await vendorService.getVendorAttachments(req.user.id);
+      res.json({ success: true, data: attachments });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async getVendorRideDetail(req: AuthedRequest, res: Response) {
+    try {
+      const ride = await vendorService.getVendorRideById(req.user.id, req.params.id);
+      res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(404).json({ success: false, message: err.message });
+    }
+  },
+
+  async getVendorEarningsSummary(req: AuthedRequest, res: Response) {
+    try {
+      const { period } = req.query;
+      const earnings = await vendorService.getVendorEarnings(req.user.id, period as string);
+      res.json({ success: true, data: earnings });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
 };

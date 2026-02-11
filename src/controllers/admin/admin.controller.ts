@@ -33,6 +33,11 @@ import {
   createVendorByAdmin,
   createPartnerByAdmin,
   createManualRideByAdmin,
+  getAdminDashboard,
+  getRevenueAnalytics,
+  getRideAnalytics,
+  getEntityStatusOverview,
+  getRecentActivity,
 } from "../../services/admin/admin.service";
 
 export default {
@@ -565,6 +570,56 @@ export default {
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      ADMIN DASHBOARD ENDPOINTS
+  ============================================ */
+
+  getDashboard: async (req: AuthedRequest, res: Response) => {
+    try {
+      const dashboard = await getAdminDashboard();
+      res.json({ success: true, data: dashboard });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getRevenueAnalytics: async (req: AuthedRequest, res: Response) => {
+    try {
+      const analytics = await getRevenueAnalytics();
+      res.json({ success: true, data: analytics });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getRideAnalytics: async (req: AuthedRequest, res: Response) => {
+    try {
+      const analytics = await getRideAnalytics();
+      res.json({ success: true, data: analytics });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getEntityStatusOverview: async (req: AuthedRequest, res: Response) => {
+    try {
+      const overview = await getEntityStatusOverview();
+      res.json({ success: true, data: overview });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getRecentActivity: async (req: AuthedRequest, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const activity = await getRecentActivity(limit);
+      res.json({ success: true, data: activity });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
     }
   },
 };

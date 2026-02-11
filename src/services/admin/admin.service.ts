@@ -834,3 +834,272 @@ export const createManualRideByAdmin = async (
   return ride;
 };
 
+/* ============================================
+    ADMIN DASHBOARD (Global overview)
+============================================ */
+export const getAdminDashboard = async () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    totalUsers,
+    totalVendors,
+    totalPartners,
+    totalVehicles,
+    totalRides,
+    totalAgents,
+    totalCorporates,
+    completedRides,
+    activeRides,
+    todayRides,
+    todayNewUsers,
+    revenue,
+    todayRevenue,
+    onlinePartners,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.vendor.count(),
+    prisma.partner.count(),
+    prisma.vehicle.count(),
+    prisma.ride.count(),
+    prisma.agent.count(),
+    prisma.corporate.count(),
+    prisma.ride.count({ where: { status: "COMPLETED" } }),
+    prisma.ride.count({
+      where: {
+        status: { in: ["ACCEPTED", "ASSIGNED", "STARTED", "ARRIVED", "ONGOING"] },
+      },
+    }),
+    prisma.ride.count({ where: { createdAt: { gte: today } } }),
+    prisma.user.count({ where: { createdAt: { gte: today } } }),
+    prisma.ride.aggregate({
+      where: { status: "COMPLETED" },
+      _sum: { totalFare: true, riderEarnings: true, commission: true },
+    }),
+    prisma.ride.aggregate({
+      where: { status: "COMPLETED", createdAt: { gte: today } },
+      _sum: { totalFare: true, commission: true },
+    }),
+    prisma.partner.count({ where: { isOnline: true } }),
+  ]);
+
+  return {
+    entities: {
+      users: totalUsers,
+      vendors: totalVendors,
+      partners: totalPartners,
+      vehicles: totalVehicles,
+      agents: totalAgents,
+      corporates: totalCorporates,
+      onlinePartners,
+    },
+    rides: {
+      total: totalRides,
+      completed: completedRides,
+      active: activeRides,
+      today: todayRides,
+    },
+    revenue: {
+      total: revenue._sum.totalFare || 0,
+      partnerEarnings: revenue._sum.riderEarnings || 0,
+      commission: revenue._sum.commission || 0,
+      todayRevenue: todayRevenue._sum.totalFare || 0,
+      todayCommission: todayRevenue._sum.commission || 0,
+    },
+    todayNewUsers,
+  };
+};
+
+/* ============================================
+    ADMIN REVENUE ANALYTICS
+============================================ */
+export const getRevenueAnalytics = async () => {
+  // By payment mode
+  const byPaymentMode = await prisma.ride.groupBy({
+    by: ["paymentMode"],
+    where: { status: "COMPLETED" },
+    _count: true,
+    _sum: { totalFare: true, commission: true },
+  });
+
+  // Last 30 days daily
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const recentRides = await prisma.ride.findMany({
+    where: {
+      status: "COMPLETED",
+      createdAt: { gte: thirtyDaysAgo },
+    },
+    select: {
+      totalFare: true,
+      commission: true,
+      riderEarnings: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const dailyRevenue: Record<string, { revenue: number; commission: number; rides: number }> = {};
+  recentRides.forEach((ride) => {
+    const dateKey = ride.createdAt.toISOString().split("T")[0];
+    if (!dailyRevenue[dateKey]) {
+      dailyRevenue[dateKey] = { revenue: 0, commission: 0, rides: 0 };
+    }
+    dailyRevenue[dateKey].revenue += ride.totalFare || 0;
+    dailyRevenue[dateKey].commission += ride.commission || 0;
+    dailyRevenue[dateKey].rides += 1;
+  });
+
+  return {
+    byPaymentMode: byPaymentMode.map((pm) => ({
+      mode: pm.paymentMode,
+      count: pm._count,
+      revenue: pm._sum.totalFare || 0,
+      commission: pm._sum.commission || 0,
+    })),
+    dailyRevenue: Object.entries(dailyRevenue).map(([date, data]) => ({
+      date,
+      ...data,
+    })),
+  };
+};
+
+/* ============================================
+    ADMIN RIDE ANALYTICS
+============================================ */
+export const getRideAnalytics = async () => {
+  // Status distribution
+  const statusDistribution = await prisma.ride.groupBy({
+    by: ["status"],
+    _count: true,
+  });
+
+  // By vehicle type
+  const byVehicleType = await prisma.ride.groupBy({
+    by: ["vehicleTypeId"],
+    where: { vehicleTypeId: { not: null } },
+    _count: true,
+    _sum: { totalFare: true },
+  });
+
+  // Fetch vehicle type names
+  const vehicleTypeIds = byVehicleType.map((vt) => vt.vehicleTypeId).filter(Boolean) as string[];
+  const vehicleTypes = await prisma.vehicleType.findMany({
+    where: { id: { in: vehicleTypeIds } },
+    select: { id: true, displayName: true, category: true },
+  });
+
+  const vehicleTypeMap = new Map(vehicleTypes.map((vt) => [vt.id, vt]));
+
+  // Manual vs app bookings
+  const [manualBookings, appBookings] = await Promise.all([
+    prisma.ride.count({ where: { isManualBooking: true } }),
+    prisma.ride.count({ where: { isManualBooking: false } }),
+  ]);
+
+  return {
+    statusDistribution: statusDistribution.map((s) => ({
+      status: s.status,
+      count: s._count,
+    })),
+    byVehicleType: byVehicleType.map((vt) => ({
+      vehicleTypeId: vt.vehicleTypeId,
+      vehicleType: vehicleTypeMap.get(vt.vehicleTypeId || "") || null,
+      count: vt._count,
+      revenue: vt._sum.totalFare || 0,
+    })),
+    bookingType: {
+      manual: manualBookings,
+      app: appBookings,
+    },
+  };
+};
+
+/* ============================================
+    ADMIN ENTITY STATUS OVERVIEW
+============================================ */
+export const getEntityStatusOverview = async () => {
+  const [vendorStatus, partnerStatus, corporateStatus] = await Promise.all([
+    prisma.vendor.groupBy({
+      by: ["status"],
+      _count: true,
+    }),
+    prisma.partner.groupBy({
+      by: ["status"],
+      _count: true,
+    }),
+    prisma.corporate.groupBy({
+      by: ["status"],
+      _count: true,
+    }),
+  ]);
+
+  return {
+    vendors: vendorStatus.map((s) => ({ status: s.status, count: s._count })),
+    partners: partnerStatus.map((s) => ({ status: s.status, count: s._count })),
+    corporates: corporateStatus.map((s) => ({ status: s.status, count: s._count })),
+  };
+};
+
+/* ============================================
+    ADMIN RECENT ACTIVITY
+============================================ */
+export const getRecentActivity = async (limit: number = 20) => {
+  const [recentRides, recentVendors, recentPartners, recentUsers] = await Promise.all([
+    prisma.ride.findMany({
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        customId: true,
+        status: true,
+        totalFare: true,
+        createdAt: true,
+        user: { select: { id: true, name: true } },
+        partner: { select: { id: true, customId: true, name: true } },
+      },
+    }),
+    prisma.vendor.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        customId: true,
+        name: true,
+        companyName: true,
+        status: true,
+        createdAt: true,
+      },
+    }),
+    prisma.partner.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        customId: true,
+        name: true,
+        status: true,
+        createdAt: true,
+      },
+    }),
+    prisma.user.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  return {
+    recentRides,
+    recentVendors,
+    recentPartners,
+    recentUsers,
+  };
+};
+
