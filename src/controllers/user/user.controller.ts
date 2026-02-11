@@ -5,6 +5,9 @@ import {
   updateUserProfile,
   updateUserUniqueOtp,
   getUserUniqueOtp,
+  getUserRideSummary,
+  getActiveRide,
+  getUserSpendSummary,
 } from "../../services/user/user.service";
 import {
   createRide,
@@ -319,6 +322,46 @@ export default {
         success: false,
         message: error.message || "Failed to update unique OTP",
       });
+    }
+  },
+
+  /* ============================================
+      USER DASHBOARD ENDPOINTS
+  ============================================ */
+
+  getRideSummary: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+      const summary = await getUserRideSummary(userId);
+      res.json({ success: true, data: summary });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getActiveRide: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+      const ride = await getActiveRide(userId);
+      res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getSpendSummary: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+      const spending = await getUserSpendSummary(userId);
+      res.json({ success: true, data: spending });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
     }
   },
 };

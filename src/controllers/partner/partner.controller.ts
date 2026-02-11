@@ -204,4 +204,44 @@ export default {
       res.status(400).json({ success: false, message: err.message });
     }
   },
+
+  /* ============================================
+      PARTNER DASHBOARD ENDPOINTS
+  ============================================ */
+
+  async getDashboard(req: AuthedRequest, res: Response) {
+    try {
+      const dashboard = await partnerService.getPartnerDashboard(req.user.id);
+      res.json({ success: true, data: dashboard });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async getVehicleInfo(req: AuthedRequest, res: Response) {
+    try {
+      const vehicleInfo = await partnerService.getPartnerVehicleInfo(req.user.id);
+      res.json({ success: true, data: vehicleInfo });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async getPartnerRideDetail(req: AuthedRequest, res: Response) {
+    try {
+      const ride = await partnerService.getPartnerRideById(req.user.id, req.params.id);
+      res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(404).json({ success: false, message: err.message });
+    }
+  },
+
+  async getPartnerEarningsSummary(req: AuthedRequest, res: Response) {
+    try {
+      const earnings = await partnerService.getPartnerEarnings(req.user.id);
+      res.json({ success: true, data: earnings });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
 };

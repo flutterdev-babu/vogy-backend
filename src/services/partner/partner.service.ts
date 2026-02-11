@@ -478,3 +478,252 @@ export const deletePartner = async (partnerId: string) => {
 
   return { message: "Partner deleted successfully" };
 };
+
+/* ============================================
+    PARTNER DASHBOARD (Partner's own view)
+============================================ */
+export const getPartnerDashboard = async (partnerId: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    totalRides,
+    completedRides,
+    cancelledRides,
+    activeRides,
+    todayRides,
+    earningsData,
+    todayEarnings,
+    partner,
+  ] = await Promise.all([
+    prisma.ride.count({ where: { partnerId } }),
+    prisma.ride.count({ where: { partnerId, status: "COMPLETED" } }),
+    prisma.ride.count({ where: { partnerId, status: "CANCELLED" } }),
+    prisma.ride.count({
+      where: {
+        partnerId,
+        status: { in: ["ACCEPTED", "ASSIGNED", "STARTED", "ARRIVED", "ONGOING"] },
+      },
+    }),
+    prisma.ride.count({
+      where: { partnerId, createdAt: { gte: today } },
+    }),
+    prisma.ride.aggregate({
+      where: { partnerId, status: "COMPLETED" },
+      _sum: { totalFare: true, riderEarnings: true },
+    }),
+    prisma.ride.aggregate({
+      where: { partnerId, status: "COMPLETED", createdAt: { gte: today } },
+      _sum: { riderEarnings: true, totalFare: true },
+    }),
+    prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: {
+        isOnline: true,
+        rating: true,
+        totalEarnings: true,
+        vehicle: {
+          select: {
+            id: true,
+            customId: true,
+            registrationNumber: true,
+            vehicleModel: true,
+            vehicleType: {
+              select: { displayName: true, category: true },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  return {
+    status: {
+      isOnline: partner?.isOnline || false,
+      rating: partner?.rating || 5,
+    },
+    rides: {
+      total: totalRides,
+      completed: completedRides,
+      cancelled: cancelledRides,
+      active: activeRides,
+      today: todayRides,
+      completionRate: totalRides > 0 ? ((completedRides / totalRides) * 100).toFixed(2) : "0",
+    },
+    earnings: {
+      total: partner?.totalEarnings || 0,
+      sessionEarnings: earningsData._sum.riderEarnings || 0,
+      totalFare: earningsData._sum.totalFare || 0,
+      todayEarnings: todayEarnings._sum.riderEarnings || 0,
+      todayFare: todayEarnings._sum.totalFare || 0,
+    },
+    assignedVehicle: partner?.vehicle || null,
+  };
+};
+
+/* ============================================
+    GET PARTNER VEHICLE INFO
+============================================ */
+export const getPartnerVehicleInfo = async (partnerId: string) => {
+  const partner = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    select: {
+      vehicleId: true,
+      hasOwnVehicle: true,
+      ownVehicleNumber: true,
+      ownVehicleModel: true,
+      ownVehicleType: {
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          category: true,
+        },
+      },
+      vehicle: {
+        include: {
+          vendor: {
+            select: {
+              id: true,
+              customId: true,
+              name: true,
+              companyName: true,
+              phone: true,
+            },
+          },
+          vehicleType: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              category: true,
+              pricePerKm: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!partner) throw new Error("Partner not found");
+
+  return {
+    hasOwnVehicle: partner.hasOwnVehicle,
+    ownVehicle: partner.hasOwnVehicle
+      ? {
+          number: partner.ownVehicleNumber,
+          model: partner.ownVehicleModel,
+          vehicleType: partner.ownVehicleType,
+        }
+      : null,
+    assignedVehicle: partner.vehicle || null,
+  };
+};
+
+/* ============================================
+    GET PARTNER RIDE BY ID (Scoped to partner)
+============================================ */
+export const getPartnerRideById = async (partnerId: string, rideId: string) => {
+  const ride = await prisma.ride.findFirst({
+    where: {
+      id: rideId,
+      partnerId: partnerId,
+    },
+    include: {
+      vendor: {
+        select: {
+          id: true,
+          customId: true,
+          name: true,
+          companyName: true,
+        },
+      },
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
+          vehicleModel: true,
+        },
+      },
+      vehicleType: {
+        select: { id: true, name: true, displayName: true, category: true },
+      },
+      user: {
+        select: { id: true, name: true, phone: true },
+      },
+      corporate: {
+        select: { id: true, companyName: true },
+      },
+    },
+  });
+
+  if (!ride) throw new Error("Ride not found or does not belong to this partner");
+  return ride;
+};
+
+/* ============================================
+    GET PARTNER EARNINGS SUMMARY
+============================================ */
+export const getPartnerEarnings = async (partnerId: string) => {
+  // Overall earnings
+  const totalEarnings = await prisma.ride.aggregate({
+    where: { partnerId, status: "COMPLETED" },
+    _sum: { totalFare: true, riderEarnings: true },
+    _count: true,
+  });
+
+  // By payment mode
+  const byPaymentMode = await prisma.ride.groupBy({
+    by: ["paymentMode"],
+    where: { partnerId, status: "COMPLETED" },
+    _count: true,
+    _sum: { riderEarnings: true },
+  });
+
+  // Last 30 days daily breakdown
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const recentRides = await prisma.ride.findMany({
+    where: {
+      partnerId,
+      status: "COMPLETED",
+      createdAt: { gte: thirtyDaysAgo },
+    },
+    select: {
+      totalFare: true,
+      riderEarnings: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // Group by date
+  const dailyBreakdown: Record<string, { earnings: number; rides: number }> = {};
+  recentRides.forEach((ride) => {
+    const dateKey = ride.createdAt.toISOString().split("T")[0];
+    if (!dailyBreakdown[dateKey]) {
+      dailyBreakdown[dateKey] = { earnings: 0, rides: 0 };
+    }
+    dailyBreakdown[dateKey].earnings += ride.riderEarnings || 0;
+    dailyBreakdown[dateKey].rides += 1;
+  });
+
+  return {
+    total: {
+      earnings: totalEarnings._sum.riderEarnings || 0,
+      totalFare: totalEarnings._sum.totalFare || 0,
+      completedRides: totalEarnings._count,
+    },
+    byPaymentMode: byPaymentMode.map((pm) => ({
+      mode: pm.paymentMode,
+      count: pm._count,
+      earnings: pm._sum.riderEarnings || 0,
+    })),
+    dailyBreakdown: Object.entries(dailyBreakdown).map(([date, data]) => ({
+      date,
+      ...data,
+    })),
+  };
+};

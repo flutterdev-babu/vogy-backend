@@ -149,4 +149,14 @@ router.get("/billing/summary/:corporateId", billingController.getBillingSummary)
 router.post("/payments", billingController.recordPayment);
 router.get("/payments", billingController.getPaymentHistory);
 
+// ============================================
+// DASHBOARD & ANALYTICS
+// ============================================
+router.get("/dashboard", adminController.getDashboard);
+router.get("/analytics/revenue", adminController.getRevenueAnalytics);
+router.get("/analytics/rides", adminController.getRideAnalytics);
+router.get("/analytics/entities", adminController.getEntityStatusOverview);
+router.get("/recent-activity", adminController.getRecentActivity);
+
 export default router;
+
