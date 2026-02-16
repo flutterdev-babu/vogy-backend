@@ -17,6 +17,13 @@ export const authMiddleware = (allowedRoles: string[] = []) => {
         return res.status(401).json({ success: false, message: "Invalid token" });
       }
 
+      // --- MOCK USER BYPASS ---
+      if (payload.id === "mock_admin_id_123") {
+        req.user = { id: payload.id, role: payload.role, account: { id: payload.id, name: "Demo Admin", email: "flutterdev.babu@gmail.com", role: "SUPERADMIN" } };
+        return next();
+      }
+      // ------------------------
+
       // fetch user by role
       const role = payload.role as string;
       let account = null;

