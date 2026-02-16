@@ -53,21 +53,29 @@ export const initializeSocket = (server: HttpServer): Server => {
       if (socket.userRole === "USER") {
         socket.join(`user_${socket.userId}`);
         console.log(`👤 User ${socket.userId} joined room: user_${socket.userId}`);
-      } else if (socket.userRole === "RIDER") {
-        socket.join(`rider_${socket.userId}`);
-        console.log(`🏍️ Rider ${socket.userId} joined room: rider_${socket.userId}`);
+      } else if (socket.userRole === "PARTNER" || socket.userRole === "RIDER") {
+        socket.join(`partner_${socket.userId}`);
+        socket.join(`rider_${socket.userId}`); // Keep for backward compatibility
+        console.log(`🏍️ Partner ${socket.userId} joined rooms: partner_${socket.userId}, rider_${socket.userId}`);
       } else if (socket.userRole === "ADMIN") {
         socket.join("admin");
         console.log(`👨‍💼 Admin ${socket.userId} joined room: admin`);
       }
     }
 
-    // Handle rider location updates
+    // Handle partner/rider location updates
     socket.on("location:update", (data: { lat: number; lng: number; rideId?: string }) => {
-      if (socket.userRole === "RIDER" && socket.userId) {
+      if ((socket.userRole === "PARTNER" || socket.userRole === "RIDER") && socket.userId) {
         // If there's an active ride, send location to the user
         if (data.rideId) {
           // Emit to the ride-specific room
+          io?.to(`ride_${data.rideId}`).emit("partner:location", {
+            partnerId: socket.userId,
+            lat: data.lat,
+            lng: data.lng,
+            timestamp: new Date().toISOString(),
+          });
+          // Also emit rider:location for backward compatibility if needed
           io?.to(`ride_${data.rideId}`).emit("rider:location", {
             riderId: socket.userId,
             lat: data.lat,
@@ -78,18 +86,36 @@ export const initializeSocket = (server: HttpServer): Server => {
       }
     });
 
-    // Handle rider going online/offline
-    socket.on("rider:online", () => {
-      if (socket.userRole === "RIDER" && socket.userId) {
-        socket.join("online_riders");
-        console.log(`🟢 Rider ${socket.userId} is now online`);
+    // Handle partner/rider going online/offline
+    socket.on("partner:online", () => {
+      if ((socket.userRole === "PARTNER" || socket.userRole === "RIDER") && socket.userId) {
+        socket.join("online_partners");
+        socket.join("online_riders"); // Keep for backward compatibility
+        console.log(`🟢 Partner ${socket.userId} is now online`);
       }
     });
 
-    socket.on("rider:offline", () => {
-      if (socket.userRole === "RIDER" && socket.userId) {
+    socket.on("rider:online", () => { // Legacy event name
+      if ((socket.userRole === "PARTNER" || socket.userRole === "RIDER") && socket.userId) {
+        socket.join("online_partners");
+        socket.join("online_riders");
+        console.log(`🟢 Partner ${socket.userId} is now online via legacy event`);
+      }
+    });
+
+    socket.on("partner:offline", () => {
+      if ((socket.userRole === "PARTNER" || socket.userRole === "RIDER") && socket.userId) {
+        socket.leave("online_partners");
+        socket.leave("online_riders"); // Keep for backward compatibility
+        console.log(`🔴 Partner ${socket.userId} is now offline`);
+      }
+    });
+
+    socket.on("rider:offline", () => { // Legacy event name
+      if ((socket.userRole === "PARTNER" || socket.userRole === "RIDER") && socket.userId) {
+        socket.leave("online_partners");
         socket.leave("online_riders");
-        console.log(`🔴 Rider ${socket.userId} is now offline`);
+        console.log(`🔴 Partner ${socket.userId} is now offline via legacy event`);
       }
     });
 
@@ -130,13 +156,19 @@ export const emitToUser = (userId: string, event: string, data: any): void => {
 };
 
 /**
- * Emit event to a specific rider
+ * Emit event to a specific partner (renamed from emitToRider)
  */
-export const emitToRider = (riderId: string, event: string, data: any): void => {
+export const emitToPartner = (partnerId: string, event: string, data: any): void => {
   if (io) {
-    io.to(`rider_${riderId}`).emit(event, data);
+    io.to(`partner_${partnerId}`).emit(event, data);
+    io.to(`rider_${partnerId}`).emit(event, data); // Keep for backward compatibility
   }
 };
+
+/**
+ * Backward compatibility alias
+ */
+export const emitToRider = emitToPartner;
 
 /**
  * Emit event to all admins

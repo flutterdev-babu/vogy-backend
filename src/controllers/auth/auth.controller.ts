@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import {
   registerUser,
-  registerRider,
   sendOtp,
   verifyOtp,
   registerAdmin,
@@ -25,21 +24,8 @@ export default {
     }
   },
 
-  /* ============================================
-      REGISTER RIDER
-  ============================================ */
-  registerRider: async (req: Request, res: Response) => {
-    try {
-      const rider = await registerRider(req.body);
-      return res.status(201).json({
-        success: true,
-        message: "Rider registered successfully",
-        data: rider,
-      });
-    } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message });
-    }
-  },
+  // Note: Partner registration is handled via partner.auth.service.ts
+  // The old registerRider function has been removed - use Partner auth instead
 
   /* ============================================
       SEND OTP (Login Step 1)
@@ -95,12 +81,21 @@ export default {
   ============================================ */
   registerAdmin: async (req: Request, res: Response) => {
     try {
-      const { name, email, password, role } = req.body;
+      const { name, email, password, role, secretKey } = req.body;
 
       if (!name || !email || !password) {
         return res.status(400).json({
           success: false,
           message: "Name, email, and password are required",
+        });
+      }
+
+      // Secure registration with secret key
+      const adminSecret = process.env.ADMIN_REGISTRATION_SECRET;
+      if (!secretKey || secretKey !== adminSecret) {
+        return res.status(403).json({
+          success: false,
+          message: "Unauthorized: Invalid administration secret key",
         });
       }
 

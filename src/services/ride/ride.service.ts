@@ -8,6 +8,7 @@ import {
   emitRideCompleted,
   emitRideCancelled,
 } from "../socket/socket.service";
+import { generateEntityCustomId } from "../city/city.service";
 
 /* ============================================
     CREATE RIDE (USER) - Instant Booking
@@ -23,8 +24,20 @@ export const createRide = async (
     dropLng: number;
     dropAddress: string;
     distanceKm: number;
+    cityCodeId: string; // NEW: Required for customId generation
   }
 ) => {
+  // Get city code for ID generation
+  const cityCodeEntry = await prisma.cityCode.findUnique({
+    where: { id: data.cityCodeId },
+  });
+
+  if (!cityCodeEntry) {
+    throw new Error("Invalid city code ID");
+  }
+
+  const customId = await generateEntityCustomId(cityCodeEntry.code, "RIDE");
+
   // Verify vehicle type exists and is active
   const vehicleType = await prisma.vehicleType.findUnique({
     where: { id: data.vehicleTypeId },
@@ -56,6 +69,19 @@ export const createRide = async (
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
   const commission = (totalFare * pricingConfig.appCommission) / 100;
 
+  // NEW: Handle agentCode if provided
+  let agentId = null;
+  let agentCode = null;
+  if ((data as any).agentCode) {
+    const agent = await prisma.agent.findUnique({
+      where: { agentCode: (data as any).agentCode },
+    });
+    if (agent) {
+      agentId = agent.id;
+      agentCode = agent.agentCode;
+    }
+  }
+
   // Create ride
   const ride = await prisma.ride.create({
     data: {
@@ -73,8 +99,12 @@ export const createRide = async (
       totalFare: totalFare,
       riderEarnings: riderEarnings,
       commission: commission,
-      status: "PENDING",
+      status: "UPCOMING",
       isManualBooking: false,
+      cityCodeId: data.cityCodeId,
+      customId: customId,
+      agentId: agentId,
+      agentCode: agentCode,
     },
     include: {
       vehicleType: true,
@@ -110,8 +140,20 @@ export const createManualRide = async (
     distanceKm: number;
     scheduledDateTime: Date;
     bookingNotes?: string;
+    cityCodeId: string; // NEW: Required for customId generation
   }
 ) => {
+  // Get city code for ID generation
+  const cityCodeEntry = await prisma.cityCode.findUnique({
+    where: { id: data.cityCodeId },
+  });
+
+  if (!cityCodeEntry) {
+    throw new Error("Invalid city code ID");
+  }
+
+  const customId = await generateEntityCustomId(cityCodeEntry.code, "RIDE");
+
   // Verify vehicle type exists and is active
   const vehicleType = await prisma.vehicleType.findUnique({
     where: { id: data.vehicleTypeId },
@@ -169,6 +211,8 @@ export const createManualRide = async (
       isManualBooking: true,
       scheduledDateTime: scheduledDate,
       bookingNotes: data.bookingNotes || null,
+      cityCodeId: data.cityCodeId,
+      customId: customId,
     },
     include: {
       vehicleType: true,
@@ -192,21 +236,38 @@ export const createManualRide = async (
     GET USER RIDES
 ============================================ */
 export const getUserRides = async (userId: string, status?: string) => {
+  const where: any = { userId };
+
+  if (status === "FUTURE") {
+    where.status = { 
+      in: ["UPCOMING", "ASSIGNED", "STARTED", "ARRIVED", "ONGOING", "STOPPED"] 
+    };
+  } else if (status) {
+    where.status = status as any;
+  }
+
   const rides = await prisma.ride.findMany({
-    where: {
-      userId: userId,
-      ...(status && { status: status as any }),
-    },
+    where,
     include: {
       vehicleType: true,
-      rider: {
+      partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
           profileImage: true,
           rating: true,
-          vehicleNumber: true,
+          hasOwnVehicle: true,
+          ownVehicleNumber: true,
+          ownVehicleModel: true,
+        },
+      },
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
           vehicleModel: true,
         },
       },
@@ -225,17 +286,27 @@ export const getRideById = async (rideId: string, userId: string) => {
     where: { id: rideId },
     include: {
       vehicleType: true,
-      rider: {
+      partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
           profileImage: true,
           rating: true,
-          vehicleNumber: true,
-          vehicleModel: true,
+          hasOwnVehicle: true,
+          ownVehicleNumber: true,
+          ownVehicleModel: true,
           currentLat: true,
           currentLng: true,
+        },
+      },
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
+          vehicleModel: true,
         },
       },
       user: {
@@ -291,9 +362,10 @@ export const cancelRide = async (rideId: string, userId: string) => {
     },
     include: {
       vehicleType: true,
-      rider: {
+      partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
@@ -301,7 +373,7 @@ export const cancelRide = async (rideId: string, userId: string) => {
     },
   });
 
-  // Emit socket event to notify rider
+  // Emit socket event to notify partner
   emitRideCancelled(updatedRide, "USER");
 
   return updatedRide;
@@ -333,7 +405,7 @@ export const completeRideWithOtp = async (
   const ride = await prisma.ride.findUnique({
     where: { id: rideId },
     include: {
-      rider: true,
+      partner: true,
     },
   });
 
@@ -349,7 +421,7 @@ export const completeRideWithOtp = async (
     throw new Error("Ride must be started before completion");
   }
 
-  // Update ride status and rider earnings
+  // Update ride status and partner earnings
   const updatedRide = await prisma.ride.update({
     where: { id: rideId },
     data: {
@@ -366,9 +438,10 @@ export const completeRideWithOtp = async (
           phone: true,
         },
       },
-      rider: {
+      partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
         },
@@ -376,10 +449,10 @@ export const completeRideWithOtp = async (
     },
   });
 
-  // Update rider's total earnings if rider exists
-  if (ride.riderId && ride.riderEarnings) {
-    await prisma.rider.update({
-      where: { id: ride.riderId },
+  // Update partner's total earnings if partner exists
+  if (ride.partnerId && ride.riderEarnings) {
+    await prisma.partner.update({
+      where: { id: ride.partnerId },
       data: {
         totalEarnings: {
           increment: ride.riderEarnings,
@@ -395,19 +468,19 @@ export const completeRideWithOtp = async (
 };
 
 /* ============================================
-    GET AVAILABLE RIDES FOR RIDER
+    GET AVAILABLE RIDES FOR PARTNER
 ============================================ */
 export const getAvailableRides = async (
-  riderLat: number,
-  riderLng: number,
+  partnerLat: number,
+  partnerLng: number,
   vehicleTypeId?: string
 ) => {
-  // Get online riders with their vehicle types
+  // Get pending rides not yet accepted
   const rides = await prisma.ride.findMany({
     where: {
-      status: "PENDING",
+      status: "UPCOMING",
       ...(vehicleTypeId && { vehicleTypeId: vehicleTypeId }),
-      riderId: null, // Only rides not yet accepted
+      partnerId: null, // Only rides not yet accepted
     },
     include: {
       vehicleType: true,
@@ -427,34 +500,37 @@ export const getAvailableRides = async (
   const nearbyRides = rides
     .map((ride) => {
       const distance = calculateDistance(
-        riderLat,
-        riderLng,
+        partnerLat,
+        partnerLng,
         ride.pickupLat,
         ride.pickupLng
       );
-      return { ...ride, distanceFromRider: distance };
+      return { ...ride, distanceFromPartner: distance };
     })
-    .filter((ride) => ride.distanceFromRider <= 10) // Within 10km
-    .sort((a, b) => a.distanceFromRider - b.distanceFromRider); // Closest first
+    .filter((ride) => ride.distanceFromPartner <= 10) // Within 10km
+    .sort((a, b) => a.distanceFromPartner - b.distanceFromPartner); // Closest first
 
   return nearbyRides;
 };
 
 /* ============================================
-    ACCEPT RIDE (RIDER)
+    ACCEPT RIDE (PARTNER)
 ============================================ */
-export const acceptRide = async (rideId: string, riderId: string) => {
-  // Check if rider is online
-  const rider = await prisma.rider.findUnique({
-    where: { id: riderId },
+export const acceptRide = async (rideId: string, partnerId: string) => {
+  // Check if partner exists and is online
+  const partner = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    include: {
+      vehicle: true,
+    },
   });
 
-  if (!rider) {
-    throw new Error("Rider not found");
+  if (!partner) {
+    throw new Error("Partner not found");
   }
 
-  if (!rider.isOnline) {
-    throw new Error("Rider must be online to accept rides");
+  if (!partner.isOnline) {
+    throw new Error("Partner must be online to accept rides");
   }
 
   // Get ride
@@ -466,20 +542,24 @@ export const acceptRide = async (rideId: string, riderId: string) => {
     throw new Error("Ride not found");
   }
 
-  if (ride.status !== "PENDING") {
+  if (ride.status !== "UPCOMING") {
     throw new Error("Ride is not available for acceptance");
   }
 
-  if (ride.riderId) {
+  if (ride.partnerId) {
     throw new Error("Ride has already been accepted");
   }
+
+  // Determine vehicle to use (partner's assigned vendor vehicle or own vehicle)
+  const vehicleId = partner.vehicleId || null;
 
   // Accept ride
   const updatedRide = await prisma.ride.update({
     where: { id: rideId },
     data: {
-      riderId: riderId,
-      status: "ACCEPTED",
+      partnerId: partnerId,
+      vehicleId: vehicleId,
+      status: "ASSIGNED",
       acceptedAt: new Date(),
     },
     include: {
@@ -492,15 +572,25 @@ export const acceptRide = async (rideId: string, riderId: string) => {
           profileImage: true,
         },
       },
-      rider: {
+      partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
           profileImage: true,
-          vehicleNumber: true,
-          vehicleModel: true,
+          hasOwnVehicle: true,
+          ownVehicleNumber: true,
+          ownVehicleModel: true,
           rating: true,
+        },
+      },
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
+          vehicleModel: true,
         },
       },
     },
@@ -513,12 +603,12 @@ export const acceptRide = async (rideId: string, riderId: string) => {
 };
 
 /* ============================================
-    GET RIDER RIDES
+    GET PARTNER RIDES
 ============================================ */
-export const getRiderRides = async (riderId: string, status?: string) => {
+export const getPartnerRides = async (partnerId: string, status?: string) => {
   const rides = await prisma.ride.findMany({
     where: {
-      riderId: riderId,
+      partnerId: partnerId,
       ...(status && { status: status as any }),
     },
     include: {
@@ -529,7 +619,15 @@ export const getRiderRides = async (riderId: string, status?: string) => {
           name: true,
           phone: true,
           profileImage: true,
-          uniqueOtp: true, // Rider needs to see OTP for completion
+          uniqueOtp: true, // Partner needs to see OTP for completion
+        },
+      },
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
+          vehicleModel: true,
         },
       },
     },
@@ -540,11 +638,11 @@ export const getRiderRides = async (riderId: string, status?: string) => {
 };
 
 /* ============================================
-    UPDATE RIDE STATUS (RIDER)
+    UPDATE RIDE STATUS (PARTNER)
 ============================================ */
 export const updateRideStatus = async (
   rideId: string,
-  riderId: string,
+  partnerId: string,
   status: "ARRIVED" | "STARTED"
 ) => {
   const ride = await prisma.ride.findUnique({
@@ -555,13 +653,13 @@ export const updateRideStatus = async (
     throw new Error("Ride not found");
   }
 
-  if (ride.riderId !== riderId) {
+  if (ride.partnerId !== partnerId) {
     throw new Error("Unauthorized to update this ride");
   }
 
   // Validate status transition
-  if (status === "ARRIVED" && ride.status !== "ACCEPTED") {
-    throw new Error("Ride must be accepted before marking as arrived");
+  if (status === "ARRIVED" && ride.status !== "ASSIGNED") {
+    throw new Error("Ride must be assigned before marking as arrived");
   }
 
   if (status === "STARTED" && ride.status !== "ARRIVED") {
@@ -593,13 +691,23 @@ export const updateRideStatus = async (
           profileImage: true,
         },
       },
-      rider: {
+      partner: {
         select: {
           id: true,
+          customId: true,
           name: true,
           phone: true,
           profileImage: true,
-          vehicleNumber: true,
+          hasOwnVehicle: true,
+          ownVehicleNumber: true,
+          ownVehicleModel: true,
+        },
+      },
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
           vehicleModel: true,
         },
       },

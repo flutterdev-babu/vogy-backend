@@ -13,10 +13,31 @@ import {
   updateUserUniqueOtpByAdmin,
   getAllUsers,
   getUserById,
-  getAllRiders,
-  getRiderById,
+  getAllPartners,
+  getPartnerById,
   getScheduledRides,
-  assignRiderToRide,
+  assignPartnerToRide,
+  getAllVendors,
+  getVendorById,
+  updateVendor,
+  getAllCorporates,
+  getCorporateById,
+  updateCorporate,
+  getAllCityCodes,
+  createCityCode,
+  updateCityCode,
+  createAttachment,
+  getAllAttachments,
+  toggleAttachmentStatus,
+  deleteAttachment,
+  createVendorByAdmin,
+  createPartnerByAdmin,
+  createManualRideByAdmin,
+  getAdminDashboard,
+  getRevenueAnalytics,
+  getRideAnalytics,
+  getEntityStatusOverview,
+  getRecentActivity,
 } from "../../services/admin/admin.service";
 
 export default {
@@ -204,15 +225,32 @@ export default {
       RIDE MANAGEMENT
   ============================================ */
 
+  createManualRide: async (req: AuthedRequest, res: Response) => {
+    try {
+      const adminId = req.user?.id;
+      const ride = await createManualRideByAdmin(adminId, req.body);
+      return res.status(201).json({
+        success: true,
+        message: "Manual ride booked successfully",
+        data: ride,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to create manual booking",
+      });
+    }
+  },
+
   getAllRides: async (req: AuthedRequest, res: Response) => {
     try {
-      const { status, vehicleType, userId, riderId } = req.query;
+      const { status, vehicleType, userId, partnerId } = req.query;
 
       const rides = await getAllRides({
         status: status as string,
         vehicleType: vehicleType as string,
         userId: userId as string,
-        riderId: riderId as string,
+        partnerId: partnerId as string,
       });
 
       return res.status(200).json({
@@ -322,17 +360,26 @@ export default {
   },
 
   /* ============================================
-      RIDER MANAGEMENT
+      RIDER/PARTNER MANAGEMENT
   ============================================ */
+
+  createPartner: async (req: AuthedRequest, res: Response) => {
+    try {
+      const partner = await createPartnerByAdmin(req.body);
+      res.status(201).json({ success: true, message: "Partner created successfully", data: partner });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
 
   getAllRiders: async (req: AuthedRequest, res: Response) => {
     try {
-      const riders = await getAllRiders();
+      const partners = await getAllPartners();
 
       return res.status(200).json({
         success: true,
-        message: "Riders retrieved successfully",
-        data: riders,
+        message: "Partners retrieved successfully",
+        data: partners,
       });
     } catch (error: any) {
       // --- MOCK DATA FALLBACK ---
@@ -353,12 +400,12 @@ export default {
     try {
       const { id } = req.params;
 
-      const rider = await getRiderById(id);
+      const partner = await getPartnerById(id);
 
       return res.status(200).json({
         success: true,
-        message: "Rider retrieved successfully",
-        data: rider,
+        message: "Partner retrieved successfully",
+        data: partner,
       });
     } catch (error: any) {
       return res.status(400).json({
@@ -396,21 +443,21 @@ export default {
   assignRiderToRide: async (req: AuthedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { riderId } = req.body;
+      const { partnerId } = req.body;
 
-      if (!riderId) {
+      if (!partnerId) {
         return res.status(400).json({
           success: false,
-          message: "Rider ID is required",
+          message: "Partner ID is required",
         });
       }
 
       const adminId = req.user?.id;
-      const ride = await assignRiderToRide(id, riderId, adminId);
+      const ride = await assignPartnerToRide(id, partnerId, adminId);
 
       return res.status(200).json({
         success: true,
-        message: "Rider assigned to ride successfully",
+        message: "Partner assigned to ride successfully",
         data: ride,
       });
     } catch (error: any) {
@@ -418,6 +465,201 @@ export default {
         success: false,
         message: error.message || "Failed to assign rider to ride",
       });
+    }
+  },
+
+  /* ============================================
+      VENDOR MANAGEMENT (Admin)
+  ============================================ */
+
+  createVendor: async (req: AuthedRequest, res: Response) => {
+    try {
+      const vendor = await createVendorByAdmin(req.body);
+      res.status(201).json({ success: true, message: "Vendor created successfully", data: vendor });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  getAllVendors: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { search } = req.query;
+      const vendors = await getAllVendors(search as string);
+      res.json({ success: true, data: vendors });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getVendorById: async (req: AuthedRequest, res: Response) => {
+    try {
+      const vendor = await getVendorById(req.params.id);
+      res.json({ success: true, data: vendor });
+    } catch (err: any) {
+      res.status(404).json({ success: false, message: err.message });
+    }
+  },
+
+  updateVendor: async (req: AuthedRequest, res: Response) => {
+    try {
+      const vendor = await updateVendor(req.params.id, req.body);
+      res.json({ success: true, data: vendor });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      CORPORATE MANAGEMENT (Admin)
+  ============================================ */
+
+  getAllCorporates: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { search } = req.query;
+      const corporates = await getAllCorporates(search as string);
+      res.json({ success: true, data: corporates });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getCorporateById: async (req: AuthedRequest, res: Response) => {
+    try {
+      const corporate = await getCorporateById(req.params.id);
+      res.json({ success: true, data: corporate });
+    } catch (err: any) {
+      res.status(404).json({ success: false, message: err.message });
+    }
+  },
+
+  updateCorporate: async (req: AuthedRequest, res: Response) => {
+    try {
+      const corporate = await updateCorporate(req.params.id, req.body);
+      res.json({ success: true, data: corporate });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      CITY CODE MANAGEMENT (Admin)
+  ============================================ */
+
+  getAllCityCodes: async (req: AuthedRequest, res: Response) => {
+    try {
+      const cities = await getAllCityCodes();
+      res.json({ success: true, data: cities });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  createCityCode: async (req: AuthedRequest, res: Response) => {
+    try {
+      const city = await createCityCode(req.body);
+      res.status(201).json({ success: true, data: city });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  updateCityCode: async (req: AuthedRequest, res: Response) => {
+    try {
+      const city = await updateCityCode(req.params.id, req.body);
+      res.json({ success: true, data: city });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      ATTACHMENT MANAGEMENT
+  ============================================ */
+
+  createAttachment: async (req: AuthedRequest, res: Response) => {
+    try {
+      const attachment = await createAttachment(req.body);
+      res.status(201).json({ success: true, data: attachment });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  getAllAttachments: async (req: AuthedRequest, res: Response) => {
+    try {
+      const attachments = await getAllAttachments();
+      res.json({ success: true, data: attachments });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  toggleAttachmentStatus: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { isActive } = req.body;
+      const attachment = await toggleAttachmentStatus(req.params.id, isActive);
+      res.json({ success: true, data: attachment });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  deleteAttachment: async (req: AuthedRequest, res: Response) => {
+    try {
+      const result = await deleteAttachment(req.params.id);
+      res.json({ success: true, data: result });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      ADMIN DASHBOARD ENDPOINTS
+  ============================================ */
+
+  getDashboard: async (req: AuthedRequest, res: Response) => {
+    try {
+      const dashboard = await getAdminDashboard();
+      res.json({ success: true, data: dashboard });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getRevenueAnalytics: async (req: AuthedRequest, res: Response) => {
+    try {
+      const analytics = await getRevenueAnalytics();
+      res.json({ success: true, data: analytics });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getRideAnalytics: async (req: AuthedRequest, res: Response) => {
+    try {
+      const analytics = await getRideAnalytics();
+      res.json({ success: true, data: analytics });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getEntityStatusOverview: async (req: AuthedRequest, res: Response) => {
+    try {
+      const overview = await getEntityStatusOverview();
+      res.json({ success: true, data: overview });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  getRecentActivity: async (req: AuthedRequest, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const activity = await getRecentActivity(limit);
+      res.json({ success: true, data: activity });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
     }
   },
 };

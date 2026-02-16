@@ -1,6 +1,6 @@
 import {
   emitToUser,
-  emitToRider,
+  emitToPartner,
   emitToAdmins,
   emitToOnlineRiders,
   emitToRide,
@@ -12,15 +12,17 @@ import {
 export const RideSocketEvents = {
   // Events for Users
   RIDE_CREATED: "ride:created",
-  RIDE_RIDER_ASSIGNED: "ride:rider_assigned",
+  RIDE_PARTNER_ASSIGNED: "ride:partner_assigned",
+  RIDE_RIDER_ASSIGNED: "ride:rider_assigned", // Legacy
   RIDE_ACCEPTED: "ride:accepted",
   RIDE_ARRIVED: "ride:arrived",
   RIDE_STARTED: "ride:started",
   RIDE_COMPLETED: "ride:completed",
   RIDE_CANCELLED: "ride:cancelled",
-  RIDER_LOCATION: "rider:location",
+  PARTNER_LOCATION: "partner:location",
+  RIDER_LOCATION: "rider:location", // Legacy
 
-  // Events for Riders
+  // Events for Partners
   RIDE_NEW_REQUEST: "ride:new_request",
   RIDE_ASSIGNED: "ride:assigned",
   RIDE_USER_CANCELLED: "ride:user_cancelled",
@@ -42,7 +44,7 @@ export const emitRideCreated = (ride: any): void => {
     });
   }
 
-  // If instant booking, notify online riders
+  // If instant booking, notify online partners
   if (!ride.isManualBooking) {
     emitToOnlineRiders(RideSocketEvents.RIDE_NEW_REQUEST, {
       message: "New ride request available",
@@ -71,20 +73,25 @@ export const emitManualRideCreated = (ride: any): void => {
 };
 
 /**
- * Emit when admin assigns a rider to a scheduled ride
+ * Emit when admin assigns a partner to a scheduled ride
  */
 export const emitRiderAssigned = (ride: any): void => {
   // Notify the user
   if (ride.userId) {
+    // Emit both new and legacy events
+    emitToUser(ride.userId, RideSocketEvents.RIDE_PARTNER_ASSIGNED, {
+      message: "A captain has been assigned to your ride",
+      ride,
+    });
     emitToUser(ride.userId, RideSocketEvents.RIDE_RIDER_ASSIGNED, {
       message: "A captain has been assigned to your ride",
       ride,
     });
   }
 
-  // Notify the assigned rider
-  if (ride.riderId) {
-    emitToRider(ride.riderId, RideSocketEvents.RIDE_ASSIGNED, {
+  // Notify the assigned partner
+  if (ride.partnerId) {
+    emitToPartner(ride.partnerId, RideSocketEvents.RIDE_ASSIGNED, {
       message: "You have been assigned a new ride",
       ride,
     });
@@ -92,7 +99,7 @@ export const emitRiderAssigned = (ride: any): void => {
 };
 
 /**
- * Emit when rider accepts a ride
+ * Emit when partner accepts a ride
  */
 export const emitRideAccepted = (ride: any): void => {
   if (ride.userId) {
@@ -110,7 +117,7 @@ export const emitRideAccepted = (ride: any): void => {
 };
 
 /**
- * Emit when rider arrives at pickup
+ * Emit when partner arrives at pickup
  */
 export const emitRideArrived = (ride: any): void => {
   if (ride.userId) {
@@ -154,8 +161,8 @@ export const emitRideCompleted = (ride: any): void => {
     });
   }
 
-  if (ride.riderId) {
-    emitToRider(ride.riderId, RideSocketEvents.RIDE_COMPLETED, {
+  if (ride.partnerId) {
+    emitToPartner(ride.partnerId, RideSocketEvents.RIDE_COMPLETED, {
       message: "Ride completed successfully",
       ride,
     });
@@ -170,15 +177,15 @@ export const emitRideCompleted = (ride: any): void => {
 /**
  * Emit when ride is cancelled by user
  */
-export const emitRideCancelled = (ride: any, cancelledBy: "USER" | "RIDER"): void => {
-  if (cancelledBy === "USER" && ride.riderId) {
-    emitToRider(ride.riderId, RideSocketEvents.RIDE_USER_CANCELLED, {
+export const emitRideCancelled = (ride: any, cancelledBy: "USER" | "PARTNER" | "RIDER"): void => {
+  if (cancelledBy === "USER" && ride.partnerId) {
+    emitToPartner(ride.partnerId, RideSocketEvents.RIDE_USER_CANCELLED, {
       message: "The user has cancelled the ride",
       ride,
     });
   }
 
-  if (cancelledBy === "RIDER" && ride.userId) {
+  if ((cancelledBy === "PARTNER" || cancelledBy === "RIDER") && ride.userId) {
     emitToUser(ride.userId, RideSocketEvents.RIDE_CANCELLED, {
       message: "The captain has cancelled the ride",
       ride,

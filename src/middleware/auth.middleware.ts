@@ -27,11 +27,40 @@ export const authMiddleware = (allowedRoles: string[] = []) => {
       // fetch user by role
       const role = payload.role as string;
       let account = null;
-      if (role === "USER") account = await prisma.user.findUnique({ where: { id: payload.id } });
-      else if (role === "RIDER") account = await prisma.rider.findUnique({ where: { id: payload.id } });
-      else if (role === "ADMIN") account = await prisma.admin.findUnique({ where: { id: payload.id } });
+      
+      switch (role) {
+        case "USER":
+          account = await prisma.user.findUnique({ where: { id: payload.id } });
+          break;
+        case "RIDER":
+          // RIDER role is now deprecated - treat as PARTNER for backward compatibility
+          account = await prisma.partner.findUnique({ where: { id: payload.id } });
+          break;
+        case "ADMIN":
+          account = await prisma.admin.findUnique({ where: { id: payload.id } });
+          break;
+        case "VENDOR":
+          account = await prisma.vendor.findUnique({ where: { id: payload.id } });
+          break;
+        case "PARTNER":
+          account = await prisma.partner.findUnique({ where: { id: payload.id } });
+          break;
+        case "AGENT":
+          account = await prisma.agent.findUnique({ where: { id: payload.id } });
+          break;
+        case "CORPORATE":
+          account = await prisma.corporate.findUnique({ where: { id: payload.id } });
+          break;
+        default:
+          return res.status(401).json({ success: false, message: "Invalid role" });
+      }
 
       if (!account) return res.status(401).json({ success: false, message: "Account not found" });
+
+      // Check if account is suspended (for entities that have status)
+      if ("status" in account && account.status === "SUSPENDED") {
+        return res.status(403).json({ success: false, message: "Account suspended" });
+      }
 
       // role check
       if (allowedRoles.length && !allowedRoles.includes(role)) {

@@ -79,30 +79,41 @@ router.get("/fare-estimate", async (req, res) => {
       const userLat = parseFloat(pickupLat as string);
       const userLng = parseFloat(pickupLng as string);
 
-      // Get all online riders with their vehicle types
-      const onlineRiders = await prisma.rider.findMany({
+      // Get all online partners with their vehicle types
+      const onlinePartners = await prisma.partner.findMany({
         where: {
           isOnline: true,
           currentLat: { not: null },
           currentLng: { not: null },
-          vehicleTypeId: { not: null },
+          OR: [
+            { ownVehicleTypeId: { not: null } },
+            { vehicle: { isNot: null } }
+          ]
         },
         select: {
           id: true,
-          vehicleTypeId: true,
+          ownVehicleTypeId: true,
           currentLat: true,
           currentLng: true,
+          vehicle: {
+            select: {
+              vehicleTypeId: true
+            }
+          }
         },
       });
 
-      // Filter riders within radius and count by vehicle type
+      // Filter partners within radius and count by vehicle type
       const nearbyVehicleTypeIds = new Set<string>();
-      for (const rider of onlineRiders) {
-        if (rider.currentLat && rider.currentLng && rider.vehicleTypeId) {
-          const dist = calculateDistance(userLat, userLng, rider.currentLat, rider.currentLng);
+      for (const partner of onlinePartners) {
+        if (partner.currentLat && partner.currentLng) {
+          const effectiveVehicleTypeId = partner.ownVehicleTypeId || partner.vehicle?.vehicleTypeId;
+          if (!effectiveVehicleTypeId) continue;
+
+          const dist = calculateDistance(userLat, userLng, partner.currentLat, partner.currentLng);
           if (dist <= radius) {
-            nearbyVehicleTypeIds.add(rider.vehicleTypeId);
-            nearbyRidersCount[rider.vehicleTypeId] = (nearbyRidersCount[rider.vehicleTypeId] || 0) + 1;
+            nearbyVehicleTypeIds.add(effectiveVehicleTypeId);
+            nearbyRidersCount[effectiveVehicleTypeId] = (nearbyRidersCount[effectiveVehicleTypeId] || 0) + 1;
           }
         }
       }
