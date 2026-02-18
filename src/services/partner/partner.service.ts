@@ -43,8 +43,9 @@ export const getAllPartners = async (filters?: {
       phone: true,
       email: true,
       profileImage: true,
-      aadharNumber: true,
       licenseNumber: true,
+      licenseImage: true,
+      hasLicense: true,
       status: true,
       isOnline: true,
       currentLat: true,
@@ -176,9 +177,9 @@ export const updatePartnerByAdmin = async (
   data: {
     name?: string;
     email?: string;
-    aadharNumber?: string;
     licenseNumber?: string;
     licenseImage?: string;
+    hasLicense?: boolean;
     status?: PartnerStatus;
   }
 ) => {
@@ -187,9 +188,9 @@ export const updatePartnerByAdmin = async (
     data: {
       ...(data.name && { name: data.name }),
       ...(data.email !== undefined && { email: data.email }),
-      ...(data.aadharNumber !== undefined && { aadharNumber: data.aadharNumber }),
       ...(data.licenseNumber !== undefined && { licenseNumber: data.licenseNumber }),
       ...(data.licenseImage !== undefined && { licenseImage: data.licenseImage }),
+      ...(data.hasLicense !== undefined && { hasLicense: data.hasLicense }),
       ...(data.status && { status: data.status }),
     },
     include: {
@@ -420,6 +421,11 @@ export const getAvailablePartners = async (vehicleTypeId?: string) => {
     status: "APPROVED",
     isOnline: true,
     vehicleId: { not: null },
+    attachments: {
+      some: {
+        status: "APPROVED",
+      },
+    },
   };
 
   if (vehicleTypeId) {

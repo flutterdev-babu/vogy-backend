@@ -38,6 +38,9 @@ import {
   getRideAnalytics,
   getEntityStatusOverview,
   getRecentActivity,
+  updateRideStatusByAdmin,
+  getRideOtpByAdmin,
+  verifyAttachmentByAdmin,
 } from "../../services/admin/admin.service";
 
 export default {
@@ -290,6 +293,26 @@ export default {
         success: false,
         message: error.message || "Failed to get ride",
       });
+    }
+  },
+
+  updateRideStatus: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const ride = await updateRideStatusByAdmin(id, status);
+      res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  getRideOtp: async (req: AuthedRequest, res: Response) => {
+    try {
+      const otp = await getRideOtpByAdmin(req.params.id);
+      res.json({ success: true, data: { otp } });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
     }
   },
 
@@ -598,6 +621,16 @@ export default {
     try {
       const { isActive } = req.body;
       const attachment = await toggleAttachmentStatus(req.params.id, isActive);
+      res.json({ success: true, data: attachment });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  verifyAttachment: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { status } = req.body;
+      const attachment = await verifyAttachmentByAdmin(req.params.id, status);
       res.json({ success: true, data: attachment });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });

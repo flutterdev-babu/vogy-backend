@@ -10,7 +10,7 @@ export const createVehicle = async (data: {
   vehicleTypeId: string;
   vendorId?: string;
   vendorCustomId?: string; // Optional: lookup vendor by custom ID
-  partnerId?: string;    // Partner optional
+  partnerId?: string;
   partnerCustomId?: string; // Optional: lookup partner by custom ID
   cityCodeId: string;   // City code for ID generation
   // New vehicle details

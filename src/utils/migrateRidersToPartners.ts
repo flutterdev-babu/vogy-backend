@@ -60,9 +60,6 @@ export const migrateRidersToPartners = async (): Promise<void> => {
               email: rider.email,
               password: hashedPassword,
               profileImage: rider.profileImage,
-              aadharNumber: rider.aadharNumber,
-              licenseNumber: rider.licenseNumber,
-              licenseImage: rider.licenseImage,
               
               hasOwnVehicle: true,
               ownVehicleNumber: rider.vehicleNumber,

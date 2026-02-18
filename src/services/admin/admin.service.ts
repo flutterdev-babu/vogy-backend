@@ -285,8 +285,8 @@ export const assignPartnerToRide = async (
     throw new Error("Ride not found");
   }
 
-  if (ride.status !== "SCHEDULED") {
-    throw new Error("Ride is not a scheduled ride or already assigned");
+  if (ride.status !== "SCHEDULED" && ride.status !== "UPCOMING") {
+    throw new Error("Ride is already assigned or in progress");
   }
 
   if (ride.partnerId) {
@@ -384,8 +384,22 @@ export const getAllRides = async (filters?: {
         },
       },
       vehicleType: true,
-      vehicle: true,
-      vendor: true,
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
+          vehicleModel: true,
+        },
+      },
+      vendor: {
+        select: {
+          id: true,
+          customId: true,
+          name: true,
+          companyName: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -415,8 +429,24 @@ export const getRideById = async (id: string) => {
         },
       },
       vehicleType: true,
-      vehicle: true,
-      vendor: true,
+      vehicle: {
+        select: {
+          id: true,
+          customId: true,
+          registrationNumber: true,
+          vehicleModel: true,
+          color: true,
+        },
+      },
+      vendor: {
+        select: {
+          id: true,
+          customId: true,
+          name: true,
+          companyName: true,
+          phone: true,
+        },
+      },
     },
   });
 
@@ -427,9 +457,52 @@ export const getRideById = async (id: string) => {
   return ride;
 };
 
+export const updateRideStatusByAdmin = async (rideId: string, status: any) => {
+  const ride = await prisma.ride.update({
+    where: { id: rideId },
+    data: { status },
+    include: {
+      user: true,
+      partner: true,
+    }
+  });
+  return ride;
+};
+
+export const getRideOtpByAdmin = async (rideId: string) => {
+  const ride = await prisma.ride.findUnique({
+    where: { id: rideId },
+    select: { userOtp: true }
+  });
+  if (!ride) throw new Error("Ride not found");
+  return ride.userOtp;
+};
+
 /* ============================================
-    ADMIN USER MANAGEMENT
+    ATTACHMENT VERIFICATION
 ============================================ */
+
+export const verifyAttachmentByAdmin = async (attachmentId: string, status: "APPROVED" | "REJECTED") => {
+  const attachment = await prisma.attachment.update({
+    where: { id: attachmentId },
+    data: { status },
+    include: {
+      partner: true,
+      vehicle: true,
+    }
+  });
+
+  // If approved, update partner status to APPROVED as well
+  if (status === "APPROVED") {
+    await prisma.partner.update({
+      where: { id: attachment.partnerId },
+      data: { status: "APPROVED" }
+    });
+  }
+
+  return attachment;
+};
+
 
 export const updateUserUniqueOtpByAdmin = async (userId: string) => {
   // Check if user exists
@@ -722,7 +795,7 @@ export const createManualRideByAdmin = async (
   adminId: string,
   data: {
     userId?: string;
-    userPhone?: string; // If user doesn't exist, we might need to find/create
+    userPhone?: string;
     userName?: string;
     vehicleTypeId: string;
     pickupLat: number;
@@ -735,6 +808,11 @@ export const createManualRideByAdmin = async (
     scheduledDateTime: Date;
     bookingNotes?: string;
     cityCodeId: string;
+    agentCode?: string;
+    corporateId?: string;
+    paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
+    rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
+    altMobile?: string;
   }
 ) => {
   // 1. Handle User (Find or Create)
@@ -757,6 +835,17 @@ export const createManualRideByAdmin = async (
   }
 
   if (!user) throw new Error("User identification failed");
+
+  // 1b. Handle Agent Code
+  let agentId = null;
+  if (data.agentCode) {
+    const agent = await prisma.agent.findUnique({
+      where: { agentCode: data.agentCode },
+    });
+    if (agent) {
+      agentId = agent.id;
+    }
+  }
 
   // 2. Fare Calculation (Similar to ride.service.ts)
   const vehicleType = await prisma.vehicleType.findUnique({
@@ -821,6 +910,12 @@ export const createManualRideByAdmin = async (
       cityCodeId: data.cityCodeId,
       customId,
       assignedByAdminId: adminId,
+      agentId,
+      agentCode: data.agentCode || null,
+      corporateId: data.corporateId || null,
+      paymentMode: data.paymentMode || "CASH",
+      rideType: data.rideType || "LOCAL",
+      altMobile: data.altMobile || null,
     },
     include: {
       user: true,

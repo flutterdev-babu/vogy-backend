@@ -81,6 +81,13 @@ enum PaymentStatus {
   PARTIAL
 }
 
+enum RideType {
+  AIRPORT
+  LOCAL
+  OUTSTATION
+  RENTAL
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -93,6 +100,12 @@ enum FuelType {
   CNG
   ELECTRIC
   HYBRID
+}
+
+enum AttachmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 // ============================================
@@ -192,7 +205,6 @@ model Vendor {
   email         String?      @unique
   password      String
   address       String?
-  profileImage  String?
   status        VendorStatus @default(PENDING)
   type          VendorType   @default(BUSINESS)
   
@@ -208,9 +220,6 @@ model Vendor {
   
   // Banking details (for payments)
   accountNumber    String?
-  bankName         String?
-  ifscCode         String?
-  accountHolderName String?
   
   // City code for ID generation
   cityCodeId    String?      @db.ObjectId
@@ -255,10 +264,9 @@ model Partner {
   localAddress   String?       // Current Address
   permanentAddress String?     // Address as on Aadhar Card
   
-  // Documents
-  aadharNumber   String?
   licenseNumber  String?
   licenseImage   String?
+  hasLicense     Boolean       @default(false)
   
   status         PartnerStatus @default(PENDING)
   isOnline       Boolean       @default(false)
@@ -411,6 +419,7 @@ model Attachment {
   vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
   
   isActive    Boolean  @default(true)
+  status      AttachmentStatus @default(PENDING)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -495,6 +504,8 @@ model Ride {
   dropAddress   String
 
   distanceKm    Float
+  rideType      RideType   @default(LOCAL)
+  altMobile     String?
   
   // Pricing details
   baseFare      Float?      // Base fare from pricing config

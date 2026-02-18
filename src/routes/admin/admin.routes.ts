@@ -52,6 +52,8 @@ router.post("/rides", adminController.createManualRide);
 router.get("/rides", adminController.getAllRides);
 router.get("/rides/scheduled", adminController.getScheduledRides);
 router.get("/rides/:id", adminController.getRideById);
+router.patch("/rides/:id/status", adminController.updateRideStatus);
+router.get("/rides/:id/otp", adminController.getRideOtp);
 router.post("/rides/:id/assign-rider", adminController.assignRiderToRide);
 
 // ============================================
@@ -101,6 +103,7 @@ router.delete("/partners/:id", partnerController.deletePartner);
 router.post("/attachments", adminController.createAttachment);
 router.get("/attachments", adminController.getAllAttachments);
 router.put("/attachments/:id/status", adminController.toggleAttachmentStatus);
+router.post("/attachments/:id/verify", adminController.verifyAttachment);
 router.delete("/attachments/:id", adminController.deleteAttachment);
 
 // ============================================
@@ -159,4 +162,3 @@ router.get("/analytics/entities", adminController.getEntityStatusOverview);
 router.get("/recent-activity", adminController.getRecentActivity);
 
 export default router;
-
