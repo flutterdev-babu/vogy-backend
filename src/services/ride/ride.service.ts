@@ -25,6 +25,11 @@ export const createRide = async (
     dropAddress: string;
     distanceKm: number;
     cityCodeId: string; // NEW: Required for customId generation
+    rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
+    altMobile?: string;
+    paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
+    corporateId?: string;
+    agentCode?: string;
   }
 ) => {
   // Get city code for ID generation
@@ -104,7 +109,11 @@ export const createRide = async (
       cityCodeId: data.cityCodeId,
       customId: customId,
       agentId: agentId,
-      agentCode: agentCode,
+      agentCode: agentCode || (data as any).agentCode || null,
+      rideType: data.rideType || "LOCAL",
+      altMobile: data.altMobile || null,
+      paymentMode: data.paymentMode || "CASH",
+      corporateId: data.corporateId || null,
     },
     include: {
       vehicleType: true,
@@ -141,6 +150,11 @@ export const createManualRide = async (
     scheduledDateTime: Date;
     bookingNotes?: string;
     cityCodeId: string; // NEW: Required for customId generation
+    rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
+    altMobile?: string;
+    paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
+    corporateId?: string;
+    agentCode?: string;
   }
 ) => {
   // Get city code for ID generation
@@ -190,6 +204,19 @@ export const createManualRide = async (
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
   const commission = (totalFare * pricingConfig.appCommission) / 100;
 
+  // Handle agentCode if provided
+  let agentId = null;
+  let agentCode = null;
+  if (data.agentCode) {
+    const agent = await prisma.agent.findUnique({
+      where: { agentCode: data.agentCode },
+    });
+    if (agent) {
+      agentId = agent.id;
+      agentCode = agent.agentCode;
+    }
+  }
+
   // Create scheduled ride
   const ride = await prisma.ride.create({
     data: {
@@ -213,6 +240,12 @@ export const createManualRide = async (
       bookingNotes: data.bookingNotes || null,
       cityCodeId: data.cityCodeId,
       customId: customId,
+      agentId: agentId,
+      agentCode: agentCode || data.agentCode || null,
+      rideType: data.rideType || "LOCAL",
+      altMobile: data.altMobile || null,
+      paymentMode: data.paymentMode || "CASH",
+      corporateId: data.corporateId || null,
     },
     include: {
       vehicleType: true,

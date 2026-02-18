@@ -10,27 +10,33 @@ const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
     PARTNER REGISTRATION
 ============================================ */
 export const registerPartner = async (data: {
-  name: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   email?: string;
   password: string;
   profileImage?: string;
-  aadharNumber?: string;
-  licenseNumber?: string;
-  licenseImage?: string;
   cityCodeId?: string;  // For custom ID generation
-  // New personal info fields
-  firstName?: string;
-  lastName?: string;
   dateOfBirth?: string;  // ISO date string
   gender?: "MALE" | "FEMALE" | "OTHER";
   localAddress?: string;
   permanentAddress?: string;
   vendorId?: string;
   vendorCustomId?: string; // Optional: for linking by custom ID
+  licenseNumber?: string;
+  licenseImage?: string;
+  hasLicense: boolean;
 }) => {
   // Validate phone number format (E.164)
   validatePhoneNumber(data.phone);
+
+  // Validate license if hasLicense is true
+  if (data.hasLicense) {
+    if (!data.licenseNumber) throw new Error("License number is required");
+    if (!data.licenseImage) throw new Error("License image is required");
+  } else {
+    throw new Error("Partner must have a valid license to register");
+  }
 
   // Check if partner already exists
   const existsByPhone = await prisma.partner.findUnique({
@@ -75,22 +81,22 @@ export const registerPartner = async (data: {
   const partner = await prisma.partner.create({
     data: {
       customId,
-      name: data.name,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      name: `${data.firstName} ${data.lastName}`,
       phone: data.phone,
       email: data.email || null,
       password: hashedPassword,
       profileImage: data.profileImage || null,
-      aadharNumber: data.aadharNumber || null,
-      licenseNumber: data.licenseNumber || null,
-      licenseImage: data.licenseImage || null,
       cityCodeId: data.cityCodeId || null,
       // New personal info fields
-      firstName: data.firstName || null,
-      lastName: data.lastName || null,
       dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
       gender: data.gender || null,
       localAddress: data.localAddress || null,
       permanentAddress: data.permanentAddress || null,
+      licenseNumber: data.licenseNumber || null,
+      licenseImage: data.licenseImage || null,
+      hasLicense: data.hasLicense,
       vendorId: linkedVendorId,
     },
     include: {
@@ -236,9 +242,6 @@ export const updatePartnerProfile = async (
     name?: string;
     email?: string;
     profileImage?: string;
-    aadharNumber?: string;
-    licenseNumber?: string;
-    licenseImage?: string;
   }
 ) => {
   // Check if email is unique if being updated
@@ -258,9 +261,6 @@ export const updatePartnerProfile = async (
       ...(data.name && { name: data.name }),
       ...(data.email && { email: data.email }),
       ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
-      ...(data.aadharNumber !== undefined && { aadharNumber: data.aadharNumber }),
-      ...(data.licenseNumber !== undefined && { licenseNumber: data.licenseNumber }),
-      ...(data.licenseImage !== undefined && { licenseImage: data.licenseImage }),
     },
     include: {
       vehicle: {

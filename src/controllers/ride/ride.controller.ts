@@ -40,6 +40,11 @@ export default {
         dropAddress,
         distanceKm,
         cityCodeId, // NEW
+        rideType,
+        altMobile,
+        paymentMode,
+        corporateId,
+        agentCode,
       } = req.body;
 
       // Validate required fields
@@ -71,6 +76,11 @@ export default {
         dropAddress,
         distanceKm: parseFloat(distanceKm),
         cityCodeId, // NEW
+        rideType,
+        altMobile,
+        paymentMode,
+        corporateId,
+        agentCode,
       });
 
       return res.status(201).json({
@@ -110,6 +120,11 @@ export default {
         scheduledDateTime,
         bookingNotes,
         cityCodeId, // NEW
+        rideType,
+        altMobile,
+        paymentMode,
+        corporateId,
+        agentCode,
       } = req.body;
 
       // Validate required fields
@@ -144,6 +159,11 @@ export default {
         scheduledDateTime: new Date(scheduledDateTime),
         bookingNotes,
         cityCodeId, // NEW
+        rideType,
+        altMobile,
+        paymentMode,
+        corporateId,
+        agentCode,
       });
 
       return res.status(201).json({

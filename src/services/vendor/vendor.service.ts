@@ -38,7 +38,6 @@ export const getAllVendors = async (filters?: {
       phone: true,
       email: true,
       address: true,
-      profileImage: true,
       status: true,
       agent: {
         select: {
