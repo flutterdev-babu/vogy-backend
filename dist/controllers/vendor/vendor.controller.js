@@ -35,6 +35,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const vendorAuthService = __importStar(require("../../services/auth/vendor.auth.service"));
 const vendorService = __importStar(require("../../services/vendor/vendor.service"));
+const partnerService = __importStar(require("../../services/partner/partner.service"));
+const adminService = __importStar(require("../../services/admin/admin.service"));
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -169,6 +171,75 @@ exports.default = {
         }
         catch (err) {
             res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async getVendorPartners(req, res) {
+        try {
+            const vendorId = req.params.id || req.user.id;
+            const { status, search } = req.query;
+            const partners = await partnerService.getAllPartners({
+                vendorId,
+                status: status,
+                search: search,
+            });
+            res.json({ success: true, data: partners });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async createAttachment(req, res) {
+        try {
+            const { partnerId, vehicleId } = req.body;
+            const attachment = await adminService.createAttachment({
+                vendorId: req.user.id,
+                partnerId,
+                vehicleId,
+            });
+            res.status(201).json({ success: true, data: attachment });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    /* ============================================
+        VENDOR DASHBOARD ENDPOINTS
+    ============================================ */
+    async getDashboard(req, res) {
+        try {
+            const dashboard = await vendorService.getVendorDashboard(req.user.id);
+            res.json({ success: true, data: dashboard });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getVendorAttachmentsList(req, res) {
+        try {
+            const attachments = await vendorService.getVendorAttachments(req.user.id);
+            res.json({ success: true, data: attachments });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getVendorRideDetail(req, res) {
+        try {
+            const ride = await vendorService.getVendorRideById(req.user.id, req.params.id);
+            res.json({ success: true, data: ride });
+        }
+        catch (err) {
+            res.status(404).json({ success: false, message: err.message });
+        }
+    },
+    async getVendorEarningsSummary(req, res) {
+        try {
+            const { period } = req.query;
+            const earnings = await vendorService.getVendorEarnings(req.user.id, period);
+            res.json({ success: true, data: earnings });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
         }
     },
 };

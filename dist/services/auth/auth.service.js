@@ -6,12 +6,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.loginAdmin = exports.registerAdmin = exports.verifyOtp = exports.sendOtp = exports.registerUser = void 0;
 const prisma_1 = require("../../config/prisma");
 const crypto_1 = __importDefault(require("crypto"));
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const twilio_1 = __importDefault(require("twilio"));
 const hash_1 = require("../../utils/hash");
 const generateUniqueOtp_1 = require("../../utils/generateUniqueOtp");
 const phoneValidation_1 = require("../../utils/phoneValidation");
-const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
+const jwt_1 = require("../../utils/jwt");
 const twilioClient = (0, twilio_1.default)(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const TWILIO_PHONE = process.env.TWILIO_PHONE;
 const generateOtp = () => crypto_1.default.randomInt(100000, 999999).toString();
@@ -115,9 +114,7 @@ const verifyOtp = async (role, phone, code) => {
             throw new Error("Partner not found. Please register first.");
     }
     // Generate JWT
-    const token = jsonwebtoken_1.default.sign({ id: user.id, role }, JWT_SECRET, {
-        expiresIn: "7d",
-    });
+    const token = (0, jwt_1.signToken)({ id: user.id, role });
     // Remove OTP after use
     await prisma_1.prisma.otpCode.deleteMany({ where: { phone } });
     return {
@@ -168,9 +165,7 @@ const loginAdmin = async (email, password) => {
     if (!isPasswordValid)
         throw new Error("Invalid email or password");
     // Generate JWT
-    const token = jsonwebtoken_1.default.sign({ id: admin.id, role: "ADMIN" }, JWT_SECRET, {
-        expiresIn: "7d",
-    });
+    const token = (0, jwt_1.signToken)({ id: admin.id, role: "ADMIN" });
     // Remove password from response
     const { password: _, ...adminWithoutPassword } = admin;
     return {

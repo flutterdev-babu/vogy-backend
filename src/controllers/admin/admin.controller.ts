@@ -90,20 +90,10 @@ export default {
         data: vehicleTypes,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock vehicle types due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Vehicle types retrieved (MOCK)",
-        data: [
-          { id: "vt1", name: "BIKE", displayName: "Bike", pricePerKm: 10, isActive: true },
-          { id: "vt2", name: "AUTO", displayName: "Auto", pricePerKm: 15, isActive: true },
-          { id: "vt3", name: "MACRO", displayName: "Macro", pricePerKm: 20, isActive: true },
-          { id: "vt4", name: "MINI", displayName: "Mini", pricePerKm: 25, isActive: true },
-          { id: "vt5", name: "PRIME", displayName: "Prime", pricePerKm: 30, isActive: true },
-        ],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get vehicle types",
       });
-      // --------------------------
     }
   },
 
@@ -183,14 +173,10 @@ export default {
         data: config,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock pricing config due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Pricing config retrieved (MOCK)",
-        data: { baseFare: 20, riderPercentage: 80, appCommission: 20 },
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get pricing config",
       });
-      // --------------------------
     }
   },
 
@@ -262,18 +248,10 @@ export default {
         data: rides,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock rides due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Rides retrieved (MOCK)",
-        data: [
-          { id: "ride1", status: "COMPLETED", totalFare: 250, commission: 50, createdAt: new Date().toISOString(), user: { name: "Alice" }, vehicleType: { displayName: "Sedan" } },
-          { id: "ride2", status: "PENDING", totalFare: 150, commission: 30, createdAt: new Date().toISOString(), user: { name: "Bob" }, vehicleType: { displayName: "Bike" } },
-          { id: "ride3", status: "COMPLETED", totalFare: 500, commission: 100, createdAt: new Date(Date.now() - 86400000).toISOString(), user: { name: "Charlie" }, vehicleType: { displayName: "SUV" } },
-        ],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get rides",
       });
-      // --------------------------
     }
   },
 
@@ -330,17 +308,10 @@ export default {
         data: users,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock users due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Users retrieved (MOCK)",
-        data: [
-          { id: "u1", name: "Alice", phone: "9876543210", email: "alice@example.com" },
-          { id: "u2", name: "Bob", phone: "9876543211", email: "bob@example.com" },
-        ],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get users",
       });
-      // --------------------------
     }
   },
 
@@ -405,17 +376,10 @@ export default {
         data: partners,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock riders due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Riders retrieved (MOCK)",
-        data: [
-          { id: "r1", name: "Rider Mike", phone: "8888888888", isOnline: true },
-          { id: "r2", name: "Rider Sarah", phone: "7777777777", isOnline: false },
-        ],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get riders",
       });
-      // --------------------------
     }
   },
 
@@ -452,14 +416,10 @@ export default {
         data: rides,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock scheduled rides due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Scheduled rides retrieved (MOCK)",
-        data: [],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get scheduled rides",
       });
-      // --------------------------
     }
   },
 

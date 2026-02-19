@@ -20,21 +20,36 @@ const createVehicle = async (data) => {
     });
     if (!vehicleType)
         throw new Error("Invalid vehicle type ID");
-    // Validate vendorId
-    const vendor = await prisma_1.prisma.vendor.findUnique({
-        where: { id: data.vendorId },
-    });
-    if (!vendor)
-        throw new Error("Invalid vendor ID");
-    // Validate partnerId
-    const partner = await prisma_1.prisma.partner.findUnique({
-        where: { id: data.partnerId },
-    });
-    if (!partner)
-        throw new Error("Invalid partner ID");
-    // Check if partner is already assigned to another vehicle
-    if (partner.vehicleId) {
-        throw new Error("Partner is already assigned to another vehicle");
+    // Validate or lookup vendor
+    let linkedVendorId = data.vendorId || null;
+    if (data.vendorCustomId && !linkedVendorId) {
+        const vendor = await prisma_1.prisma.vendor.findUnique({
+            where: { customId: data.vendorCustomId },
+        });
+        if (!vendor)
+            throw new Error("Invalid vendor custom ID");
+        linkedVendorId = vendor.id;
+    }
+    if (!linkedVendorId)
+        throw new Error("Vendor ID or Vendor Custom ID is required");
+    // Validate or lookup partner
+    let linkedPartnerId = data.partnerId || null;
+    if (data.partnerCustomId && !linkedPartnerId) {
+        const partner = await prisma_1.prisma.partner.findUnique({
+            where: { customId: data.partnerCustomId },
+        });
+        if (!partner)
+            throw new Error("Invalid partner custom ID");
+        linkedPartnerId = partner.id;
+    }
+    if (linkedPartnerId) {
+        const partner = await prisma_1.prisma.partner.findUnique({
+            where: { id: linkedPartnerId },
+        });
+        if (!partner)
+            throw new Error("Invalid partner ID");
+        if (partner.vehicleId)
+            throw new Error("Partner is already assigned to another vehicle");
     }
     // Validate cityCodeId
     const cityCode = await prisma_1.prisma.cityCode.findUnique({
@@ -51,7 +66,7 @@ const createVehicle = async (data) => {
             registrationNumber: data.registrationNumber,
             vehicleModel: data.vehicleModel,
             vehicleTypeId: data.vehicleTypeId,
-            vendorId: data.vendorId,
+            vendorId: linkedVendorId,
             cityCodeId: data.cityCodeId,
             // New vehicle details
             color: data.color || null,
@@ -87,14 +102,16 @@ const createVehicle = async (data) => {
             },
         },
     });
-    // Assign partner to this vehicle
-    await prisma_1.prisma.partner.update({
-        where: { id: data.partnerId },
-        data: {
-            vehicleId: vehicle.id,
-            cityCodeId: data.cityCodeId,
-        },
-    });
+    // Assign partner to this vehicle if provided
+    if (linkedPartnerId) {
+        await prisma_1.prisma.partner.update({
+            where: { id: linkedPartnerId },
+            data: {
+                vehicleId: vehicle.id,
+                cityCodeId: data.cityCodeId,
+            },
+        });
+    }
     // Fetch complete vehicle with partner
     const completeVehicle = await (0, exports.getVehicleById)(vehicle.id);
     return completeVehicle;

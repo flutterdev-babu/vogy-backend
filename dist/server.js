@@ -7,6 +7,8 @@ const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
+// Load environment variables before any other imports
+dotenv_1.default.config();
 // Existing routes
 const auth_routes_1 = __importDefault(require("./routes/auth/auth.routes"));
 const admin_routes_1 = __importDefault(require("./routes/admin/admin.routes"));
@@ -21,9 +23,10 @@ const agent_routes_1 = __importDefault(require("./routes/agent/agent.routes"));
 const corporate_routes_1 = __importDefault(require("./routes/corporate/corporate.routes"));
 // Public routes
 const city_routes_1 = __importDefault(require("./routes/public/city.routes"));
+const vehicleType_routes_1 = __importDefault(require("./routes/public/vehicleType.routes"));
+const lookup_routes_1 = __importDefault(require("./routes/public/lookup.routes"));
 const payment_routes_1 = __importDefault(require("./routes/payment/payment.routes"));
 const socket_1 = require("./config/socket");
-dotenv_1.default.config();
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
 // Initialize Socket.IO
@@ -63,6 +66,10 @@ app.use("/api/corporate", corporate_routes_1.default);
 // ============================================
 // City codes (for signup forms - no auth required)
 app.use("/api/city-codes", city_routes_1.default);
+// Vehicle types
+app.use("/api/vehicle-types", vehicleType_routes_1.default);
+// Lookups for forms
+app.use("/api/lookup", lookup_routes_1.default);
 // Payment routes
 app.use("/api/payment", payment_routes_1.default);
 // Health check

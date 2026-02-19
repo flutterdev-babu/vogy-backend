@@ -16,6 +16,16 @@ const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 const registerPartner = async (data) => {
     // Validate phone number format (E.164)
     (0, phoneValidation_1.validatePhoneNumber)(data.phone);
+    // Validate license if hasLicense is true
+    if (data.hasLicense) {
+        if (!data.licenseNumber)
+            throw new Error("License number is required");
+        if (!data.licenseImage)
+            throw new Error("License image is required");
+    }
+    else {
+        throw new Error("Partner must have a valid license to register");
+    }
     // Check if partner already exists
     const existsByPhone = await prisma_1.prisma.partner.findUnique({
         where: { phone: data.phone },
@@ -40,28 +50,39 @@ const registerPartner = async (data) => {
             throw new Error("Invalid city code ID");
         customId = await (0, city_service_1.generateEntityCustomId)(cityCode.code, "PARTNER");
     }
+    // Handle Vendor linking
+    let linkedVendorId = data.vendorId || null;
+    if (data.vendorCustomId && !linkedVendorId) {
+        const vendor = await prisma_1.prisma.vendor.findUnique({
+            where: { customId: data.vendorCustomId },
+        });
+        if (!vendor)
+            throw new Error("Invalid vendor custom ID");
+        linkedVendorId = vendor.id;
+    }
     // Hash password
     const hashedPassword = await (0, hash_1.hashPassword)(data.password);
     // Create partner
     const partner = await prisma_1.prisma.partner.create({
         data: {
             customId,
-            name: data.name,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            name: `${data.firstName} ${data.lastName}`,
             phone: data.phone,
             email: data.email || null,
             password: hashedPassword,
             profileImage: data.profileImage || null,
-            aadharNumber: data.aadharNumber || null,
-            licenseNumber: data.licenseNumber || null,
-            licenseImage: data.licenseImage || null,
             cityCodeId: data.cityCodeId || null,
             // New personal info fields
-            firstName: data.firstName || null,
-            lastName: data.lastName || null,
             dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
             gender: data.gender || null,
             localAddress: data.localAddress || null,
             permanentAddress: data.permanentAddress || null,
+            licenseNumber: data.licenseNumber || null,
+            licenseImage: data.licenseImage || null,
+            hasLicense: data.hasLicense,
+            vendorId: linkedVendorId,
         },
         include: {
             cityCode: {
@@ -168,6 +189,14 @@ const getPartnerProfile = async (partnerId) => {
                     },
                 },
             },
+            vendor: {
+                select: {
+                    id: true,
+                    customId: true,
+                    name: true,
+                    companyName: true,
+                },
+            },
             _count: {
                 select: {
                     rides: true,
@@ -203,9 +232,6 @@ const updatePartnerProfile = async (partnerId, data) => {
             ...(data.name && { name: data.name }),
             ...(data.email && { email: data.email }),
             ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
-            ...(data.aadharNumber !== undefined && { aadharNumber: data.aadharNumber }),
-            ...(data.licenseNumber !== undefined && { licenseNumber: data.licenseNumber }),
-            ...(data.licenseImage !== undefined && { licenseImage: data.licenseImage }),
         },
         include: {
             vehicle: {

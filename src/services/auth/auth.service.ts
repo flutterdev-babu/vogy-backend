@@ -1,12 +1,10 @@
 import { prisma } from "../../config/prisma";
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
 import twilio from "twilio";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
 import { validatePhoneNumber } from "../../utils/phoneValidation";
-
-const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
+import { signToken } from "../../utils/jwt";
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID!,
@@ -133,9 +131,7 @@ export const verifyOtp = async (
   }
 
   // Generate JWT
-  const token = jwt.sign({ id: user.id, role }, JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  const token = signToken({ id: user.id, role });
 
   // Remove OTP after use
   await prisma.otpCode.deleteMany({ where: { phone } });
@@ -186,28 +182,6 @@ export const registerAdmin = async (data: {
     ADMIN LOGIN
 ============================================ */
 export const loginAdmin = async (email: string, password: string) => {
-  // --- MOCK LOGIN START ---
-  if (email === "flutterdev.babu@gmail.com") {
-    console.log("⚠️ USING MOCK ADMIN LOGIN");
-    const mockId = "mock_admin_id_123";
-    const token = jwt.sign({ id: mockId, role: "ADMIN" }, JWT_SECRET, {
-      expiresIn: "7d",
-    });
-
-    return {
-      message: "Login successful",
-      token,
-      admin: {
-        id: mockId,
-        name: "Demo Admin",
-        email: email,
-        role: "SUPERADMIN",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    };
-  }
-  // --- MOCK LOGIN END ---
   // Find admin by email
   const admin = await prisma.admin.findUnique({
     where: { email },
@@ -221,9 +195,7 @@ export const loginAdmin = async (email: string, password: string) => {
   if (!isPasswordValid) throw new Error("Invalid email or password");
 
   // Generate JWT
-  const token = jwt.sign({ id: admin.id, role: "ADMIN" }, JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  const token = signToken({ id: admin.id, role: "ADMIN" });
 
   // Remove password from response
   const { password: _, ...adminWithoutPassword } = admin;
