@@ -4,6 +4,7 @@ import * as vendorAuthService from "../../services/auth/vendor.auth.service";
 import * as vendorService from "../../services/vendor/vendor.service";
 import * as partnerService from "../../services/partner/partner.service";
 import * as adminService from "../../services/admin/admin.service";
+import { prisma } from "../../config/prisma";
 
 export default {
   /* ============================================
@@ -160,11 +161,18 @@ export default {
 
   async createAttachment(req: AuthedRequest, res: Response) {
     try {
-      const { partnerId, vehicleId } = req.body;
+      const { partnerCustomId, vehicleCustomId } = req.body;
+
+      // Lookup vendor's own customId
+      const vendor = await prisma.vendor.findUnique({
+        where: { id: req.user.id }
+      });
+      if (!vendor) throw new Error("Vendor not found");
+
       const attachment = await adminService.createAttachment({
-        vendorId: req.user.id,
-        partnerId,
-        vehicleId,
+        vendorCustomId: vendor.customId!,
+        partnerCustomId,
+        vehicleCustomId,
       });
       res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {

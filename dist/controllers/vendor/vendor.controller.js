@@ -37,6 +37,7 @@ const vendorAuthService = __importStar(require("../../services/auth/vendor.auth.
 const vendorService = __importStar(require("../../services/vendor/vendor.service"));
 const partnerService = __importStar(require("../../services/partner/partner.service"));
 const adminService = __importStar(require("../../services/admin/admin.service"));
+const prisma_1 = require("../../config/prisma");
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -190,11 +191,17 @@ exports.default = {
     },
     async createAttachment(req, res) {
         try {
-            const { partnerId, vehicleId } = req.body;
+            const { partnerCustomId, vehicleCustomId } = req.body;
+            // Lookup vendor's own customId
+            const vendor = await prisma_1.prisma.vendor.findUnique({
+                where: { id: req.user.id }
+            });
+            if (!vendor)
+                throw new Error("Vendor not found");
             const attachment = await adminService.createAttachment({
-                vendorId: req.user.id,
-                partnerId,
-                vehicleId,
+                vendorCustomId: vendor.customId,
+                partnerCustomId,
+                vehicleCustomId,
             });
             res.status(201).json({ success: true, data: attachment });
         }

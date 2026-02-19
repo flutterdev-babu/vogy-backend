@@ -21,7 +21,7 @@ const createVehicle = async (data) => {
     if (!vehicleType)
         throw new Error("Invalid vehicle type ID");
     // Validate or lookup vendor
-    let linkedVendorId = data.vendorId || null;
+    let linkedVendorId = data.vendorId || undefined;
     if (data.vendorCustomId && !linkedVendorId) {
         const vendor = await prisma_1.prisma.vendor.findUnique({
             where: { customId: data.vendorCustomId },
@@ -30,8 +30,6 @@ const createVehicle = async (data) => {
             throw new Error("Invalid vendor custom ID");
         linkedVendorId = vendor.id;
     }
-    if (!linkedVendorId)
-        throw new Error("Vendor ID or Vendor Custom ID is required");
     // Validate or lookup partner
     let linkedPartnerId = data.partnerId || null;
     if (data.partnerCustomId && !linkedPartnerId) {

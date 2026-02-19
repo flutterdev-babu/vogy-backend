@@ -479,7 +479,12 @@ exports.default = {
     ============================================ */
     createAttachment: async (req, res) => {
         try {
-            const attachment = await (0, admin_service_1.createAttachment)(req.body);
+            const { vendorCustomId, partnerCustomId, vehicleCustomId } = req.body;
+            const attachment = await (0, admin_service_1.createAttachment)({
+                vendorCustomId,
+                partnerCustomId,
+                vehicleCustomId,
+            });
             res.status(201).json({ success: true, data: attachment });
         }
         catch (err) {
