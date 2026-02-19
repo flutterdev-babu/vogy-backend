@@ -107,6 +107,14 @@ router.post("/attachments/:id/verify", adminController.verifyAttachment);
 router.delete("/attachments/:id", adminController.deleteAttachment);
 
 // ============================================
+// CITY CODE MANAGEMENT
+// ============================================
+router.get("/city-codes", adminController.getAllCityCodes);
+router.post("/city-codes", adminController.createCityCode);
+router.put("/city-codes/:id", adminController.updateCityCode);
+router.patch("/city-codes/:id", adminController.updateCityCode);
+
+// ============================================
 // VEHICLE MANAGEMENT
 // ============================================
 router.post("/vehicles", vehicleController.createVehicle);

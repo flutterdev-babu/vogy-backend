@@ -19,14 +19,21 @@ router.post("/auth/login", vendor_controller_1.default.login);
 ================================ */
 // All routes below require VENDOR authentication
 router.use((0, auth_middleware_1.authMiddleware)(["VENDOR"]));
+// Dashboard
+router.get("/dashboard", vendor_controller_1.default.getDashboard);
 // Profile management
 router.get("/profile", vendor_controller_1.default.getProfile);
 router.put("/profile", vendor_controller_1.default.updateProfile);
 router.patch("/profile", vendor_controller_1.default.updateProfile);
-// Own vehicles
+// Vendor-specific listings (scoped to self)
 router.get("/vehicles", vendor_controller_1.default.getVendorVehicles);
-// Own rides
+router.get("/partners", vendor_controller_1.default.getVendorPartners);
+router.get("/attachments", vendor_controller_1.default.getVendorAttachmentsList);
+// Rides
 router.get("/rides", vendor_controller_1.default.getVendorRides);
+router.get("/rides/:id", vendor_controller_1.default.getVendorRideDetail);
+// Earnings
+router.get("/earnings", vendor_controller_1.default.getVendorEarningsSummary);
 // Analytics
 router.get("/analytics", vendor_controller_1.default.getVendorAnalytics);
 exports.default = router;

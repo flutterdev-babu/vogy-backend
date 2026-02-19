@@ -36,8 +36,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const agentAuthService = __importStar(require("../../services/auth/agent.auth.service"));
 const agentService = __importStar(require("../../services/agent/agent.service"));
 const agentRideService = __importStar(require("../../services/agent/agent.ride.service"));
-const vendorAuthService = __importStar(require("../../services/auth/vendor.auth.service"));
-const corporateAuthService = __importStar(require("../../services/auth/corporate.auth.service"));
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -104,8 +102,11 @@ exports.default = {
     },
     async getAgentRides(req, res) {
         try {
-            const agentId = req.params.id || req.user.id;
-            const rides = await agentAuthService.getAgentRides(agentId);
+            const agent = await agentAuthService.getAgentProfile(req.user.id);
+            if (!agent.agentCode) {
+                return res.json({ success: true, data: [], message: "No agent code assigned" });
+            }
+            const rides = await agentService.getAgentRides(agent.agentCode);
             res.json({ success: true, data: rides });
         }
         catch (err) {
@@ -120,37 +121,6 @@ exports.default = {
         }
         catch (err) {
             res.status(500).json({ success: false, message: err.message });
-        }
-    },
-    /* ============================================
-        VENDOR/CORPORATE CREATION (Agent endpoints)
-    ============================================ */
-    async createVendor(req, res) {
-        try {
-            // Agent creates vendor with their agentId auto-set
-            const vendorData = {
-                ...req.body,
-                agentId: req.user.id,
-            };
-            const vendor = await vendorAuthService.registerVendor(vendorData);
-            res.status(201).json({ success: true, data: vendor });
-        }
-        catch (err) {
-            res.status(400).json({ success: false, message: err.message });
-        }
-    },
-    async createCorporate(req, res) {
-        try {
-            // Agent creates corporate with their agentId auto-set
-            const corporateData = {
-                ...req.body,
-                agentId: req.user.id,
-            };
-            const corporate = await corporateAuthService.registerCorporate(corporateData);
-            res.status(201).json({ success: true, data: corporate });
-        }
-        catch (err) {
-            res.status(400).json({ success: false, message: err.message });
         }
     },
     /* ============================================
@@ -179,52 +149,6 @@ exports.default = {
         try {
             const agent = await agentService.updateAgentByAdmin(req.params.id, req.body);
             res.json({ success: true, data: agent });
-        }
-        catch (err) {
-            res.status(400).json({ success: false, message: err.message });
-        }
-    },
-    async registerVendorUnderAgent(req, res) {
-        try {
-            const { vendorId } = req.body;
-            if (!vendorId) {
-                return res.status(400).json({ success: false, message: "vendorId is required" });
-            }
-            const vendor = await agentService.registerVendorUnderAgent(vendorId, req.params.id);
-            res.json({ success: true, data: vendor });
-        }
-        catch (err) {
-            res.status(400).json({ success: false, message: err.message });
-        }
-    },
-    async registerCorporateUnderAgent(req, res) {
-        try {
-            const { corporateId } = req.body;
-            if (!corporateId) {
-                return res.status(400).json({ success: false, message: "corporateId is required" });
-            }
-            const corporate = await agentService.registerCorporateUnderAgent(corporateId, req.params.id);
-            res.json({ success: true, data: corporate });
-        }
-        catch (err) {
-            res.status(400).json({ success: false, message: err.message });
-        }
-    },
-    async unassignVendorFromAgent(req, res) {
-        try {
-            const { vendorId } = req.params;
-            const vendor = await agentService.unassignVendorFromAgent(vendorId);
-            res.json({ success: true, data: vendor });
-        }
-        catch (err) {
-            res.status(400).json({ success: false, message: err.message });
-        }
-    },
-    async unassignCorporateFromAgent(req, res) {
-        try {
-            const { corporateId } = req.params;
-            const corporate = await agentService.unassignCorporateFromAgent(corporateId);
-            res.json({ success: true, data: corporate });
         }
         catch (err) {
             res.status(400).json({ success: false, message: err.message });
@@ -300,6 +224,19 @@ exports.default = {
                 search: search,
             });
             res.json({ success: true, data: partners });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getAgentVehicles(req, res) {
+        try {
+            const { vehicleTypeId, search } = req.query;
+            const vehicles = await agentRideService.getAgentVehicles(req.user.id, {
+                vehicleTypeId: vehicleTypeId,
+                search: search,
+            });
+            res.json({ success: true, data: vehicles });
         }
         catch (err) {
             res.status(500).json({ success: false, message: err.message });

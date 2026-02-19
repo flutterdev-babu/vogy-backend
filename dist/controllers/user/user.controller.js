@@ -262,4 +262,43 @@ exports.default = {
             });
         }
     },
+    /* ============================================
+        USER DASHBOARD ENDPOINTS
+    ============================================ */
+    getRideSummary: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId)
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            const summary = await (0, user_service_1.getUserRideSummary)(userId);
+            res.json({ success: true, data: summary });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    getActiveRide: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId)
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            const ride = await (0, user_service_1.getActiveRide)(userId);
+            res.json({ success: true, data: ride });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    getSpendSummary: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId)
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            const spending = await (0, user_service_1.getUserSpendSummary)(userId);
+            res.json({ success: true, data: spending });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
 };

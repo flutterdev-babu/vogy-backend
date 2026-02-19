@@ -3,6 +3,9 @@ import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
 
+// Load environment variables before any other imports
+dotenv.config();
+
 // Existing routes
 import authRoutes from "./routes/auth/auth.routes";
 import adminRoutes from "./routes/admin/admin.routes";
@@ -24,8 +27,6 @@ import lookupRoutes from "./routes/public/lookup.routes";
 import paymentRoutes from "./routes/payment/payment.routes";
 
 import { initializeSocket } from "./config/socket";
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);

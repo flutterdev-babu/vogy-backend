@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const partnerAuthService = __importStar(require("../../services/auth/partner.auth.service"));
 const partnerService = __importStar(require("../../services/partner/partner.service"));
+const adminService = __importStar(require("../../services/admin/admin.service"));
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -218,6 +219,59 @@ exports.default = {
         }
         catch (err) {
             res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async createAttachment(req, res) {
+        try {
+            const { vendorId, vehicleId } = req.body;
+            const attachment = await adminService.createAttachment({
+                vendorId,
+                partnerId: req.user.id,
+                vehicleId,
+            });
+            res.status(201).json({ success: true, data: attachment });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    /* ============================================
+        PARTNER DASHBOARD ENDPOINTS
+    ============================================ */
+    async getDashboard(req, res) {
+        try {
+            const dashboard = await partnerService.getPartnerDashboard(req.user.id);
+            res.json({ success: true, data: dashboard });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getVehicleInfo(req, res) {
+        try {
+            const vehicleInfo = await partnerService.getPartnerVehicleInfo(req.user.id);
+            res.json({ success: true, data: vehicleInfo });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getPartnerRideDetail(req, res) {
+        try {
+            const ride = await partnerService.getPartnerRideById(req.user.id, req.params.id);
+            res.json({ success: true, data: ride });
+        }
+        catch (err) {
+            res.status(404).json({ success: false, message: err.message });
+        }
+    },
+    async getPartnerEarningsSummary(req, res) {
+        try {
+            const earnings = await partnerService.getPartnerEarnings(req.user.id);
+            res.json({ success: true, data: earnings });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
         }
     },
 };

@@ -16,7 +16,7 @@ exports.default = {
                 });
             }
             const { vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, cityCodeId, // NEW
-             } = req.body;
+            rideType, altMobile, paymentMode, corporateId, agentCode, } = req.body;
             // Validate required fields
             if (!vehicleTypeId ||
                 pickupLat === undefined ||
@@ -43,6 +43,11 @@ exports.default = {
                 dropAddress,
                 distanceKm: parseFloat(distanceKm),
                 cityCodeId, // NEW
+                rideType,
+                altMobile,
+                paymentMode,
+                corporateId,
+                agentCode,
             });
             return res.status(201).json({
                 success: true,
@@ -68,7 +73,7 @@ exports.default = {
                 });
             }
             const { vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, scheduledDateTime, bookingNotes, cityCodeId, // NEW
-             } = req.body;
+            rideType, altMobile, paymentMode, corporateId, agentCode, } = req.body;
             // Validate required fields
             if (!vehicleTypeId ||
                 pickupLat === undefined ||
@@ -98,6 +103,11 @@ exports.default = {
                 scheduledDateTime: new Date(scheduledDateTime),
                 bookingNotes,
                 cityCodeId, // NEW
+                rideType,
+                altMobile,
+                paymentMode,
+                corporateId,
+                agentCode,
             });
             return res.status(201).json({
                 success: true,
