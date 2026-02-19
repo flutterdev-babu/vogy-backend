@@ -666,19 +666,30 @@ exports.updateCityCode = updateCityCode;
     ATTACHMENT MANAGEMENT
 ============================================ */
 const createAttachment = async (data) => {
-    // Validate basic entities exist
-    const vendor = await prisma_1.prisma.vendor.findUnique({ where: { id: data.vendorId } });
-    const partner = await prisma_1.prisma.partner.findUnique({ where: { id: data.partnerId } });
-    const vehicle = await prisma_1.prisma.vehicle.findUnique({ where: { id: data.vehicleId } });
-    if (!vendor || !partner || !vehicle) {
-        throw new Error("Vendor, Partner, or Vehicle not found");
-    }
+    // Validate or lookup vendor
+    const vendor = await prisma_1.prisma.vendor.findUnique({
+        where: { customId: data.vendorCustomId },
+    });
+    if (!vendor)
+        throw new Error("Invalid vendor custom ID");
+    // Validate or lookup partner
+    const partner = await prisma_1.prisma.partner.findUnique({
+        where: { customId: data.partnerCustomId },
+    });
+    if (!partner)
+        throw new Error("Invalid partner custom ID");
+    // Validate or lookup vehicle
+    const vehicle = await prisma_1.prisma.vehicle.findUnique({
+        where: { customId: data.vehicleCustomId },
+    });
+    if (!vehicle)
+        throw new Error("Invalid vehicle custom ID");
     // Check if attachment already exists
     const existing = await prisma_1.prisma.attachment.findFirst({
         where: {
-            vendorId: data.vendorId,
-            partnerId: data.partnerId,
-            vehicleId: data.vehicleId,
+            vendorId: vendor.id,
+            partnerId: partner.id,
+            vehicleId: vehicle.id,
         },
     });
     if (existing) {
@@ -687,9 +698,9 @@ const createAttachment = async (data) => {
     // Create attachment
     const attachment = await prisma_1.prisma.attachment.create({
         data: {
-            vendorId: data.vendorId,
-            partnerId: data.partnerId,
-            vehicleId: data.vehicleId,
+            vendorId: vendor.id,
+            partnerId: partner.id,
+            vehicleId: vehicle.id,
         },
         include: {
             vendor: true,

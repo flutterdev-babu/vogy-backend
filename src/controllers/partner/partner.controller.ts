@@ -3,6 +3,7 @@ import { AuthedRequest } from "../../middleware/auth.middleware";
 import * as partnerAuthService from "../../services/auth/partner.auth.service";
 import * as partnerService from "../../services/partner/partner.service";
 import * as adminService from "../../services/admin/admin.service";
+import { prisma } from "../../config/prisma";
 
 export default {
   /* ============================================
@@ -193,11 +194,18 @@ export default {
 
   async createAttachment(req: AuthedRequest, res: Response) {
     try {
-      const { vendorId, vehicleId } = req.body;
+      const { vendorCustomId, vehicleCustomId } = req.body;
+      
+      // Lookup partner's own customId
+      const partner = await prisma.partner.findUnique({
+        where: { id: req.user.id }
+      });
+      if (!partner) throw new Error("Partner not found");
+
       const attachment = await adminService.createAttachment({
-        vendorId,
-        partnerId: req.user.id,
-        vehicleId,
+        vendorCustomId,
+        partnerCustomId: partner.customId!,
+        vehicleCustomId,
       });
       res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {

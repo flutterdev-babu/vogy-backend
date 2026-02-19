@@ -561,7 +561,12 @@ export default {
 
   createAttachment: async (req: AuthedRequest, res: Response) => {
     try {
-      const attachment = await createAttachment(req.body);
+      const { vendorCustomId, partnerCustomId, vehicleCustomId } = req.body;
+      const attachment = await createAttachment({
+        vendorCustomId,
+        partnerCustomId,
+        vehicleCustomId,
+      });
       res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });

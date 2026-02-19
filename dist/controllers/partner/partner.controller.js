@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const partnerAuthService = __importStar(require("../../services/auth/partner.auth.service"));
 const partnerService = __importStar(require("../../services/partner/partner.service"));
 const adminService = __importStar(require("../../services/admin/admin.service"));
+const prisma_1 = require("../../config/prisma");
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -223,11 +224,17 @@ exports.default = {
     },
     async createAttachment(req, res) {
         try {
-            const { vendorId, vehicleId } = req.body;
+            const { vendorCustomId, vehicleCustomId } = req.body;
+            // Lookup partner's own customId
+            const partner = await prisma_1.prisma.partner.findUnique({
+                where: { id: req.user.id }
+            });
+            if (!partner)
+                throw new Error("Partner not found");
             const attachment = await adminService.createAttachment({
-                vendorId,
-                partnerId: req.user.id,
-                vehicleId,
+                vendorCustomId,
+                partnerCustomId: partner.customId,
+                vehicleCustomId,
             });
             res.status(201).json({ success: true, data: attachment });
         }
