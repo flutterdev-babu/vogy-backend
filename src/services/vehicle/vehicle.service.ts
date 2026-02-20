@@ -37,7 +37,20 @@ export const createVehicle = async (data: {
   if (!vehicleType) throw new Error("Invalid vehicle type ID");
 
   // Validate or lookup vendor
-  let linkedVendorId = data.vendorId || undefined;
+  let linkedVendorId: string | undefined = undefined;
+  if (data.vendorId) {
+    const vendor = await prisma.vendor.findUnique({
+      where: { customId: data.vendorId }
+    }) || (
+      /^[0-9a-fA-F]{24}$/.test(data.vendorId)
+      ? await prisma.vendor.findUnique({ where: { id: data.vendorId } })
+      : null
+    );
+    
+    if (!vendor) throw new Error(`Vendor with ID/CustomId "${data.vendorId}" not found`);
+    linkedVendorId = vendor.id;
+  }
+
   if (data.vendorCustomId && !linkedVendorId) {
     const vendor = await prisma.vendor.findUnique({
       where: { customId: data.vendorCustomId },
@@ -47,7 +60,20 @@ export const createVehicle = async (data: {
   }
 
   // Validate or lookup partner
-  let linkedPartnerId = data.partnerId || null;
+  let linkedPartnerId: string | null = null;
+  if (data.partnerId) {
+    const partner = await prisma.partner.findUnique({
+      where: { customId: data.partnerId }
+    }) || (
+      /^[0-9a-fA-F]{24}$/.test(data.partnerId)
+      ? await prisma.partner.findUnique({ where: { id: data.partnerId } })
+      : null
+    );
+
+    if (!partner) throw new Error(`Partner with ID/CustomId "${data.partnerId}" not found`);
+    linkedPartnerId = partner.id;
+  }
+
   if (data.partnerCustomId && !linkedPartnerId) {
     const partner = await prisma.partner.findUnique({
       where: { customId: data.partnerCustomId },
@@ -369,10 +395,14 @@ export const reassignPartnerToVehicle = async (vehicleId: string, newPartnerId: 
 
   // Validate new partner
   const newPartner = await prisma.partner.findUnique({
-    where: { id: newPartnerId },
-  });
+    where: { customId: newPartnerId }
+  }) || (
+    /^[0-9a-fA-F]{24}$/.test(newPartnerId)
+    ? await prisma.partner.findUnique({ where: { id: newPartnerId } })
+    : null
+  );
 
-  if (!newPartner) throw new Error("Partner not found");
+  if (!newPartner) throw new Error(`Partner with ID/CustomId "${newPartnerId}" not found`);
 
   // Check if new partner is already assigned to another vehicle
   if (newPartner.vehicleId && newPartner.vehicleId !== vehicleId) {
@@ -389,7 +419,7 @@ export const reassignPartnerToVehicle = async (vehicleId: string, newPartnerId: 
 
   // Assign new partner
   await prisma.partner.update({
-    where: { id: newPartnerId },
+    where: { id: newPartner.id },
     data: { 
       vehicleId,
       cityCodeId: vehicle.cityCodeId,
@@ -405,14 +435,18 @@ export const reassignPartnerToVehicle = async (vehicleId: string, newPartnerId: 
 export const assignVehicleToVendor = async (vehicleId: string, vendorId: string) => {
   // Validate vendor
   const vendor = await prisma.vendor.findUnique({
-    where: { id: vendorId },
-  });
+    where: { customId: vendorId }
+  }) || (
+    /^[0-9a-fA-F]{24}$/.test(vendorId)
+    ? await prisma.vendor.findUnique({ where: { id: vendorId } })
+    : null
+  );
 
-  if (!vendor) throw new Error("Vendor not found");
+  if (!vendor) throw new Error(`Vendor with ID/CustomId "${vendorId}" not found`);
 
   const vehicle = await prisma.vehicle.update({
     where: { id: vehicleId },
-    data: { vendorId },
+    data: { vendorId: vendor.id },
     include: {
       vendor: {
         select: {
