@@ -174,12 +174,13 @@ exports.default = {
     },
     getAllRides: async (req, res) => {
         try {
-            const { status, vehicleType, userId, partnerId } = req.query;
+            const { status, vehicleType, userId, partnerId, search } = req.query;
             const rides = await (0, admin_service_1.getAllRides)({
                 status: status,
                 vehicleType: vehicleType,
                 userId: userId,
                 partnerId: partnerId,
+                search: search,
             });
             return res.status(200).json({
                 success: true,
@@ -298,7 +299,13 @@ exports.default = {
     },
     getAllRiders: async (req, res) => {
         try {
-            const partners = await (0, admin_service_1.getAllPartners)();
+            const { status, verificationStatus, search, isOnline } = req.query;
+            const partners = await (0, admin_service_1.getAllPartners)({
+                status: status,
+                verificationStatus: verificationStatus,
+                search: search,
+                isOnline: isOnline === "true" ? true : isOnline === "false" ? false : undefined,
+            });
             return res.status(200).json({
                 success: true,
                 message: "Partners retrieved successfully",
@@ -387,8 +394,13 @@ exports.default = {
     },
     getAllVendors: async (req, res) => {
         try {
-            const { search } = req.query;
-            const vendors = await (0, admin_service_1.getAllVendors)(search);
+            const { search, status, verificationStatus, includeDeleted } = req.query;
+            const vendors = await (0, admin_service_1.getAllVendors)({
+                search: search,
+                status: status,
+                verificationStatus: verificationStatus,
+                includeDeleted: includeDeleted === "true"
+            });
             res.json({ success: true, data: vendors });
         }
         catch (err) {
@@ -406,7 +418,8 @@ exports.default = {
     },
     updateVendor: async (req, res) => {
         try {
-            const vendor = await (0, admin_service_1.updateVendor)(req.params.id, req.body);
+            const adminId = req.user?.id;
+            const vendor = await (0, admin_service_1.updateVendor)(req.params.id, req.body, adminId);
             res.json({ success: true, data: vendor });
         }
         catch (err) {
@@ -418,8 +431,12 @@ exports.default = {
     ============================================ */
     getAllCorporates: async (req, res) => {
         try {
-            const { search } = req.query;
-            const corporates = await (0, admin_service_1.getAllCorporates)(search);
+            const { search, status, agentId } = req.query;
+            const corporates = await (0, admin_service_1.getAllCorporates)({
+                search: search,
+                status: status,
+                agentId: agentId,
+            });
             res.json({ success: true, data: corporates });
         }
         catch (err) {
@@ -479,11 +496,10 @@ exports.default = {
     ============================================ */
     createAttachment: async (req, res) => {
         try {
-            const { vendorCustomId, partnerCustomId, vehicleCustomId } = req.body;
+            const adminId = req.user?.id;
             const attachment = await (0, admin_service_1.createAttachment)({
-                vendorCustomId,
-                partnerCustomId,
-                vehicleCustomId,
+                ...req.body,
+                adminId,
             });
             res.status(201).json({ success: true, data: attachment });
         }
@@ -493,7 +509,13 @@ exports.default = {
     },
     getAllAttachments: async (req, res) => {
         try {
-            const attachments = await (0, admin_service_1.getAllAttachments)();
+            const { vendorId, partnerId, vehicleId, verificationStatus } = req.query;
+            const attachments = await (0, admin_service_1.getAllAttachments)({
+                vendorId: vendorId,
+                partnerId: partnerId,
+                vehicleId: vehicleId,
+                verificationStatus: verificationStatus,
+            });
             res.json({ success: true, data: attachments });
         }
         catch (err) {
@@ -502,8 +524,12 @@ exports.default = {
     },
     toggleAttachmentStatus: async (req, res) => {
         try {
-            const { isActive } = req.body;
-            const attachment = await (0, admin_service_1.toggleAttachmentStatus)(req.params.id, isActive);
+            const { status } = req.body;
+            const adminId = req.user?.id;
+            if (!status) {
+                return res.status(400).json({ success: false, message: "Status is required" });
+            }
+            const attachment = await (0, admin_service_1.updateAttachmentStatus)(req.params.id, status, adminId);
             res.json({ success: true, data: attachment });
         }
         catch (err) {
@@ -513,7 +539,11 @@ exports.default = {
     verifyAttachment: async (req, res) => {
         try {
             const { status } = req.body;
-            const attachment = await (0, admin_service_1.verifyAttachmentByAdmin)(req.params.id, status);
+            const adminId = req.user?.id;
+            if (!status) {
+                return res.status(400).json({ success: false, message: "Verification status is required" });
+            }
+            const attachment = await (0, admin_service_1.verifyAttachmentByAdmin)(req.params.id, status, adminId);
             res.json({ success: true, data: attachment });
         }
         catch (err) {

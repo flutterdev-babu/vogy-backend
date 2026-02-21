@@ -1,19 +1,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPartnerEarnings = exports.getPartnerRideById = exports.getPartnerVehicleInfo = exports.getPartnerDashboard = exports.deletePartner = exports.getAvailablePartners = exports.getPartnerAnalytics = exports.getPartnerRides = exports.unassignPartnerFromVehicle = exports.assignPartnerToVehicle = exports.updatePartnerByAdmin = exports.updatePartnerStatus = exports.getPartnerById = exports.getAllPartners = void 0;
+exports.getPartnerEarnings = exports.getPartnerRideById = exports.getPartnerVehicleInfo = exports.getPartnerDashboard = exports.deletePartner = exports.getAvailablePartners = exports.getPartnerAnalytics = exports.getPartnerRides = exports.unassignPartnerFromVehicle = exports.assignPartnerToVehicle = exports.updatePartnerByAdmin = exports.updatePartnerVerification = exports.updatePartnerStatus = exports.getPartnerById = exports.getAllPartners = void 0;
 const prisma_1 = require("../../config/prisma");
 /* ============================================
     GET ALL PARTNERS
 ============================================ */
 const getAllPartners = async (filters) => {
-    const where = {};
+    const where = {
+        isDeleted: filters?.includeDeleted ? undefined : { not: true },
+    };
+    if (filters?.cityCodeId) {
+        where.cityCodeId = filters.cityCodeId;
+    }
     if (filters?.status) {
         where.status = filters.status;
     }
+    if (filters?.verificationStatus) {
+        where.verificationStatus = filters.verificationStatus;
+    }
     if (filters?.vendorId) {
-        where.vehicle = {
-            vendorId: filters.vendorId,
-        };
+        where.vendorId = filters.vendorId;
     }
     if (filters?.isOnline !== undefined) {
         where.isOnline = filters.isOnline;
@@ -38,11 +44,14 @@ const getAllPartners = async (filters) => {
             licenseImage: true,
             hasLicense: true,
             status: true,
+            verificationStatus: true,
             isOnline: true,
             currentLat: true,
             currentLng: true,
             rating: true,
             totalEarnings: true,
+            panNumber: true,
+            aadhaarNumber: true,
             hasOwnVehicle: true,
             ownVehicleNumber: true,
             ownVehicleModel: true,
@@ -97,8 +106,8 @@ exports.getAllPartners = getAllPartners;
     GET PARTNER BY ID
 ============================================ */
 const getPartnerById = async (partnerId) => {
-    const partner = await prisma_1.prisma.partner.findUnique({
-        where: { id: partnerId },
+    const partner = await prisma_1.prisma.partner.findFirst({
+        where: { id: partnerId, isDeleted: false },
         include: {
             vehicle: {
                 include: {
@@ -141,10 +150,13 @@ exports.getPartnerById = getPartnerById;
 /* ============================================
     UPDATE PARTNER STATUS (Admin)
 ============================================ */
-const updatePartnerStatus = async (partnerId, status) => {
+const updatePartnerStatus = async (partnerId, status, adminId) => {
     const partner = await prisma_1.prisma.partner.update({
         where: { id: partnerId },
-        data: { status },
+        data: {
+            status,
+            ...(adminId && { updatedByAdminId: adminId })
+        },
         select: {
             id: true,
             name: true,
@@ -158,18 +170,39 @@ const updatePartnerStatus = async (partnerId, status) => {
 };
 exports.updatePartnerStatus = updatePartnerStatus;
 /* ============================================
-    UPDATE PARTNER BY ADMIN
+    UPDATE PARTNER VERIFICATION (Admin)
 ============================================ */
-const updatePartnerByAdmin = async (partnerId, data) => {
+const updatePartnerVerification = async (partnerId, verificationStatus, adminId) => {
     const partner = await prisma_1.prisma.partner.update({
         where: { id: partnerId },
         data: {
-            ...(data.name && { name: data.name }),
-            ...(data.email !== undefined && { email: data.email }),
-            ...(data.licenseNumber !== undefined && { licenseNumber: data.licenseNumber }),
-            ...(data.licenseImage !== undefined && { licenseImage: data.licenseImage }),
-            ...(data.hasLicense !== undefined && { hasLicense: data.hasLicense }),
-            ...(data.status && { status: data.status }),
+            verificationStatus,
+            ...(adminId && { updatedByAdminId: adminId })
+        },
+        select: {
+            id: true,
+            name: true,
+            phone: true,
+            verificationStatus: true,
+            updatedAt: true,
+        },
+    });
+    return partner;
+};
+exports.updatePartnerVerification = updatePartnerVerification;
+/* ============================================
+    UPDATE PARTNER BY ADMIN
+============================================ */
+const updatePartnerByAdmin = async (partnerId, data) => {
+    const { updatedByAdminId, ...updateData } = data;
+    if (data.firstName && data.lastName) {
+        updateData.name = `${data.firstName} ${data.lastName}`;
+    }
+    const partner = await prisma_1.prisma.partner.update({
+        where: { id: partnerId },
+        data: {
+            ...updateData,
+            ...(updatedByAdminId && { updatedByAdminId }),
         },
         include: {
             vehicle: {
@@ -382,12 +415,13 @@ exports.getPartnerAnalytics = getPartnerAnalytics;
 ============================================ */
 const getAvailablePartners = async (vehicleTypeId) => {
     const where = {
-        status: "APPROVED",
+        status: "ACTIVE",
+        verificationStatus: "VERIFIED",
         isOnline: true,
         vehicleId: { not: null },
         attachments: {
             some: {
-                status: "APPROVED",
+                verificationStatus: "VERIFIED",
             },
         },
     };
@@ -429,18 +463,17 @@ exports.getAvailablePartners = getAvailablePartners;
 /* ============================================
     DELETE PARTNER
 ============================================ */
-const deletePartner = async (partnerId) => {
-    // Check if partner has rides
-    const rideCount = await prisma_1.prisma.ride.count({
-        where: { partnerId },
-    });
-    if (rideCount > 0) {
-        throw new Error("Cannot delete partner with existing rides. Consider suspending instead.");
-    }
-    await prisma_1.prisma.partner.delete({
+const deletePartner = async (partnerId, adminId) => {
+    // Soft delete
+    await prisma_1.prisma.partner.update({
         where: { id: partnerId },
+        data: {
+            isDeleted: true,
+            status: "BANNED",
+            ...(adminId && { updatedByAdminId: adminId })
+        },
     });
-    return { message: "Partner deleted successfully" };
+    return { message: "Partner soft-deleted successfully" };
 };
 exports.deletePartner = deletePartner;
 /* ============================================

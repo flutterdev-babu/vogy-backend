@@ -485,12 +485,13 @@ export const getPartnerAnalytics = async (partnerId: string) => {
 ============================================ */
 export const getAvailablePartners = async (vehicleTypeId?: string) => {
   const where: any = {
-    status: "APPROVED",
+    status: "ACTIVE",
+    verificationStatus: "VERIFIED",
     isOnline: true,
     vehicleId: { not: null },
     attachments: {
       some: {
-        status: "APPROVED",
+        verificationStatus: "VERIFIED",
       },
     },
   };

@@ -233,13 +233,14 @@ export default {
 
   getAllRides: async (req: AuthedRequest, res: Response) => {
     try {
-      const { status, vehicleType, userId, partnerId } = req.query;
+      const { status, vehicleType, userId, partnerId, search } = req.query;
 
       const rides = await getAllRides({
         status: status as string,
         vehicleType: vehicleType as string,
         userId: userId as string,
         partnerId: partnerId as string,
+        search: search as string,
       });
 
       return res.status(200).json({
@@ -368,7 +369,13 @@ export default {
 
   getAllRiders: async (req: AuthedRequest, res: Response) => {
     try {
-      const partners = await getAllPartners();
+      const { status, verificationStatus, search, isOnline } = req.query;
+      const partners = await getAllPartners({
+        status: status as any,
+        verificationStatus: verificationStatus as any,
+        search: search as string,
+        isOnline: isOnline === "true" ? true : isOnline === "false" ? false : undefined,
+      });
 
       return res.status(200).json({
         success: true,
@@ -504,8 +511,12 @@ export default {
 
   getAllCorporates: async (req: AuthedRequest, res: Response) => {
     try {
-      const { search } = req.query;
-      const corporates = await getAllCorporates(search as string);
+      const { search, status, agentId } = req.query;
+      const corporates = await getAllCorporates({
+        search: search as string,
+        status: status as any,
+        agentId: agentId as string,
+      });
       res.json({ success: true, data: corporates });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -567,20 +578,10 @@ export default {
 
   createAttachment: async (req: AuthedRequest, res: Response) => {
     try {
-      const { vendorCustomId, partnerCustomId, vehicleCustomId, cityCode } = req.body;
-
-      if (!vendorCustomId || !partnerCustomId || !vehicleCustomId || !cityCode) {
-        return res.status(400).json({
-          success: false,
-          message: "vendorCustomId, partnerCustomId, vehicleCustomId, and cityCode are required",
-        });
-      }
-
+      const adminId = req.user?.id;
       const attachment = await createAttachment({
-        vendorCustomId,
-        partnerCustomId,
-        vehicleCustomId,
-        cityCode,
+        ...req.body,
+        adminId,
       });
       res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {
@@ -590,7 +591,13 @@ export default {
 
   getAllAttachments: async (req: AuthedRequest, res: Response) => {
     try {
-      const attachments = await getAllAttachments();
+      const { vendorId, partnerId, vehicleId, verificationStatus } = req.query;
+      const attachments = await getAllAttachments({
+        vendorId: vendorId as string,
+        partnerId: partnerId as string,
+        vehicleId: vehicleId as string,
+        verificationStatus: verificationStatus as any,
+      });
       res.json({ success: true, data: attachments });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });

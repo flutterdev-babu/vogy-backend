@@ -37,7 +37,6 @@ const vendorAuthService = __importStar(require("../../services/auth/vendor.auth.
 const vendorService = __importStar(require("../../services/vendor/vendor.service"));
 const partnerService = __importStar(require("../../services/partner/partner.service"));
 const adminService = __importStar(require("../../services/admin/admin.service"));
-const prisma_1 = require("../../config/prisma");
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -87,11 +86,16 @@ exports.default = {
     ============================================ */
     async getAllVendors(req, res) {
         try {
-            const { status, agentId, search } = req.query;
+            const { vendorId, type, status, verificationStatus, agentId, search, includeDeleted, cityCodeId } = req.query;
             const vendors = await vendorService.getAllVendors({
-                status: status,
+                vendorId: vendorId,
+                type: type ? type.toUpperCase() : undefined,
+                status: status ? status.toUpperCase() : undefined,
+                verificationStatus: verificationStatus ? verificationStatus.toUpperCase() : undefined,
                 agentId: agentId,
                 search: search,
+                includeDeleted: includeDeleted === "true",
+                cityCodeId: cityCodeId,
             });
             res.json({ success: true, data: vendors });
         }
@@ -111,10 +115,25 @@ exports.default = {
     async updateVendorStatus(req, res) {
         try {
             const { status } = req.body;
+            const adminId = req.user?.id;
             if (!status) {
                 return res.status(400).json({ success: false, message: "Status is required" });
             }
-            const vendor = await vendorService.updateVendorStatus(req.params.id, status);
+            const vendor = await vendorService.updateVendorStatus(req.params.id, status, adminId);
+            res.json({ success: true, data: vendor });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async updateVendorVerification(req, res) {
+        try {
+            const { status } = req.body;
+            const adminId = req.user?.id;
+            if (!status) {
+                return res.status(400).json({ success: false, message: "Verification status is required" });
+            }
+            const vendor = await vendorService.updateVendorVerification(req.params.id, status, adminId);
             res.json({ success: true, data: vendor });
         }
         catch (err) {
@@ -167,7 +186,8 @@ exports.default = {
     },
     async deleteVendor(req, res) {
         try {
-            const result = await vendorService.deleteVendor(req.params.id);
+            const adminId = req.user?.id;
+            const result = await vendorService.deleteVendor(req.params.id, adminId);
             res.json({ success: true, data: result });
         }
         catch (err) {
@@ -191,17 +211,15 @@ exports.default = {
     },
     async createAttachment(req, res) {
         try {
-            const { partnerCustomId, vehicleCustomId } = req.body;
-            // Lookup vendor's own customId
-            const vendor = await prisma_1.prisma.vendor.findUnique({
-                where: { id: req.user.id }
-            });
-            if (!vendor)
-                throw new Error("Vendor not found");
+            const { fileType, fileUrl, uploadedBy } = req.body;
+            const adminId = req.user?.id;
             const attachment = await adminService.createAttachment({
-                vendorCustomId: vendor.customId,
-                partnerCustomId,
-                vehicleCustomId,
+                referenceType: "VENDOR",
+                referenceId: req.user.id,
+                fileType,
+                fileUrl,
+                uploadedBy: uploadedBy || "VENDOR",
+                adminId
             });
             res.status(201).json({ success: true, data: attachment });
         }

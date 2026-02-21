@@ -169,8 +169,37 @@ export const updatePricingConfig = async (data: {
     PARTNER MANAGEMENT
 ============================================ */
 
-export const getAllPartners = async () => {
+export const getAllPartners = async (filters?: {
+  status?: EntityStatus;
+  verificationStatus?: VerificationStatus;
+  search?: string;
+  isOnline?: boolean;
+}) => {
+  const where: any = {};
+
+  if (filters?.status) {
+    where.status = filters.status;
+  }
+
+  if (filters?.verificationStatus) {
+    where.verificationStatus = filters.verificationStatus;
+  }
+
+  if (filters?.isOnline !== undefined) {
+    where.isOnline = filters.isOnline;
+  }
+
+  if (filters?.search) {
+    where.OR = [
+      { name: { contains: filters.search, mode: "insensitive" } },
+      { phone: { contains: filters.search } },
+      { email: { contains: filters.search, mode: "insensitive" } },
+      { customId: { contains: filters.search, mode: "insensitive" } },
+    ];
+  }
+
   const partners = await prisma.partner.findMany({
+    where,
     select: {
       id: true,
       customId: true,
@@ -178,6 +207,8 @@ export const getAllPartners = async () => {
       phone: true,
       email: true,
       profileImage: true,
+      status: true,
+      verificationStatus: true,
       isOnline: true,
       rating: true,
       totalEarnings: true,
@@ -193,6 +224,11 @@ export const getAllPartners = async () => {
           vehicleModel: true,
         },
       },
+      _count: {
+        select: {
+          rides: true,
+        }
+      }
     },
     orderBy: { createdAt: "desc" },
   });
@@ -354,18 +390,29 @@ export const getAllRides = async (filters?: {
   vehicleType?: string;
   userId?: string;
   partnerId?: string;
+  search?: string;
 }) => {
+  const where: any = {
+    ...(filters?.status && { status: filters.status as any }),
+    ...(filters?.vehicleType && {
+      vehicleType: {
+        name: filters.vehicleType as any,
+      },
+    }),
+    ...(filters?.userId && { userId: filters.userId }),
+    ...(filters?.partnerId && { partnerId: filters.partnerId }),
+  };
+
+  if (filters?.search) {
+    where.OR = [
+      { customId: { contains: filters.search, mode: "insensitive" } },
+      { user: { name: { contains: filters.search, mode: "insensitive" } } },
+      { partner: { name: { contains: filters.search, mode: "insensitive" } } },
+    ];
+  }
+
   const rides = await prisma.ride.findMany({
-    where: {
-      ...(filters?.status && { status: filters.status as any }),
-      ...(filters?.vehicleType && {
-        vehicleType: {
-          name: filters.vehicleType as any,
-        },
-      }),
-      ...(filters?.userId && { userId: filters.userId }),
-      ...(filters?.partnerId && { partnerId: filters.partnerId }),
-    },
+    where,
     include: {
       user: {
         select: {
@@ -594,6 +641,7 @@ export const getAllVendors = async (filters?: {
       { name: { contains: filters.search, mode: "insensitive" } },
       { companyName: { contains: filters.search, mode: "insensitive" } },
       { phone: { contains: filters.search } },
+      { customId: { contains: filters.search, mode: "insensitive" } },
     ];
   }
 
@@ -646,13 +694,26 @@ export const updateVendor = async (id: string, data: any, adminId?: string) => {
     CORPORATE MANAGEMENT (Moved to Admin)
 ============================================ */
 
-export const getAllCorporates = async (search?: string) => {
+export const getAllCorporates = async (filters?: {
+  status?: EntityStatus;
+  search?: string;
+  agentId?: string;
+}) => {
   const where: any = {};
-  if (search) {
+
+  if (filters?.status) {
+    where.status = filters.status;
+  }
+
+  if (filters?.agentId) {
+    where.agentId = filters.agentId;
+  }
+
+  if (filters?.search) {
     where.OR = [
-      { companyName: { contains: search, mode: "insensitive" } },
-      { contactPerson: { contains: search, mode: "insensitive" } },
-      { phone: { contains: search } },
+      { companyName: { contains: filters.search, mode: "insensitive" } },
+      { contactPerson: { contains: filters.search, mode: "insensitive" } },
+      { phone: { contains: filters.search } },
     ];
   }
 

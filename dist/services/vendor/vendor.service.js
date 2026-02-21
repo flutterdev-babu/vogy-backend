@@ -1,12 +1,26 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getVendorEarnings = exports.getVendorRideById = exports.getVendorAttachments = exports.getVendorDashboard = exports.deleteVendor = exports.getVendorAnalytics = exports.getVendorRides = exports.getVendorVehicles = exports.updateVendorByAdmin = exports.updateVendorStatus = exports.getVendorById = exports.getAllVendors = void 0;
+exports.getVendorEarnings = exports.getVendorRideById = exports.getVendorAttachments = exports.getVendorDashboard = exports.deleteVendor = exports.getVendorAnalytics = exports.getVendorRides = exports.getVendorVehicles = exports.updateVendorByAdmin = exports.updateVendorVerification = exports.updateVendorStatus = exports.getVendorById = exports.getAllVendors = void 0;
 const prisma_1 = require("../../config/prisma");
 /* ============================================
     GET ALL VENDORS
 ============================================ */
 const getAllVendors = async (filters) => {
-    const where = {};
+    const where = {
+        isDeleted: filters?.includeDeleted ? undefined : { not: true },
+    };
+    if (filters?.type) {
+        where.type = filters.type;
+    }
+    if (filters?.vendorId) {
+        where.OR = [
+            { id: filters.vendorId },
+            { customId: filters.vendorId }
+        ];
+    }
+    if (filters?.cityCodeId) {
+        where.cityCodeId = filters.cityCodeId;
+    }
     if (filters?.status) {
         where.status = filters.status;
     }
@@ -32,6 +46,9 @@ const getAllVendors = async (filters) => {
             email: true,
             address: true,
             status: true,
+            verificationStatus: true,
+            gstNumber: true,
+            panNumber: true,
             agent: {
                 select: {
                     id: true,
@@ -59,8 +76,8 @@ exports.getAllVendors = getAllVendors;
     GET VENDOR BY ID
 ============================================ */
 const getVendorById = async (vendorId) => {
-    const vendor = await prisma_1.prisma.vendor.findUnique({
-        where: { id: vendorId },
+    const vendor = await prisma_1.prisma.vendor.findFirst({
+        where: { id: vendorId, isDeleted: false },
         include: {
             agent: {
                 select: {
@@ -110,10 +127,13 @@ exports.getVendorById = getVendorById;
 /* ============================================
     UPDATE VENDOR STATUS (Admin)
 ============================================ */
-const updateVendorStatus = async (vendorId, status) => {
+const updateVendorStatus = async (vendorId, status, adminId) => {
     const vendor = await prisma_1.prisma.vendor.update({
         where: { id: vendorId },
-        data: { status },
+        data: {
+            status,
+            ...(adminId && { updatedByAdminId: adminId })
+        },
         select: {
             id: true,
             name: true,
@@ -128,6 +148,28 @@ const updateVendorStatus = async (vendorId, status) => {
 };
 exports.updateVendorStatus = updateVendorStatus;
 /* ============================================
+    UPDATE VENDOR VERIFICATION (Admin)
+============================================ */
+const updateVendorVerification = async (vendorId, verificationStatus, adminId) => {
+    const vendor = await prisma_1.prisma.vendor.update({
+        where: { id: vendorId },
+        data: {
+            verificationStatus,
+            ...(adminId && { updatedByAdminId: adminId })
+        },
+        select: {
+            id: true,
+            name: true,
+            companyName: true,
+            verificationStatus: true,
+            customId: true,
+            updatedAt: true,
+        },
+    });
+    return vendor;
+};
+exports.updateVendorVerification = updateVendorVerification;
+/* ============================================
     UPDATE VENDOR BY ADMIN
 ============================================ */
 const updateVendorByAdmin = async (vendorId, data) => {
@@ -139,15 +181,12 @@ const updateVendorByAdmin = async (vendorId, data) => {
         if (!agent)
             throw new Error("Invalid agent ID");
     }
+    const { updatedByAdminId, ...updateData } = data;
     const vendor = await prisma_1.prisma.vendor.update({
         where: { id: vendorId },
         data: {
-            ...(data.name && { name: data.name }),
-            ...(data.companyName && { companyName: data.companyName }),
-            ...(data.email !== undefined && { email: data.email }),
-            ...(data.address !== undefined && { address: data.address }),
-            ...(data.status && { status: data.status }),
-            ...(data.agentId !== undefined && { agentId: data.agentId }),
+            ...updateData,
+            ...(updatedByAdminId && { updatedByAdminId }),
         },
         include: {
             agent: {
@@ -342,25 +381,17 @@ exports.getVendorAnalytics = getVendorAnalytics;
 /* ============================================
     DELETE VENDOR
 ============================================ */
-const deleteVendor = async (vendorId) => {
-    // Check if vendor has vehicles
-    const vehicleCount = await prisma_1.prisma.vehicle.count({
-        where: { vendorId },
-    });
-    if (vehicleCount > 0) {
-        throw new Error("Cannot delete vendor with existing vehicles. Please remove vehicles first.");
-    }
-    // Check if vendor has rides
-    const rideCount = await prisma_1.prisma.ride.count({
-        where: { vendorId },
-    });
-    if (rideCount > 0) {
-        throw new Error("Cannot delete vendor with existing rides. Consider suspending instead.");
-    }
-    await prisma_1.prisma.vendor.delete({
+const deleteVendor = async (vendorId, adminId) => {
+    // Soft delete
+    await prisma_1.prisma.vendor.update({
         where: { id: vendorId },
+        data: {
+            isDeleted: true,
+            status: "BANNED",
+            ...(adminId && { updatedByAdminId: adminId })
+        },
     });
-    return { message: "Vendor deleted successfully" };
+    return { message: "Vendor soft-deleted successfully" };
 };
 exports.deleteVendor = deleteVendor;
 /* ============================================
@@ -428,35 +459,9 @@ exports.getVendorDashboard = getVendorDashboard;
 ============================================ */
 const getVendorAttachments = async (vendorId) => {
     return await prisma_1.prisma.attachment.findMany({
-        where: { vendorId },
-        include: {
-            partner: {
-                select: {
-                    id: true,
-                    customId: true,
-                    name: true,
-                    phone: true,
-                    status: true,
-                    isOnline: true,
-                },
-            },
-            vehicle: {
-                select: {
-                    id: true,
-                    customId: true,
-                    registrationNumber: true,
-                    vehicleModel: true,
-                    isAvailable: true,
-                    vehicleType: {
-                        select: {
-                            id: true,
-                            name: true,
-                            displayName: true,
-                            category: true,
-                        },
-                    },
-                },
-            },
+        where: {
+            referenceId: vendorId,
+            referenceType: "VENDOR"
         },
         orderBy: { createdAt: "desc" },
     });

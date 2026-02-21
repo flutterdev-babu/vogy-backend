@@ -66,7 +66,8 @@ export const migrateRidersToPartners = async (): Promise<void> => {
               ownVehicleModel: rider.vehicleModel,
               ownVehicleTypeId: rider.vehicleTypeId,
               
-              status: "APPROVED",
+              status: "ACTIVE",
+              verificationStatus: "VERIFIED",
               isOnline: rider.isOnline,
               currentLat: rider.currentLat,
               currentLng: rider.currentLng,
