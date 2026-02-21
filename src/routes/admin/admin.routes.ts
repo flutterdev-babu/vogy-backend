@@ -106,6 +106,7 @@ router.delete("/partners/:id", partnerController.deletePartner);
 // ============================================
 router.post("/attachments", adminController.createAttachment);
 router.get("/attachments", adminController.getAllAttachments);
+router.get("/attachments/:id", adminController.getAttachmentById);
 router.put("/attachments/:id/status", adminController.toggleAttachmentStatus);
 router.post("/attachments/:id/verify", adminController.verifyAttachment);
 router.delete("/attachments/:id", adminController.deleteAttachment);

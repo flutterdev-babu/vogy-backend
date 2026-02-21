@@ -875,6 +875,36 @@ export const getAllAttachments = async (filters?: {
   return attachments;
 };
 
+export const getAttachmentById = async (id: string) => {
+  const attachment = await prisma.attachment.findUnique({
+    where: { id },
+    include: {
+      vendor: {
+        include: {
+          cityCode: true,
+          agent: true,
+        }
+      },
+      partner: {
+        include: {
+          cityCode: true,
+          ownVehicleType: true,
+        }
+      },
+      vehicle: {
+        include: {
+          vehicleType: true,
+          cityCode: true,
+        }
+      },
+    },
+  });
+
+  if (!attachment) throw new Error("Attachment not found");
+
+  return attachment;
+};
+
 export const updateAttachmentStatus = async (id: string, status: EntityStatus, adminId?: string) => {
   return await prisma.attachment.update({
     where: { id },
