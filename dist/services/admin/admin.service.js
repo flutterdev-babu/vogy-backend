@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.toggleAttachmentStatus = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
+exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.updateAttachmentStatus = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
 const prisma_1 = require("../../config/prisma");
 const generateUniqueOtp_1 = require("../../utils/generateUniqueOtp");
 const socket_service_1 = require("../socket/socket.service");
@@ -162,8 +162,27 @@ exports.updatePricingConfig = updatePricingConfig;
 /* ============================================
     PARTNER MANAGEMENT
 ============================================ */
-const getAllPartners = async () => {
+const getAllPartners = async (filters) => {
+    const where = {};
+    if (filters?.status) {
+        where.status = filters.status;
+    }
+    if (filters?.verificationStatus) {
+        where.verificationStatus = filters.verificationStatus;
+    }
+    if (filters?.isOnline !== undefined) {
+        where.isOnline = filters.isOnline;
+    }
+    if (filters?.search) {
+        where.OR = [
+            { name: { contains: filters.search, mode: "insensitive" } },
+            { phone: { contains: filters.search } },
+            { email: { contains: filters.search, mode: "insensitive" } },
+            { customId: { contains: filters.search, mode: "insensitive" } },
+        ];
+    }
     const partners = await prisma_1.prisma.partner.findMany({
+        where,
         select: {
             id: true,
             customId: true,
@@ -171,6 +190,8 @@ const getAllPartners = async () => {
             phone: true,
             email: true,
             profileImage: true,
+            status: true,
+            verificationStatus: true,
             isOnline: true,
             rating: true,
             totalEarnings: true,
@@ -186,6 +207,11 @@ const getAllPartners = async () => {
                     vehicleModel: true,
                 },
             },
+            _count: {
+                select: {
+                    rides: true,
+                }
+            }
         },
         orderBy: { createdAt: "desc" },
     });
@@ -325,17 +351,25 @@ exports.assignPartnerToRide = assignPartnerToRide;
     ADMIN RIDE MANAGEMENT
 ============================================ */
 const getAllRides = async (filters) => {
+    const where = {
+        ...(filters?.status && { status: filters.status }),
+        ...(filters?.vehicleType && {
+            vehicleType: {
+                name: filters.vehicleType,
+            },
+        }),
+        ...(filters?.userId && { userId: filters.userId }),
+        ...(filters?.partnerId && { partnerId: filters.partnerId }),
+    };
+    if (filters?.search) {
+        where.OR = [
+            { customId: { contains: filters.search, mode: "insensitive" } },
+            { user: { name: { contains: filters.search, mode: "insensitive" } } },
+            { partner: { name: { contains: filters.search, mode: "insensitive" } } },
+        ];
+    }
     const rides = await prisma_1.prisma.ride.findMany({
-        where: {
-            ...(filters?.status && { status: filters.status }),
-            ...(filters?.vehicleType && {
-                vehicleType: {
-                    name: filters.vehicleType,
-                },
-            }),
-            ...(filters?.userId && { userId: filters.userId }),
-            ...(filters?.partnerId && { partnerId: filters.partnerId }),
-        },
+        where,
         include: {
             user: {
                 select: {
@@ -450,22 +484,14 @@ exports.getRideOtpByAdmin = getRideOtpByAdmin;
 /* ============================================
     ATTACHMENT VERIFICATION
 ============================================ */
-const verifyAttachmentByAdmin = async (attachmentId, status) => {
+const verifyAttachmentByAdmin = async (attachmentId, verificationStatus, adminId) => {
     const attachment = await prisma_1.prisma.attachment.update({
         where: { id: attachmentId },
-        data: { status },
-        include: {
-            partner: true,
-            vehicle: true,
-        }
+        data: {
+            verificationStatus,
+            ...(adminId && { updatedByAdminId: adminId })
+        },
     });
-    // If approved, update partner status to APPROVED as well
-    if (status === "APPROVED") {
-        await prisma_1.prisma.partner.update({
-            where: { id: attachment.partnerId },
-            data: { status: "APPROVED" }
-        });
-    }
     return attachment;
 };
 exports.verifyAttachmentByAdmin = verifyAttachmentByAdmin;
@@ -544,14 +570,23 @@ exports.getUserById = getUserById;
 /* ============================================
     VENDOR MANAGEMENT (Moved to Admin)
 ============================================ */
-const getAllVendors = async (search) => {
-    const where = {};
-    if (search) {
+const getAllVendors = async (filters) => {
+    const where = {
+        isDeleted: filters?.includeDeleted ? undefined : false,
+    };
+    if (filters?.search) {
         where.OR = [
-            { name: { contains: search, mode: "insensitive" } },
-            { companyName: { contains: search, mode: "insensitive" } },
-            { phone: { contains: search } },
+            { name: { contains: filters.search, mode: "insensitive" } },
+            { companyName: { contains: filters.search, mode: "insensitive" } },
+            { phone: { contains: filters.search } },
+            { customId: { contains: filters.search, mode: "insensitive" } },
         ];
+    }
+    if (filters?.status) {
+        where.status = filters.status;
+    }
+    if (filters?.verificationStatus) {
+        where.verificationStatus = filters.verificationStatus;
     }
     return await prisma_1.prisma.vendor.findMany({
         where,
@@ -574,12 +609,6 @@ const getVendorById = async (id) => {
         include: {
             vehicles: true,
             partners: true,
-            attachments: {
-                include: {
-                    partner: true,
-                    vehicle: true,
-                },
-            },
         },
     });
     if (!vendor)
@@ -587,23 +616,32 @@ const getVendorById = async (id) => {
     return vendor;
 };
 exports.getVendorById = getVendorById;
-const updateVendor = async (id, data) => {
+const updateVendor = async (id, data, adminId) => {
     return await prisma_1.prisma.vendor.update({
         where: { id },
-        data,
+        data: {
+            ...data,
+            ...(adminId && { updatedByAdminId: adminId })
+        },
     });
 };
 exports.updateVendor = updateVendor;
 /* ============================================
     CORPORATE MANAGEMENT (Moved to Admin)
 ============================================ */
-const getAllCorporates = async (search) => {
+const getAllCorporates = async (filters) => {
     const where = {};
-    if (search) {
+    if (filters?.status) {
+        where.status = filters.status;
+    }
+    if (filters?.agentId) {
+        where.agentId = filters.agentId;
+    }
+    if (filters?.search) {
         where.OR = [
-            { companyName: { contains: search, mode: "insensitive" } },
-            { contactPerson: { contains: search, mode: "insensitive" } },
-            { phone: { contains: search } },
+            { companyName: { contains: filters.search, mode: "insensitive" } },
+            { contactPerson: { contains: filters.search, mode: "insensitive" } },
+            { phone: { contains: filters.search } },
         ];
     }
     return await prisma_1.prisma.corporate.findMany({
@@ -662,57 +700,78 @@ const updateCityCode = async (id, data) => {
     });
 };
 exports.updateCityCode = updateCityCode;
-/* ============================================
-    ATTACHMENT MANAGEMENT
-============================================ */
 const createAttachment = async (data) => {
-    // Validate or lookup vendor
-    const vendor = await prisma_1.prisma.vendor.findUnique({
-        where: { customId: data.vendorCustomId },
-    });
-    if (!vendor)
-        throw new Error("Invalid vendor custom ID");
-    // Validate or lookup partner
-    const partner = await prisma_1.prisma.partner.findUnique({
-        where: { customId: data.partnerCustomId },
-    });
-    if (!partner)
-        throw new Error("Invalid partner custom ID");
-    // Validate or lookup vehicle
-    const vehicle = await prisma_1.prisma.vehicle.findUnique({
-        where: { customId: data.vehicleCustomId },
-    });
-    if (!vehicle)
-        throw new Error("Invalid vehicle custom ID");
-    // Check if attachment already exists
-    const existing = await prisma_1.prisma.attachment.findFirst({
-        where: {
-            vendorId: vendor.id,
-            partnerId: partner.id,
-            vehicleId: vehicle.id,
-        },
-    });
-    if (existing) {
-        throw new Error("This attachment already exists");
+    let cityCode = data.cityCode;
+    // Resolve City Code if missing but referenceId is provided
+    if (!cityCode && data.referenceId && data.referenceType) {
+        if (data.referenceType === "VENDOR") {
+            const v = await prisma_1.prisma.vendor.findUnique({ where: { id: data.referenceId }, include: { cityCode: true } });
+            cityCode = v?.cityCode?.code;
+        }
+        else if (data.referenceType === "PARTNER") {
+            const p = await prisma_1.prisma.partner.findUnique({ where: { id: data.referenceId }, include: { cityCode: true } });
+            cityCode = p?.cityCode?.code;
+        }
+        else if (data.referenceType === "VEHICLE") {
+            const vh = await prisma_1.prisma.vehicle.findUnique({ where: { id: data.referenceId }, include: { cityCode: true } });
+            cityCode = vh?.cityCode?.code;
+        }
     }
-    // Create attachment
-    const attachment = await prisma_1.prisma.attachment.create({
-        data: {
-            vendorId: vendor.id,
-            partnerId: partner.id,
-            vehicleId: vehicle.id,
-        },
-        include: {
-            vendor: true,
-            partner: true,
-            vehicle: true,
-        },
-    });
-    return attachment;
+    if (!cityCode)
+        throw new Error("City code is required for attachment custom ID generation");
+    const customId = await (0, city_service_1.generateEntityCustomId)(cityCode, "ATTACHMENT");
+    // Case 1: 3-ID Link Registration Bundle
+    if (data.vendorCustomId && data.partnerCustomId && data.vehicleCustomId) {
+        const vendor = await prisma_1.prisma.vendor.findUnique({ where: { customId: data.vendorCustomId } });
+        if (!vendor)
+            throw new Error("Invalid vendor custom ID");
+        const partner = await prisma_1.prisma.partner.findUnique({ where: { customId: data.partnerCustomId } });
+        if (!partner)
+            throw new Error("Invalid partner custom ID");
+        const vehicle = await prisma_1.prisma.vehicle.findUnique({ where: { customId: data.vehicleCustomId } });
+        if (!vehicle)
+            throw new Error("Invalid vehicle custom ID");
+        return await prisma_1.prisma.attachment.create({
+            data: {
+                customId,
+                vendorId: vendor.id,
+                partnerId: partner.id,
+                vehicleId: vehicle.id,
+                verificationStatus: "UNVERIFIED",
+            },
+            include: {
+                vendor: true,
+                partner: true,
+                vehicle: true,
+            },
+        });
+    }
+    // Case 2: Polymorphic Individual Document Upload
+    if (data.referenceType && data.referenceId && data.fileUrl) {
+        return await prisma_1.prisma.attachment.create({
+            data: {
+                customId,
+                referenceType: data.referenceType,
+                referenceId: data.referenceId, // Prisma will handle string to ObjectId conversion if valid
+                fileType: data.fileType,
+                fileUrl: data.fileUrl,
+                uploadedBy: data.uploadedBy || "ADMIN",
+                updatedByAdminId: data.adminId,
+                verificationStatus: "UNVERIFIED",
+            },
+        });
+    }
+    throw new Error("Invalid attachment data. Provide either 3-ID link or referenceType/referenceId/fileUrl.");
 };
 exports.createAttachment = createAttachment;
-const getAllAttachments = async () => {
-    return await prisma_1.prisma.attachment.findMany({
+const getAllAttachments = async (filters) => {
+    const attachments = await prisma_1.prisma.attachment.findMany({
+        where: {
+            ...(filters?.vendorId && { vendorId: filters.vendorId }),
+            ...(filters?.partnerId && { partnerId: filters.partnerId }),
+            ...(filters?.vehicleId && { vehicleId: filters.vehicleId }),
+            ...(filters?.verificationStatus && { verificationStatus: filters.verificationStatus }),
+        },
         include: {
             vendor: true,
             partner: true,
@@ -720,15 +779,19 @@ const getAllAttachments = async () => {
         },
         orderBy: { createdAt: "desc" },
     });
+    return attachments;
 };
 exports.getAllAttachments = getAllAttachments;
-const toggleAttachmentStatus = async (id, isActive) => {
+const updateAttachmentStatus = async (id, status, adminId) => {
     return await prisma_1.prisma.attachment.update({
         where: { id },
-        data: { isActive },
+        data: {
+            status,
+            ...(adminId && { updatedByAdminId: adminId })
+        },
     });
 };
-exports.toggleAttachmentStatus = toggleAttachmentStatus;
+exports.updateAttachmentStatus = updateAttachmentStatus;
 const deleteAttachment = async (id) => {
     return await prisma_1.prisma.attachment.delete({
         where: { id },

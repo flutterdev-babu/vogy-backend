@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_controller_1 = __importDefault(require("../../controllers/auth/auth.controller"));
 const admin_controller_1 = __importDefault(require("../../controllers/admin/admin.controller"));
+const vendor_controller_1 = __importDefault(require("../../controllers/vendor/vendor.controller"));
 const partner_controller_1 = __importDefault(require("../../controllers/partner/partner.controller"));
 const agent_controller_1 = __importDefault(require("../../controllers/agent/agent.controller"));
 const corporate_controller_1 = __importDefault(require("../../controllers/corporate/corporate.controller"));
@@ -71,6 +72,9 @@ router.get("/vendors", admin_controller_1.default.getAllVendors);
 router.get("/vendors/:id", admin_controller_1.default.getVendorById);
 router.put("/vendors/:id", admin_controller_1.default.updateVendor);
 router.patch("/vendors/:id", admin_controller_1.default.updateVendor);
+router.patch("/vendors/:id/status", vendor_controller_1.default.updateVendorStatus);
+router.patch("/vendors/:id/verify", vendor_controller_1.default.updateVendorVerification);
+router.delete("/vendors/:id", vendor_controller_1.default.deleteVendor);
 // ============================================
 // PARTNER MANAGEMENT
 // ============================================
@@ -82,6 +86,7 @@ router.put("/partners/:id", partner_controller_1.default.updatePartnerByAdmin);
 router.patch("/partners/:id", partner_controller_1.default.updatePartnerByAdmin);
 router.put("/partners/:id/status", partner_controller_1.default.updatePartnerStatus);
 router.patch("/partners/:id/status", partner_controller_1.default.updatePartnerStatus);
+router.patch("/partners/:id/verify", partner_controller_1.default.updatePartnerVerification);
 router.post("/partners/:id/assign-vehicle", partner_controller_1.default.assignPartnerToVehicle);
 router.delete("/partners/:id/unassign-vehicle", partner_controller_1.default.unassignPartnerFromVehicle);
 router.get("/partners/:id/rides", partner_controller_1.default.getPartnerRides);
@@ -111,6 +116,8 @@ router.get("/vehicles/available", vehicle_controller_1.default.getAvailableVehic
 router.get("/vehicles/:id", vehicle_controller_1.default.getVehicleById);
 router.put("/vehicles/:id", vehicle_controller_1.default.updateVehicle);
 router.patch("/vehicles/:id", vehicle_controller_1.default.updateVehicle);
+router.patch("/vehicles/:id/status", vehicle_controller_1.default.updateVehicleStatus);
+router.patch("/vehicles/:id/verify", vehicle_controller_1.default.updateVehicleVerification);
 router.post("/vehicles/:id/assign-vendor", vehicle_controller_1.default.assignVehicleToVendor);
 router.get("/vehicles/:id/rides", vehicle_controller_1.default.getVehicleRides);
 router.delete("/vehicles/:id", vehicle_controller_1.default.deleteVehicle);

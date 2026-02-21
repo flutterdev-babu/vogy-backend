@@ -49,13 +49,16 @@ exports.default = {
     },
     async getAllVehicles(req, res) {
         try {
-            const { vendorId, vehicleTypeId, isAvailable, isActive, search } = req.query;
+            const { vendorId, vehicleTypeId, isAvailable, status, verificationStatus, search, includeDeleted, cityCodeId } = req.query;
             const vehicles = await vehicleService.getAllVehicles({
                 vendorId: vendorId,
                 vehicleTypeId: vehicleTypeId,
                 isAvailable: isAvailable === "true" ? true : isAvailable === "false" ? false : undefined,
-                isActive: isActive === "true" ? true : isActive === "false" ? false : undefined,
+                status: status ? status.toUpperCase() : undefined,
+                verificationStatus: verificationStatus ? verificationStatus.toUpperCase() : undefined,
                 search: search,
+                includeDeleted: includeDeleted === "true",
+                cityCodeId: cityCodeId,
             });
             res.json({ success: true, data: vehicles });
         }
@@ -74,7 +77,39 @@ exports.default = {
     },
     async updateVehicle(req, res) {
         try {
-            const vehicle = await vehicleService.updateVehicle(req.params.id, req.body);
+            const adminId = req.user?.id;
+            const vehicle = await vehicleService.updateVehicle(req.params.id, {
+                ...req.body,
+                updatedByAdminId: adminId
+            });
+            res.json({ success: true, data: vehicle });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async updateVehicleStatus(req, res) {
+        try {
+            const { status } = req.body;
+            const adminId = req.user?.id;
+            if (!status) {
+                return res.status(400).json({ success: false, message: "Status is required" });
+            }
+            const vehicle = await vehicleService.updateVehicleStatus(req.params.id, status, adminId);
+            res.json({ success: true, data: vehicle });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async updateVehicleVerification(req, res) {
+        try {
+            const { status } = req.body;
+            const adminId = req.user?.id;
+            if (!status) {
+                return res.status(400).json({ success: false, message: "Verification status is required" });
+            }
+            const vehicle = await vehicleService.updateVehicleVerification(req.params.id, status, adminId);
             res.json({ success: true, data: vehicle });
         }
         catch (err) {
@@ -115,7 +150,8 @@ exports.default = {
     },
     async deleteVehicle(req, res) {
         try {
-            const result = await vehicleService.deleteVehicle(req.params.id);
+            const adminId = req.user?.id;
+            const result = await vehicleService.deleteVehicle(req.params.id, adminId);
             res.json({ success: true, data: result });
         }
         catch (err) {

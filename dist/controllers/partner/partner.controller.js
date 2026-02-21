@@ -36,7 +36,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const partnerAuthService = __importStar(require("../../services/auth/partner.auth.service"));
 const partnerService = __importStar(require("../../services/partner/partner.service"));
 const adminService = __importStar(require("../../services/admin/admin.service"));
-const prisma_1 = require("../../config/prisma");
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -112,12 +111,14 @@ exports.default = {
     ============================================ */
     async getAllPartners(req, res) {
         try {
-            const { status, vendorId, isOnline, search } = req.query;
+            const { vendorId, status, verificationStatus, search, includeDeleted, cityCodeId } = req.query;
             const partners = await partnerService.getAllPartners({
-                status: status,
                 vendorId: vendorId,
-                isOnline: isOnline === "true" ? true : isOnline === "false" ? false : undefined,
+                status: status ? status.toUpperCase() : undefined,
+                verificationStatus: verificationStatus ? verificationStatus.toUpperCase() : undefined,
                 search: search,
+                includeDeleted: includeDeleted === "true",
+                cityCodeId: cityCodeId,
             });
             res.json({ success: true, data: partners });
         }
@@ -137,10 +138,25 @@ exports.default = {
     async updatePartnerStatus(req, res) {
         try {
             const { status } = req.body;
+            const adminId = req.user?.id;
             if (!status) {
                 return res.status(400).json({ success: false, message: "Status is required" });
             }
-            const partner = await partnerService.updatePartnerStatus(req.params.id, status);
+            const partner = await partnerService.updatePartnerStatus(req.params.id, status, adminId);
+            res.json({ success: true, data: partner });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async updatePartnerVerification(req, res) {
+        try {
+            const { status } = req.body;
+            const adminId = req.user?.id;
+            if (!status) {
+                return res.status(400).json({ success: false, message: "Verification status is required" });
+            }
+            const partner = await partnerService.updatePartnerVerification(req.params.id, status, adminId);
             res.json({ success: true, data: partner });
         }
         catch (err) {
@@ -215,7 +231,8 @@ exports.default = {
     },
     async deletePartner(req, res) {
         try {
-            const result = await partnerService.deletePartner(req.params.id);
+            const adminId = req.user?.id;
+            const result = await partnerService.deletePartner(req.params.id, adminId);
             res.json({ success: true, data: result });
         }
         catch (err) {
@@ -224,17 +241,15 @@ exports.default = {
     },
     async createAttachment(req, res) {
         try {
-            const { vendorCustomId, vehicleCustomId } = req.body;
-            // Lookup partner's own customId
-            const partner = await prisma_1.prisma.partner.findUnique({
-                where: { id: req.user.id }
-            });
-            if (!partner)
-                throw new Error("Partner not found");
+            const { fileType, fileUrl, uploadedBy } = req.body;
+            const adminId = req.user?.id;
             const attachment = await adminService.createAttachment({
-                vendorCustomId,
-                partnerCustomId: partner.customId,
-                vehicleCustomId,
+                referenceType: "PARTNER",
+                referenceId: req.user.id,
+                fileType,
+                fileUrl,
+                uploadedBy: uploadedBy || "PARTNER",
+                adminId
             });
             res.status(201).json({ success: true, data: attachment });
         }
