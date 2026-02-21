@@ -1,15 +1,37 @@
 import { prisma } from "../../config/prisma";
-import { VendorStatus } from "@prisma/client";
+import { EntityStatus, VerificationStatus } from "@prisma/client";
 
 /* ============================================
     GET ALL VENDORS
 ============================================ */
 export const getAllVendors = async (filters?: {
-  status?: VendorStatus;
+  status?: EntityStatus;
+  verificationStatus?: VerificationStatus;
   agentId?: string;
   search?: string;
+  includeDeleted?: boolean;
+  cityCodeId?: string;
+  vendorId?: string; // Support filtering by ID or CustomID
+  type?: "INDIVIDUAL" | "BUSINESS";
 }) => {
-  const where: any = {};
+  const where: any = {
+    isDeleted: filters?.includeDeleted ? undefined : { not: true },
+  };
+
+  if (filters?.type) {
+    where.type = filters.type;
+  }
+
+  if (filters?.vendorId) {
+    where.OR = [
+      { id: filters.vendorId },
+      { customId: filters.vendorId }
+    ];
+  }
+
+  if (filters?.cityCodeId) {
+    where.cityCodeId = filters.cityCodeId;
+  }
 
   if (filters?.status) {
     where.status = filters.status;
@@ -39,6 +61,9 @@ export const getAllVendors = async (filters?: {
       email: true,
       address: true,
       status: true,
+      verificationStatus: true,
+      gstNumber: true,
+      panNumber: true,
       agent: {
         select: {
           id: true,
@@ -67,8 +92,8 @@ export const getAllVendors = async (filters?: {
     GET VENDOR BY ID
 ============================================ */
 export const getVendorById = async (vendorId: string) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { id: vendorId },
+  const vendor = await prisma.vendor.findFirst({
+    where: { id: vendorId, isDeleted: false },
     include: {
       agent: {
         select: {
@@ -119,16 +144,42 @@ export const getVendorById = async (vendorId: string) => {
 /* ============================================
     UPDATE VENDOR STATUS (Admin)
 ============================================ */
-export const updateVendorStatus = async (vendorId: string, status: VendorStatus) => {
+export const updateVendorStatus = async (vendorId: string, status: EntityStatus, adminId?: string) => {
   const vendor = await prisma.vendor.update({
     where: { id: vendorId },
-    data: { status },
+    data: { 
+      status,
+      ...(adminId && { updatedByAdminId: adminId })
+    },
     select: {
       id: true,
       name: true,
       companyName: true,
       phone: true,
       status: true,
+      customId: true,
+      updatedAt: true,
+    },
+  });
+
+  return vendor;
+};
+
+/* ============================================
+    UPDATE VENDOR VERIFICATION (Admin)
+============================================ */
+export const updateVendorVerification = async (vendorId: string, verificationStatus: VerificationStatus, adminId?: string) => {
+  const vendor = await prisma.vendor.update({
+    where: { id: vendorId },
+    data: { 
+      verificationStatus,
+      ...(adminId && { updatedByAdminId: adminId })
+    },
+    select: {
+      id: true,
+      name: true,
+      companyName: true,
+      verificationStatus: true,
       customId: true,
       updatedAt: true,
     },
@@ -147,8 +198,22 @@ export const updateVendorByAdmin = async (
     companyName?: string;
     email?: string;
     address?: string;
-    status?: VendorStatus;
+    status?: EntityStatus;
+    verificationStatus?: VerificationStatus;
     agentId?: string | null;
+    
+    // Additional contact details
+    gstNumber?: string;
+    panNumber?: string;
+    ccMobile?: string;
+    primaryNumber?: string;
+    secondaryNumber?: string;
+    ownerContact?: string;
+    officeLandline?: string;
+    officeAddress?: string;
+    accountNumber?: string;
+    
+    updatedByAdminId?: string;
   }
 ) => {
   // Validate agentId if provided
@@ -159,15 +224,13 @@ export const updateVendorByAdmin = async (
     if (!agent) throw new Error("Invalid agent ID");
   }
 
+  const { updatedByAdminId, ...updateData } = data;
+
   const vendor = await prisma.vendor.update({
     where: { id: vendorId },
     data: {
-      ...(data.name && { name: data.name }),
-      ...(data.companyName && { companyName: data.companyName }),
-      ...(data.email !== undefined && { email: data.email }),
-      ...(data.address !== undefined && { address: data.address }),
-      ...(data.status && { status: data.status }),
-      ...(data.agentId !== undefined && { agentId: data.agentId }),
+      ...updateData,
+      ...(updatedByAdminId && { updatedByAdminId }),
     },
     include: {
       agent: {
@@ -375,30 +438,18 @@ export const getVendorAnalytics = async (vendorId: string) => {
 /* ============================================
     DELETE VENDOR
 ============================================ */
-export const deleteVendor = async (vendorId: string) => {
-  // Check if vendor has vehicles
-  const vehicleCount = await prisma.vehicle.count({
-    where: { vendorId },
-  });
-
-  if (vehicleCount > 0) {
-    throw new Error("Cannot delete vendor with existing vehicles. Please remove vehicles first.");
-  }
-
-  // Check if vendor has rides
-  const rideCount = await prisma.ride.count({
-    where: { vendorId },
-  });
-
-  if (rideCount > 0) {
-    throw new Error("Cannot delete vendor with existing rides. Consider suspending instead.");
-  }
-
-  await prisma.vendor.delete({
+export const deleteVendor = async (vendorId: string, adminId?: string) => {
+  // Soft delete
+  await prisma.vendor.update({
     where: { id: vendorId },
+    data: { 
+      isDeleted: true,
+      status: "BANNED",
+      ...(adminId && { updatedByAdminId: adminId })
+    },
   });
 
-  return { message: "Vendor deleted successfully" };
+  return { message: "Vendor soft-deleted successfully" };
 };
 
 /* ============================================
@@ -480,35 +531,9 @@ export const getVendorDashboard = async (vendorId: string) => {
 ============================================ */
 export const getVendorAttachments = async (vendorId: string) => {
   return await prisma.attachment.findMany({
-    where: { vendorId },
-    include: {
-      partner: {
-        select: {
-          id: true,
-          customId: true,
-          name: true,
-          phone: true,
-          status: true,
-          isOnline: true,
-        },
-      },
-      vehicle: {
-        select: {
-          id: true,
-          customId: true,
-          registrationNumber: true,
-          vehicleModel: true,
-          isAvailable: true,
-          vehicleType: {
-            select: {
-              id: true,
-              name: true,
-              displayName: true,
-              category: true,
-            },
-          },
-        },
-      },
+    where: { 
+      referenceId: vendorId,
+      referenceType: "VENDOR" 
     },
     orderBy: { createdAt: "desc" },
   });

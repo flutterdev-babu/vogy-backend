@@ -6,6 +6,7 @@ import * as partnerAuthService from "../auth/partner.auth.service";
 import { generateEntityCustomId } from "../city/city.service";
 import { validatePhoneNumber } from "../../utils/phoneValidation";
 import { hashPassword } from "../../utils/hash";
+import { EntityStatus, VerificationStatus, AttachmentReferenceType, AttachmentFileType, UploadedBy } from "@prisma/client";
 
 /* ============================================
     VEHICLE TYPE MANAGEMENT
@@ -482,23 +483,14 @@ export const getRideOtpByAdmin = async (rideId: string) => {
     ATTACHMENT VERIFICATION
 ============================================ */
 
-export const verifyAttachmentByAdmin = async (attachmentId: string, status: "APPROVED" | "REJECTED") => {
+export const verifyAttachmentByAdmin = async (attachmentId: string, verificationStatus: VerificationStatus, adminId?: string) => {
   const attachment = await prisma.attachment.update({
     where: { id: attachmentId },
-    data: { status },
-    include: {
-      partner: true,
-      vehicle: true,
-    }
+    data: { 
+      verificationStatus,
+      ...(adminId && { updatedByAdminId: adminId })
+    },
   });
-
-  // If approved, update partner status to APPROVED as well
-  if (status === "APPROVED") {
-    await prisma.partner.update({
-      where: { id: attachment.partnerId },
-      data: { status: "APPROVED" }
-    });
-  }
 
   return attachment;
 };
@@ -587,14 +579,30 @@ export const getUserById = async (userId: string) => {
     VENDOR MANAGEMENT (Moved to Admin)
 ============================================ */
 
-export const getAllVendors = async (search?: string) => {
-  const where: any = {};
-  if (search) {
+export const getAllVendors = async (filters?: {
+  status?: EntityStatus;
+  verificationStatus?: VerificationStatus;
+  search?: string;
+  includeDeleted?: boolean;
+}) => {
+  const where: any = {
+    isDeleted: filters?.includeDeleted ? undefined : false,
+  };
+
+  if (filters?.search) {
     where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { companyName: { contains: search, mode: "insensitive" } },
-      { phone: { contains: search } },
+      { name: { contains: filters.search, mode: "insensitive" } },
+      { companyName: { contains: filters.search, mode: "insensitive" } },
+      { phone: { contains: filters.search } },
     ];
+  }
+
+  if (filters?.status) {
+    where.status = filters.status;
+  }
+
+  if (filters?.verificationStatus) {
+    where.verificationStatus = filters.verificationStatus;
   }
 
   return await prisma.vendor.findMany({
@@ -618,22 +626,19 @@ export const getVendorById = async (id: string) => {
     include: {
       vehicles: true,
       partners: true,
-      attachments: {
-        include: {
-          partner: true,
-          vehicle: true,
-        },
-      },
     },
   });
   if (!vendor) throw new Error("Vendor not found");
   return vendor;
 };
 
-export const updateVendor = async (id: string, data: any) => {
+export const updateVendor = async (id: string, data: any, adminId?: string) => {
   return await prisma.vendor.update({
     where: { id },
-    data,
+    data: {
+      ...data,
+      ...(adminId && { updatedByAdminId: adminId })
+    },
   });
 };
 
@@ -707,65 +712,97 @@ export const updateCityCode = async (id: string, data: any) => {
   });
 };
 
-/* ============================================
-    ATTACHMENT MANAGEMENT
-============================================ */
-
 export const createAttachment = async (data: {
-  vendorCustomId: string;
-  partnerCustomId: string;
-  vehicleCustomId: string;
+  vendorCustomId?: string;
+  partnerCustomId?: string;
+  vehicleCustomId?: string;
+  cityCode?: string; // Optional: will resolve if possible
+  referenceType?: AttachmentReferenceType;
+  referenceId?: string;
+  fileType?: AttachmentFileType;
+  fileUrl?: string;
+  uploadedBy?: UploadedBy;
+  adminId?: string;
 }) => {
-  // Validate or lookup vendor
-  const vendor = await prisma.vendor.findUnique({
-    where: { customId: data.vendorCustomId },
-  });
-  if (!vendor) throw new Error("Invalid vendor custom ID");
+  let cityCode = data.cityCode;
 
-  // Validate or lookup partner
-  const partner = await prisma.partner.findUnique({
-    where: { customId: data.partnerCustomId },
-  });
-  if (!partner) throw new Error("Invalid partner custom ID");
-
-  // Validate or lookup vehicle
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { customId: data.vehicleCustomId },
-  });
-  if (!vehicle) throw new Error("Invalid vehicle custom ID");
-
-  // Check if attachment already exists
-  const existing = await prisma.attachment.findFirst({
-    where: {
-      vendorId: vendor.id,
-      partnerId: partner.id,
-      vehicleId: vehicle.id,
-    },
-  });
-
-  if (existing) {
-    throw new Error("This attachment already exists");
+  // Resolve City Code if missing but referenceId is provided
+  if (!cityCode && data.referenceId && data.referenceType) {
+    if (data.referenceType === "VENDOR") {
+      const v = await prisma.vendor.findUnique({ where: { id: data.referenceId }, include: { cityCode: true } });
+      cityCode = v?.cityCode?.code;
+    } else if (data.referenceType === "PARTNER") {
+      const p = await prisma.partner.findUnique({ where: { id: data.referenceId }, include: { cityCode: true } });
+      cityCode = p?.cityCode?.code;
+    } else if (data.referenceType === "VEHICLE") {
+      const vh = await prisma.vehicle.findUnique({ where: { id: data.referenceId }, include: { cityCode: true } });
+      cityCode = vh?.cityCode?.code;
+    }
   }
 
-  // Create attachment
-  const attachment = await prisma.attachment.create({
-    data: {
-      vendorId: vendor.id,
-      partnerId: partner.id,
-      vehicleId: vehicle.id,
-    },
-    include: {
-      vendor: true,
-      partner: true,
-      vehicle: true,
-    },
-  });
+  if (!cityCode) throw new Error("City code is required for attachment custom ID generation");
 
-  return attachment;
+  const customId = await generateEntityCustomId(cityCode, "ATTACHMENT");
+
+  // Case 1: 3-ID Link Registration Bundle
+  if (data.vendorCustomId && data.partnerCustomId && data.vehicleCustomId) {
+    const vendor = await prisma.vendor.findUnique({ where: { customId: data.vendorCustomId } });
+    if (!vendor) throw new Error("Invalid vendor custom ID");
+
+    const partner = await prisma.partner.findUnique({ where: { customId: data.partnerCustomId } });
+    if (!partner) throw new Error("Invalid partner custom ID");
+
+    const vehicle = await prisma.vehicle.findUnique({ where: { customId: data.vehicleCustomId } });
+    if (!vehicle) throw new Error("Invalid vehicle custom ID");
+
+    return await prisma.attachment.create({
+      data: {
+        customId,
+        vendorId: vendor.id,
+        partnerId: partner.id,
+        vehicleId: vehicle.id,
+        verificationStatus: "UNVERIFIED",
+      },
+      include: {
+        vendor: true,
+        partner: true,
+        vehicle: true,
+      },
+    });
+  }
+
+  // Case 2: Polymorphic Individual Document Upload
+  if (data.referenceType && data.referenceId && data.fileUrl) {
+    return await prisma.attachment.create({
+      data: {
+        customId,
+        referenceType: data.referenceType,
+        referenceId: data.referenceId, // Prisma will handle string to ObjectId conversion if valid
+        fileType: data.fileType,
+        fileUrl: data.fileUrl,
+        uploadedBy: data.uploadedBy || "ADMIN",
+        updatedByAdminId: data.adminId,
+        verificationStatus: "UNVERIFIED",
+      },
+    });
+  }
+
+  throw new Error("Invalid attachment data. Provide either 3-ID link or referenceType/referenceId/fileUrl.");
 };
 
-export const getAllAttachments = async () => {
-  return await prisma.attachment.findMany({
+export const getAllAttachments = async (filters?: {
+  vendorId?: string;
+  partnerId?: string;
+  vehicleId?: string;
+  verificationStatus?: VerificationStatus;
+}) => {
+  const attachments = await prisma.attachment.findMany({
+    where: {
+      ...(filters?.vendorId && { vendorId: filters.vendorId }),
+      ...(filters?.partnerId && { partnerId: filters.partnerId }),
+      ...(filters?.vehicleId && { vehicleId: filters.vehicleId }),
+      ...(filters?.verificationStatus && { verificationStatus: filters.verificationStatus }),
+    },
     include: {
       vendor: true,
       partner: true,
@@ -773,12 +810,17 @@ export const getAllAttachments = async () => {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  return attachments;
 };
 
-export const toggleAttachmentStatus = async (id: string, isActive: boolean) => {
+export const updateAttachmentStatus = async (id: string, status: EntityStatus, adminId?: string) => {
   return await prisma.attachment.update({
     where: { id },
-    data: { isActive },
+    data: { 
+      status,
+      ...(adminId && { updatedByAdminId: adminId })
+    },
   });
 };
 

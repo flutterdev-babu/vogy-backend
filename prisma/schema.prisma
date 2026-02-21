@@ -44,22 +44,42 @@ enum VehicleCategory {
   CAR
 }
 
-enum VendorStatus {
-  PENDING
-  APPROVED
+enum EntityStatus {
+  ACTIVE
+  INACTIVE
   SUSPENDED
+  BANNED
 }
 
-enum PartnerStatus {
-  PENDING
-  APPROVED
-  SUSPENDED
+enum VerificationStatus {
+  VERIFIED
+  UNVERIFIED
+  REJECTED
 }
 
-enum CorporateStatus {
-  PENDING
-  APPROVED
-  SUSPENDED
+enum AttachmentReferenceType {
+  PARTNER
+  VEHICLE
+  VENDOR
+}
+
+enum AttachmentFileType {
+  PAN
+  AADHAAR_FRONT
+  AADHAAR_BACK
+  DL
+  RC
+  PROFILE
+  BANK
+  CHEQUE
+  INSURANCE
+  OTHER
+}
+
+enum UploadedBy {
+  ADMIN
+  PARTNER
+  VENDOR
 }
 
 enum VendorType {
@@ -102,11 +122,12 @@ enum FuelType {
   HYBRID
 }
 
-enum AttachmentStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
+// DEPRECATED: Old Status Enums (Replaced by EntityStatus and VerificationStatus)
+// enum AttachmentStatus {
+//   PENDING
+//   APPROVED
+//   REJECTED
+// }
 
 // ============================================
 // EXISTING MODELS (maintained for backward compatibility)
@@ -198,15 +219,17 @@ model CityPricing {
 
 model Vendor {
   id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  customId      String?      @unique  // e.g., "ICVBLR01"
+  customId      String?      @unique  // e.g., "ACVBLR01"
   name          String
   companyName   String
   phone         String       @unique
   email         String?      @unique
   password      String
   address       String?
-  status        VendorStatus @default(PENDING)
+  status        EntityStatus @default(ACTIVE)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
   type          VendorType   @default(BUSINESS)
+  isDeleted     Boolean      @default(false)
   
   // Additional contact details
   gstNumber        String?
@@ -234,20 +257,23 @@ model Vendor {
   // Rides assigned to this vendor
   rides         Ride[]       @relation("VendorRides")
 
-  // NEW: Attachments
-  attachments   Attachment[]
+  // NEW: Attachments (Centralized)
+  // attachments   Attachment[] @relation("VendorAttachments")
   
   // DEPRECATED: Linked Agent (Governance shifting to Admin)
   agentId       String?      @db.ObjectId
   agent         Agent?       @relation("AgentVendors", fields: [agentId], references: [id])
 
+  attachments   Attachment[]
+
+  updatedByAdminId String?   @db.ObjectId
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 }
 
 model Partner {
   id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  customId       String?       @unique  // e.g., "ICPBLR01"
+  customId       String?       @unique  // e.g., "ACPBLR01"
   
   // Personal details (split name)
   firstName      String?
@@ -264,11 +290,29 @@ model Partner {
   localAddress   String?       // Current Address
   permanentAddress String?     // Address as on Aadhar Card
   
+  status         EntityStatus @default(ACTIVE)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  isDeleted      Boolean      @default(false)
+
+  // KYC Details
+  panNumber      String?
+  panCardPhoto   String?
+  aadhaarNumber  String?
+  aadhaarFrontPhoto String?
+  aadhaarBackPhoto  String?
+  
   licenseNumber  String?
   licenseImage   String?
+  licenseExpiryDate DateTime?
   hasLicense     Boolean       @default(false)
   
-  status         PartnerStatus @default(PENDING)
+  // Bank Details
+  accountHolderName String?
+  bankName          String?
+  accountNumber     String?
+  ifscCode          String?
+  cancelledChequePhoto String?
+
   isOnline       Boolean       @default(false)
   currentLat     Float?
   currentLng     Float?
@@ -282,7 +326,7 @@ model Partner {
   // Assigned vehicle from vendor (one partner per vehicle)
   vehicleId      String?       @unique @db.ObjectId
   vehicle        Vehicle?      @relation(fields: [vehicleId], references: [id])
-
+ 
   // Vendor relationship
   vendorId       String?       @db.ObjectId
   vendor         Vendor?       @relation("VendorPartners", fields: [vendorId], references: [id])
@@ -296,17 +340,18 @@ model Partner {
   
   // Rides driven by this partner
   rides          Ride[]        @relation("PartnerRides")
-
-  // NEW: Attachments
+ 
+  // NEW: Attachments (Centralized)
   attachments    Attachment[]
   
+  updatedByAdminId String?     @db.ObjectId
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 }
 
 model Vehicle {
   id                 String       @id @default(auto()) @map("_id") @db.ObjectId
-  customId           String?      @unique  // e.g., "ICVHBLR01"
+  customId           String?      @unique  // e.g., "ACVHBLR01"
   registrationNumber String       @unique
   vehicleModel       String
   
@@ -317,6 +362,20 @@ model Vehicle {
   rtoTaxExpiryDate   DateTime?
   speedGovernor      Boolean?     @default(false)
   
+  status             EntityStatus @default(ACTIVE)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  isDeleted          Boolean      @default(false)
+
+  // RC Details
+  rcNumber           String?
+  rcPhoto            String?
+  chassisNumber      String?
+  
+  // Insurance Details
+  insuranceNumber    String?
+  insurancePhoto     String?
+  insuranceExpiryDate DateTime?
+
   // City code for ID generation
   cityCodeId         String?      @db.ObjectId
   cityCode           CityCode?    @relation(fields: [cityCodeId], references: [id])
@@ -333,14 +392,15 @@ model Vehicle {
   partner            Partner?
   
   isAvailable        Boolean      @default(true)
-  isActive           Boolean      @default(true)
+  isActive           Boolean      @default(true) // DEPRECATED: use status
   
   // Rides using this vehicle
   rides              Ride[]       @relation("VehicleRides")
-
-  // NEW: Attachments
+ 
+  // NEW: Attachments (Centralized)
   attachments        Attachment[]
   
+  updatedByAdminId String?     @db.ObjectId
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 }
@@ -378,7 +438,9 @@ model Corporate {
   address       String?
   gstNumber     String?
   
-  status        CorporateStatus @default(PENDING)
+  status        EntityStatus @default(ACTIVE)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  isDeleted     Boolean      @default(false)
   
   // City code for ID generation
   cityCodeId    String?         @db.ObjectId
@@ -407,23 +469,36 @@ model Corporate {
 }
 
 model Attachment {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  customId    String?  @unique
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  customId        String?  @unique // e.g., "ACATBLR0001"
   
-  vendorId    String   @db.ObjectId
-  partnerId   String   @db.ObjectId
-  vehicleId   String   @db.ObjectId
+  // Relations to core entities
+  vendorId        String?   @db.ObjectId
+  partnerId       String?   @db.ObjectId
+  vehicleId       String?   @db.ObjectId
   
-  vendor      Vendor   @relation(fields: [vendorId], references: [id])
-  partner     Partner  @relation(fields: [partnerId], references: [id])
-  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
+  partner         Partner?  @relation(fields: [partnerId], references: [id])
+  vehicle         Vehicle?  @relation(fields: [vehicleId], references: [id])
   
-  isActive    Boolean  @default(true)
-  status      AttachmentStatus @default(PENDING)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Polymorphic backup/future-proofing (optional)
+  referenceType   AttachmentReferenceType?
+  referenceId     String?   @db.ObjectId // ID of Partner, Vehicle, or Vendor
+  
+  fileType        AttachmentFileType?
+  fileUrl         String?
+  
+  status          EntityStatus @default(ACTIVE)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  
+  uploadedBy      UploadedBy @default(PARTNER)
+  updatedByAdminId String?   @db.ObjectId
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@unique([vendorId, partnerId, vehicleId])
+  // Note: We don't use strict relations here to maintain generic attachment system,
+  // but we can query by referenceId and referenceType.
 }
 
 model CorporateBilling {

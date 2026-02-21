@@ -28,7 +28,7 @@ import {
   updateCityCode,
   createAttachment,
   getAllAttachments,
-  toggleAttachmentStatus,
+  updateAttachmentStatus,
   deleteAttachment,
   createVendorByAdmin,
   createPartnerByAdmin,
@@ -466,8 +466,13 @@ export default {
 
   getAllVendors: async (req: AuthedRequest, res: Response) => {
     try {
-      const { search } = req.query;
-      const vendors = await getAllVendors(search as string);
+      const { search, status, verificationStatus, includeDeleted } = req.query;
+      const vendors = await getAllVendors({
+        search: search as string,
+        status: status as any,
+        verificationStatus: verificationStatus as any,
+        includeDeleted: includeDeleted === "true"
+      });
       res.json({ success: true, data: vendors });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -485,7 +490,8 @@ export default {
 
   updateVendor: async (req: AuthedRequest, res: Response) => {
     try {
-      const vendor = await updateVendor(req.params.id, req.body);
+      const adminId = req.user?.id;
+      const vendor = await updateVendor(req.params.id, req.body, adminId);
       res.json({ success: true, data: vendor });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -561,11 +567,20 @@ export default {
 
   createAttachment: async (req: AuthedRequest, res: Response) => {
     try {
-      const { vendorCustomId, partnerCustomId, vehicleCustomId } = req.body;
+      const { vendorCustomId, partnerCustomId, vehicleCustomId, cityCode } = req.body;
+
+      if (!vendorCustomId || !partnerCustomId || !vehicleCustomId || !cityCode) {
+        return res.status(400).json({
+          success: false,
+          message: "vendorCustomId, partnerCustomId, vehicleCustomId, and cityCode are required",
+        });
+      }
+
       const attachment = await createAttachment({
         vendorCustomId,
         partnerCustomId,
         vehicleCustomId,
+        cityCode,
       });
       res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {
@@ -584,8 +599,12 @@ export default {
 
   toggleAttachmentStatus: async (req: AuthedRequest, res: Response) => {
     try {
-      const { isActive } = req.body;
-      const attachment = await toggleAttachmentStatus(req.params.id, isActive);
+      const { status } = req.body;
+      const adminId = req.user?.id;
+      if (!status) {
+        return res.status(400).json({ success: false, message: "Status is required" });
+      }
+      const attachment = await updateAttachmentStatus(req.params.id, status, adminId);
       res.json({ success: true, data: attachment });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -595,7 +614,11 @@ export default {
   verifyAttachment: async (req: AuthedRequest, res: Response) => {
     try {
       const { status } = req.body;
-      const attachment = await verifyAttachmentByAdmin(req.params.id, status);
+      const adminId = req.user?.id;
+      if (!status) {
+        return res.status(400).json({ success: false, message: "Verification status is required" });
+      }
+      const attachment = await verifyAttachmentByAdmin(req.params.id, status, adminId);
       res.json({ success: true, data: attachment });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });

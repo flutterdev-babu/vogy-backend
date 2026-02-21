@@ -5,7 +5,7 @@ import { prisma } from "../../config/prisma";
 ============================================ */
 const generateCustomId = async (
   cityCode: string,
-  entityType: "VENDOR" | "PARTNER" | "VEHICLE" | "AGENT" | "CORPORATE" | "RIDE"
+  entityType: "VENDOR" | "PARTNER" | "VEHICLE" | "AGENT" | "CORPORATE" | "RIDE" | "ATTACHMENT"
 ): Promise<string> => {
   const prefixMap = {
     VENDOR: "V",
@@ -14,6 +14,7 @@ const generateCustomId = async (
     AGENT: "A",
     CORPORATE: "C",
     RIDE: "R",
+    ATTACHMENT: "AA",
   };
   const prefix = prefixMap[entityType];
   
@@ -45,17 +46,21 @@ const generateCustomId = async (
     count = await prisma.ride.count({
       where: { cityCode: { code: cityCode } },
     });
+  } else if (entityType === "ATTACHMENT") {
+    count = await prisma.attachment.count({
+      where: { customId: { contains: `ACAA${cityCode}` } }
+    });
   }
   
   // Generate next serial number
-  // For RIDE, we use 4 digits to reach 10 chars (IC + R + CITY + 0001)
-  // For others, we keep 2 digits for backward compatibility
-  const serialPadding = entityType === "RIDE" ? 4 : 2;
+  // For RIDE we use 4 digits to reach 10 chars
+  // For others, we keep 2 digits
+  const serialPadding = (entityType === "RIDE") ? 4 : 2;
   const serialNumber = String(count + 1).padStart(serialPadding, "0");
   
-  // Format: IC + prefix + cityCode + serial (no hyphen)
-  // e.g., ICVBLR01, ICPBLR01, ICABLR01, ICCBLR01, ICRBLR0001
-  return `IC${prefix}${cityCode}${serialNumber}`;
+  // Format: AC + prefix + cityCode + serial (no hyphen)
+  // e.g., ACVBLR01, ACPBLR01, ACABLR01, ACCBLR01, ACRBLR0001, ACAABLR01
+  return `AC${prefix}${cityCode}${serialNumber}`;
 };
 
 
