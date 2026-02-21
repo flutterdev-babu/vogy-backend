@@ -57,11 +57,13 @@ export default {
 
   async getAllVendors(req: AuthedRequest, res: Response) {
     try {
-      const { status, agentId, search } = req.query;
+      const { status, verificationStatus, agentId, search, includeDeleted } = req.query;
       const vendors = await vendorService.getAllVendors({
         status: status as any,
+        verificationStatus: verificationStatus as any,
         agentId: agentId as string,
         search: search as string,
+        includeDeleted: includeDeleted === "true",
       });
       res.json({ success: true, data: vendors });
     } catch (err: any) {
@@ -81,10 +83,25 @@ export default {
   async updateVendorStatus(req: AuthedRequest, res: Response) {
     try {
       const { status } = req.body;
+      const adminId = req.user?.id;
       if (!status) {
         return res.status(400).json({ success: false, message: "Status is required" });
       }
-      const vendor = await vendorService.updateVendorStatus(req.params.id, status);
+      const vendor = await vendorService.updateVendorStatus(req.params.id, status, adminId);
+      res.json({ success: true, data: vendor });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async updateVendorVerification(req: AuthedRequest, res: Response) {
+    try {
+      const { status } = req.body;
+      const adminId = req.user?.id;
+      if (!status) {
+        return res.status(400).json({ success: false, message: "Verification status is required" });
+      }
+      const vendor = await vendorService.updateVendorVerification(req.params.id, status, adminId);
       res.json({ success: true, data: vendor });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -137,7 +154,8 @@ export default {
 
   async deleteVendor(req: AuthedRequest, res: Response) {
     try {
-      const result = await vendorService.deleteVendor(req.params.id);
+      const adminId = req.user?.id;
+      const result = await vendorService.deleteVendor(req.params.id, adminId);
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -161,18 +179,16 @@ export default {
 
   async createAttachment(req: AuthedRequest, res: Response) {
     try {
-      const { partnerCustomId, vehicleCustomId } = req.body;
-
-      // Lookup vendor's own customId
-      const vendor = await prisma.vendor.findUnique({
-        where: { id: req.user.id }
-      });
-      if (!vendor) throw new Error("Vendor not found");
+      const { fileType, fileUrl, uploadedBy } = req.body;
+      const adminId = req.user?.id;
 
       const attachment = await adminService.createAttachment({
-        vendorCustomId: vendor.customId!,
-        partnerCustomId,
-        vehicleCustomId,
+        referenceType: "VENDOR",
+        referenceId: req.user.id,
+        fileType,
+        fileUrl,
+        uploadedBy: uploadedBy || "VENDOR",
+        adminId
       });
       res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {

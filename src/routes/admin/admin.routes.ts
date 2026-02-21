@@ -79,6 +79,9 @@ router.get("/vendors", adminController.getAllVendors);
 router.get("/vendors/:id", adminController.getVendorById);
 router.put("/vendors/:id", adminController.updateVendor);
 router.patch("/vendors/:id", adminController.updateVendor);
+router.patch("/vendors/:id/status", vendorController.updateVendorStatus);
+router.patch("/vendors/:id/verify", vendorController.updateVendorVerification);
+router.delete("/vendors/:id", vendorController.deleteVendor);
 
 // ============================================
 // PARTNER MANAGEMENT
@@ -91,6 +94,7 @@ router.put("/partners/:id", partnerController.updatePartnerByAdmin);
 router.patch("/partners/:id", partnerController.updatePartnerByAdmin);
 router.put("/partners/:id/status", partnerController.updatePartnerStatus);
 router.patch("/partners/:id/status", partnerController.updatePartnerStatus);
+router.patch("/partners/:id/verify", partnerController.updatePartnerVerification);
 router.post("/partners/:id/assign-vehicle", partnerController.assignPartnerToVehicle);
 router.delete("/partners/:id/unassign-vehicle", partnerController.unassignPartnerFromVehicle);
 router.get("/partners/:id/rides", partnerController.getPartnerRides);
@@ -123,6 +127,8 @@ router.get("/vehicles/available", vehicleController.getAvailableVehicles);
 router.get("/vehicles/:id", vehicleController.getVehicleById);
 router.put("/vehicles/:id", vehicleController.updateVehicle);
 router.patch("/vehicles/:id", vehicleController.updateVehicle);
+router.patch("/vehicles/:id/status", vehicleController.updateVehicleStatus);
+router.patch("/vehicles/:id/verify", vehicleController.updateVehicleVerification);
 router.post("/vehicles/:id/assign-vendor", vehicleController.assignVehicleToVendor);
 router.get("/vehicles/:id/rides", vehicleController.getVehicleRides);
 router.delete("/vehicles/:id", vehicleController.deleteVehicle);

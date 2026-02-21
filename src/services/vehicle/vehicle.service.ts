@@ -1,5 +1,6 @@
 import { prisma } from "../../config/prisma";
 import { generateEntityCustomId } from "../city/city.service";
+import { EntityStatus, VerificationStatus, FuelType } from "@prisma/client";
 
 /* ============================================
     CREATE VEHICLE (with Partner assignment required)
@@ -13,12 +14,21 @@ export const createVehicle = async (data: {
   partnerId?: string;
   partnerCustomId?: string; // Optional: lookup partner by custom ID
   cityCodeId: string;   // City code for ID generation
-  // New vehicle details
+  
+  // Basic Details
   color?: string;
-  fuelType?: "PETROL" | "DIESEL" | "CNG" | "ELECTRIC" | "HYBRID";
+  fuelType?: FuelType;
   seatingCapacity?: number;
   rtoTaxExpiryDate?: string;  // ISO date string
   speedGovernor?: boolean;
+  
+  // RC & Insurance Details
+  rcNumber?: string;
+  rcPhoto?: string;
+  chassisNumber?: string;
+  insuranceNumber?: string;
+  insurancePhoto?: string;
+  insuranceExpiryDate?: string; // ISO date string
 }) => {
   // Check if vehicle with registration number already exists
   const existingVehicle = await prisma.vehicle.findUnique({
@@ -115,6 +125,14 @@ export const createVehicle = async (data: {
       seatingCapacity: data.seatingCapacity || null,
       rtoTaxExpiryDate: data.rtoTaxExpiryDate ? new Date(data.rtoTaxExpiryDate) : null,
       speedGovernor: data.speedGovernor ?? false,
+      rcNumber: data.rcNumber || null,
+      rcPhoto: data.rcPhoto || null,
+      chassisNumber: data.chassisNumber || null,
+      insuranceNumber: data.insuranceNumber || null,
+      insurancePhoto: data.insurancePhoto || null,
+      insuranceExpiryDate: data.insuranceExpiryDate ? new Date(data.insuranceExpiryDate) : null,
+      status: "ACTIVE",
+      verificationStatus: "UNVERIFIED",
     },
     include: {
       vehicleType: {
@@ -168,11 +186,15 @@ export const getAllVehicles = async (filters?: {
   vendorId?: string;
   vehicleTypeId?: string;
   isAvailable?: boolean;
-  isActive?: boolean;
+  status?: EntityStatus;
+  verificationStatus?: VerificationStatus;
   cityCodeId?: string;
   search?: string;
+  includeDeleted?: boolean;
 }) => {
-  const where: any = {};
+  const where: any = {
+    isDeleted: filters?.includeDeleted ? undefined : false,
+  };
 
   if (filters?.vendorId) {
     where.vendorId = filters.vendorId;
@@ -186,8 +208,12 @@ export const getAllVehicles = async (filters?: {
     where.isAvailable = filters.isAvailable;
   }
 
-  if (filters?.isActive !== undefined) {
-    where.isActive = filters.isActive;
+  if (filters?.status) {
+    where.status = filters.status;
+  }
+
+  if (filters?.verificationStatus) {
+    where.verificationStatus = filters.verificationStatus;
   }
 
   if (filters?.cityCodeId) {
@@ -322,7 +348,18 @@ export const updateVehicle = async (
     vehicleModel?: string;
     vehicleTypeId?: string;
     isAvailable?: boolean;
-    isActive?: boolean;
+    status?: EntityStatus;
+    verificationStatus?: VerificationStatus;
+    
+    // RC & Insurance Details
+    rcNumber?: string;
+    rcPhoto?: string;
+    chassisNumber?: string;
+    insuranceNumber?: string;
+    insurancePhoto?: string;
+    insuranceExpiryDate?: string;
+    
+    updatedByAdminId?: string;
   }
 ) => {
   // Validate vehicleTypeId if provided
@@ -339,7 +376,17 @@ export const updateVehicle = async (
       ...(data.vehicleModel && { vehicleModel: data.vehicleModel }),
       ...(data.vehicleTypeId && { vehicleTypeId: data.vehicleTypeId }),
       ...(data.isAvailable !== undefined && { isAvailable: data.isAvailable }),
-      ...(data.isActive !== undefined && { isActive: data.isActive }),
+      ...(data.status && { status: data.status }),
+      ...(data.verificationStatus && { verificationStatus: data.verificationStatus }),
+      ...(data.rcNumber !== undefined && { rcNumber: data.rcNumber }),
+      ...(data.rcPhoto !== undefined && { rcPhoto: data.rcPhoto }),
+      ...(data.chassisNumber !== undefined && { chassisNumber: data.chassisNumber }),
+      ...(data.insuranceNumber !== undefined && { insuranceNumber: data.insuranceNumber }),
+      ...(data.insurancePhoto !== undefined && { insurancePhoto: data.insurancePhoto }),
+      ...(data.insuranceExpiryDate !== undefined && { 
+        insuranceExpiryDate: data.insuranceExpiryDate ? new Date(data.insuranceExpiryDate) : null 
+      }),
+      ...(data.updatedByAdminId && { updatedByAdminId: data.updatedByAdminId }),
     },
     include: {
       vehicleType: {
@@ -570,37 +617,61 @@ export const getVehicleRides = async (vehicleId: string) => {
 /* ============================================
     DELETE VEHICLE
 ============================================ */
-export const deleteVehicle = async (vehicleId: string) => {
-  // Check if vehicle has assigned partner
-  const vehicle = await prisma.vehicle.findUnique({
+export const deleteVehicle = async (vehicleId: string, adminId?: string) => {
+  // Soft delete
+  await prisma.vehicle.update({
     where: { id: vehicleId },
-    include: {
-      partner: true,
+    data: { 
+      isDeleted: true,
+      status: "BANNED",
+      isAvailable: false,
+      ...(adminId && { updatedByAdminId: adminId })
     },
   });
 
-  if (!vehicle) throw new Error("Vehicle not found");
+  return { message: "Vehicle soft-deleted successfully" };
+};
 
-  // Unassign partner if exists
-  if (vehicle.partner) {
-    await prisma.partner.update({
-      where: { id: vehicle.partner.id },
-      data: { vehicleId: null },
-    });
-  }
-
-  // Check if vehicle has rides
-  const rideCount = await prisma.ride.count({
-    where: { vehicleId },
-  });
-
-  if (rideCount > 0) {
-    throw new Error("Cannot delete vehicle with existing rides. Consider deactivating instead.");
-  }
-
-  await prisma.vehicle.delete({
+/* ============================================
+    UPDATE VEHICLE STATUS (Admin)
+============================================ */
+export const updateVehicleStatus = async (vehicleId: string, status: EntityStatus, adminId?: string) => {
+  const vehicle = await prisma.vehicle.update({
     where: { id: vehicleId },
+    data: { 
+      status,
+      ...(adminId && { updatedByAdminId: adminId })
+    },
+    select: {
+      id: true,
+      customId: true,
+      registrationNumber: true,
+      status: true,
+      updatedAt: true,
+    },
   });
 
-  return { message: "Vehicle deleted successfully" };
+  return vehicle;
+};
+
+/* ============================================
+    UPDATE VEHICLE VERIFICATION (Admin)
+============================================ */
+export const updateVehicleVerification = async (vehicleId: string, verificationStatus: VerificationStatus, adminId?: string) => {
+  const vehicle = await prisma.vehicle.update({
+    where: { id: vehicleId },
+    data: { 
+      verificationStatus,
+      ...(adminId && { updatedByAdminId: adminId })
+    },
+    select: {
+      id: true,
+      customId: true,
+      registrationNumber: true,
+      verificationStatus: true,
+      updatedAt: true,
+    },
+  });
+
+  return vehicle;
 };

@@ -1,25 +1,32 @@
 import { prisma } from "../../config/prisma";
-import { PartnerStatus } from "@prisma/client";
+import { EntityStatus, VerificationStatus, Gender } from "@prisma/client";
+import { generateEntityCustomId } from "../city/city.service";
 
 /* ============================================
     GET ALL PARTNERS
 ============================================ */
 export const getAllPartners = async (filters?: {
-  status?: PartnerStatus;
+  status?: EntityStatus;
+  verificationStatus?: VerificationStatus;
   vendorId?: string;
   isOnline?: boolean;
   search?: string;
+  includeDeleted?: boolean;
 }) => {
-  const where: any = {};
+  const where: any = {
+    isDeleted: filters?.includeDeleted ? undefined : false,
+  };
 
   if (filters?.status) {
     where.status = filters.status;
   }
 
+  if (filters?.verificationStatus) {
+    where.verificationStatus = filters.verificationStatus;
+  }
+
   if (filters?.vendorId) {
-    where.vehicle = {
-      vendorId: filters.vendorId,
-    };
+    where.vendorId = filters.vendorId;
   }
 
   if (filters?.isOnline !== undefined) {
@@ -47,11 +54,14 @@ export const getAllPartners = async (filters?: {
       licenseImage: true,
       hasLicense: true,
       status: true,
+      verificationStatus: true,
       isOnline: true,
       currentLat: true,
       currentLng: true,
       rating: true,
       totalEarnings: true,
+      panNumber: true,
+      aadhaarNumber: true,
       hasOwnVehicle: true,
       ownVehicleNumber: true,
       ownVehicleModel: true,
@@ -107,8 +117,8 @@ export const getAllPartners = async (filters?: {
     GET PARTNER BY ID
 ============================================ */
 export const getPartnerById = async (partnerId: string) => {
-  const partner = await prisma.partner.findUnique({
-    where: { id: partnerId },
+  const partner = await prisma.partner.findFirst({
+    where: { id: partnerId, isDeleted: false },
     include: {
       vehicle: {
         include: {
@@ -152,10 +162,13 @@ export const getPartnerById = async (partnerId: string) => {
 /* ============================================
     UPDATE PARTNER STATUS (Admin)
 ============================================ */
-export const updatePartnerStatus = async (partnerId: string, status: PartnerStatus) => {
+export const updatePartnerStatus = async (partnerId: string, status: EntityStatus, adminId?: string) => {
   const partner = await prisma.partner.update({
     where: { id: partnerId },
-    data: { status },
+    data: { 
+      status,
+      ...(adminId && { updatedByAdminId: adminId })
+    },
     select: {
       id: true,
       name: true,
@@ -170,28 +183,77 @@ export const updatePartnerStatus = async (partnerId: string, status: PartnerStat
 };
 
 /* ============================================
+    UPDATE PARTNER VERIFICATION (Admin)
+============================================ */
+export const updatePartnerVerification = async (partnerId: string, verificationStatus: VerificationStatus, adminId?: string) => {
+  const partner = await prisma.partner.update({
+    where: { id: partnerId },
+    data: { 
+      verificationStatus,
+      ...(adminId && { updatedByAdminId: adminId })
+    },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      verificationStatus: true,
+      updatedAt: true,
+    },
+  });
+
+  return partner;
+};
+
+/* ============================================
     UPDATE PARTNER BY ADMIN
 ============================================ */
 export const updatePartnerByAdmin = async (
   partnerId: string,
   data: {
-    name?: string;
+    // Personal Details
+    firstName?: string;
+    lastName?: string;
     email?: string;
+    profileImage?: string;
+    dateOfBirth?: Date;
+    gender?: Gender;
+    localAddress?: string;
+    permanentAddress?: string;
+    
+    // KYC Details
+    panNumber?: string;
+    panCardPhoto?: string;
+    aadhaarNumber?: string;
+    aadhaarFrontPhoto?: string;
+    aadhaarBackPhoto?: string;
     licenseNumber?: string;
     licenseImage?: string;
+    licenseExpiryDate?: Date;
     hasLicense?: boolean;
-    status?: PartnerStatus;
+    
+    // Bank Details
+    accountHolderName?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    cancelledChequePhoto?: string;
+    
+    status?: EntityStatus;
+    verificationStatus?: VerificationStatus;
+    updatedByAdminId?: string;
   }
 ) => {
+  const { updatedByAdminId, ...updateData } = data;
+  
+  if (data.firstName && data.lastName) {
+    (updateData as any).name = `${data.firstName} ${data.lastName}`;
+  }
+
   const partner = await prisma.partner.update({
     where: { id: partnerId },
     data: {
-      ...(data.name && { name: data.name }),
-      ...(data.email !== undefined && { email: data.email }),
-      ...(data.licenseNumber !== undefined && { licenseNumber: data.licenseNumber }),
-      ...(data.licenseImage !== undefined && { licenseImage: data.licenseImage }),
-      ...(data.hasLicense !== undefined && { hasLicense: data.hasLicense }),
-      ...(data.status && { status: data.status }),
+      ...updateData,
+      ...(updatedByAdminId && { updatedByAdminId }),
     },
     include: {
       vehicle: {
@@ -468,21 +530,18 @@ export const getAvailablePartners = async (vehicleTypeId?: string) => {
 /* ============================================
     DELETE PARTNER
 ============================================ */
-export const deletePartner = async (partnerId: string) => {
-  // Check if partner has rides
-  const rideCount = await prisma.ride.count({
-    where: { partnerId },
-  });
-
-  if (rideCount > 0) {
-    throw new Error("Cannot delete partner with existing rides. Consider suspending instead.");
-  }
-
-  await prisma.partner.delete({
+export const deletePartner = async (partnerId: string, adminId?: string) => {
+  // Soft delete
+  await prisma.partner.update({
     where: { id: partnerId },
+    data: { 
+      isDeleted: true,
+      status: "BANNED", 
+      ...(adminId && { updatedByAdminId: adminId })
+    },
   });
 
-  return { message: "Partner deleted successfully" };
+  return { message: "Partner soft-deleted successfully" };
 };
 
 /* ============================================
