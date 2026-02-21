@@ -28,6 +28,7 @@ import {
   updateCityCode,
   createAttachment,
   getAllAttachments,
+  getAttachmentById,
   updateAttachmentStatus,
   deleteAttachment,
   createVendorByAdmin,
@@ -586,6 +587,15 @@ export default {
       res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  getAttachmentById: async (req: AuthedRequest, res: Response) => {
+    try {
+      const attachment = await getAttachmentById(req.params.id);
+      res.json({ success: true, data: attachment });
+    } catch (err: any) {
+      res.status(404).json({ success: false, message: err.message });
     }
   },
 
