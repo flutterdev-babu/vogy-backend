@@ -193,7 +193,7 @@ export const getAllVehicles = async (filters?: {
   includeDeleted?: boolean;
 }) => {
   const where: any = {
-    isDeleted: filters?.includeDeleted ? undefined : false,
+    isDeleted: filters?.includeDeleted ? undefined : { not: true },
   };
 
   if (filters?.vendorId) {
@@ -522,7 +522,8 @@ export const assignVehicleToVendor = async (vehicleId: string, vendorId: string)
 export const getAvailableVehicles = async (vehicleTypeId?: string, cityCodeId?: string) => {
   const where: any = {
     isAvailable: true,
-    isActive: true,
+    status: "ACTIVE",
+    isDeleted: { not: true },
   };
 
   if (vehicleTypeId) {
@@ -625,6 +626,7 @@ export const deleteVehicle = async (vehicleId: string, adminId?: string) => {
       isDeleted: true,
       status: "BANNED",
       isAvailable: false,
+      isActive: false,
       ...(adminId && { updatedByAdminId: adminId })
     },
   });

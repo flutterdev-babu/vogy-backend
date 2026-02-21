@@ -18,15 +18,16 @@ export default {
 
   async getAllVehicles(req: AuthedRequest, res: Response) {
     try {
-      const { vendorId, vehicleTypeId, isAvailable, status, verificationStatus, search, includeDeleted } = req.query;
+      const { vendorId, vehicleTypeId, isAvailable, status, verificationStatus, search, includeDeleted, cityCodeId } = req.query;
       const vehicles = await vehicleService.getAllVehicles({
         vendorId: vendorId as string,
         vehicleTypeId: vehicleTypeId as string,
         isAvailable: isAvailable === "true" ? true : isAvailable === "false" ? false : undefined,
-        status: status as any,
-        verificationStatus: verificationStatus as any,
+        status: status ? (status as string).toUpperCase() as any : undefined,
+        verificationStatus: verificationStatus ? (verificationStatus as string).toUpperCase() as any : undefined,
         search: search as string,
         includeDeleted: includeDeleted === "true",
+        cityCodeId: cityCodeId as string,
       });
       res.json({ success: true, data: vehicles });
     } catch (err: any) {

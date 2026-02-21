@@ -57,13 +57,16 @@ export default {
 
   async getAllVendors(req: AuthedRequest, res: Response) {
     try {
-      const { status, verificationStatus, agentId, search, includeDeleted } = req.query;
+      const { vendorId, type, status, verificationStatus, agentId, search, includeDeleted, cityCodeId } = req.query;
       const vendors = await vendorService.getAllVendors({
-        status: status as any,
-        verificationStatus: verificationStatus as any,
+        vendorId: vendorId as string,
+        type: type ? (type as string).toUpperCase() as any : undefined,
+        status: status ? (status as string).toUpperCase() as any : undefined,
+        verificationStatus: verificationStatus ? (verificationStatus as string).toUpperCase() as any : undefined,
         agentId: agentId as string,
         search: search as string,
         includeDeleted: includeDeleted === "true",
+        cityCodeId: cityCodeId as string,
       });
       res.json({ success: true, data: vendors });
     } catch (err: any) {

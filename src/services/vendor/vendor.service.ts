@@ -10,10 +10,28 @@ export const getAllVendors = async (filters?: {
   agentId?: string;
   search?: string;
   includeDeleted?: boolean;
+  cityCodeId?: string;
+  vendorId?: string; // Support filtering by ID or CustomID
+  type?: "INDIVIDUAL" | "BUSINESS";
 }) => {
   const where: any = {
-    isDeleted: filters?.includeDeleted ? undefined : false,
+    isDeleted: filters?.includeDeleted ? undefined : { not: true },
   };
+
+  if (filters?.type) {
+    where.type = filters.type;
+  }
+
+  if (filters?.vendorId) {
+    where.OR = [
+      { id: filters.vendorId },
+      { customId: filters.vendorId }
+    ];
+  }
+
+  if (filters?.cityCodeId) {
+    where.cityCodeId = filters.cityCodeId;
+  }
 
   if (filters?.status) {
     where.status = filters.status;

@@ -12,10 +12,15 @@ export const getAllPartners = async (filters?: {
   isOnline?: boolean;
   search?: string;
   includeDeleted?: boolean;
+  cityCodeId?: string;
 }) => {
   const where: any = {
-    isDeleted: filters?.includeDeleted ? undefined : false,
+    isDeleted: filters?.includeDeleted ? undefined : { not: true },
   };
+
+  if (filters?.cityCodeId) {
+    where.cityCodeId = filters.cityCodeId;
+  }
 
   if (filters?.status) {
     where.status = filters.status;

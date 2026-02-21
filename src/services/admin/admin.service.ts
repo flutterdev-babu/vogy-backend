@@ -6,7 +6,7 @@ import * as partnerAuthService from "../auth/partner.auth.service";
 import { generateEntityCustomId } from "../city/city.service";
 import { validatePhoneNumber } from "../../utils/phoneValidation";
 import { hashPassword } from "../../utils/hash";
-import { EntityStatus, VerificationStatus } from "@prisma/client";
+import { EntityStatus, VerificationStatus, AttachmentReferenceType, AttachmentFileType, UploadedBy } from "@prisma/client";
 
 /* ============================================
     VEHICLE TYPE MANAGEMENT
@@ -712,45 +712,82 @@ export const updateCityCode = async (id: string, data: any) => {
   });
 };
 
-/* ============================================
-    ATTACHMENT MANAGEMENT
-============================================ */
-
 export const createAttachment = async (data: {
-  vendorCustomId: string;
-  partnerCustomId: string;
-  vehicleCustomId: string;
-  cityCode: string;
+  vendorCustomId?: string;
+  partnerCustomId?: string;
+  vehicleCustomId?: string;
+  cityCode?: string; // Optional: will resolve if possible
+  referenceType?: AttachmentReferenceType;
+  referenceId?: string;
+  fileType?: AttachmentFileType;
+  fileUrl?: string;
+  uploadedBy?: UploadedBy;
+  adminId?: string;
 }) => {
-  // Validate or lookup entities
-  const vendor = await prisma.vendor.findUnique({ where: { customId: data.vendorCustomId } });
-  if (!vendor) throw new Error("Invalid vendor custom ID");
+  let cityCode = data.cityCode;
 
-  const partner = await prisma.partner.findUnique({ where: { customId: data.partnerCustomId } });
-  if (!partner) throw new Error("Invalid partner custom ID");
+  // Resolve City Code if missing but referenceId is provided
+  if (!cityCode && data.referenceId && data.referenceType) {
+    if (data.referenceType === "VENDOR") {
+      const v = await prisma.vendor.findUnique({ where: { id: data.referenceId }, include: { cityCode: true } });
+      cityCode = v?.cityCode?.code;
+    } else if (data.referenceType === "PARTNER") {
+      const p = await prisma.partner.findUnique({ where: { id: data.referenceId }, include: { cityCode: true } });
+      cityCode = p?.cityCode?.code;
+    } else if (data.referenceType === "VEHICLE") {
+      const vh = await prisma.vehicle.findUnique({ where: { id: data.referenceId }, include: { cityCode: true } });
+      cityCode = vh?.cityCode?.code;
+    }
+  }
 
-  const vehicle = await prisma.vehicle.findUnique({ where: { customId: data.vehicleCustomId } });
-  if (!vehicle) throw new Error("Invalid vehicle custom ID");
+  if (!cityCode) throw new Error("City code is required for attachment custom ID generation");
 
-  // Generate custom ID for attachment
-  const customId = await generateEntityCustomId(data.cityCode, "ATTACHMENT");
+  const customId = await generateEntityCustomId(cityCode, "ATTACHMENT");
 
-  // Create attachment record linking all three
-  const attachment = await prisma.attachment.create({
-    data: {
-      customId,
-      vendorId: vendor.id,
-      partnerId: partner.id,
-      vehicleId: vehicle.id,
-    },
-    include: {
-      vendor: true,
-      partner: true,
-      vehicle: true,
-    },
-  });
+  // Case 1: 3-ID Link Registration Bundle
+  if (data.vendorCustomId && data.partnerCustomId && data.vehicleCustomId) {
+    const vendor = await prisma.vendor.findUnique({ where: { customId: data.vendorCustomId } });
+    if (!vendor) throw new Error("Invalid vendor custom ID");
 
-  return attachment;
+    const partner = await prisma.partner.findUnique({ where: { customId: data.partnerCustomId } });
+    if (!partner) throw new Error("Invalid partner custom ID");
+
+    const vehicle = await prisma.vehicle.findUnique({ where: { customId: data.vehicleCustomId } });
+    if (!vehicle) throw new Error("Invalid vehicle custom ID");
+
+    return await prisma.attachment.create({
+      data: {
+        customId,
+        vendorId: vendor.id,
+        partnerId: partner.id,
+        vehicleId: vehicle.id,
+        verificationStatus: "UNVERIFIED",
+      },
+      include: {
+        vendor: true,
+        partner: true,
+        vehicle: true,
+      },
+    });
+  }
+
+  // Case 2: Polymorphic Individual Document Upload
+  if (data.referenceType && data.referenceId && data.fileUrl) {
+    return await prisma.attachment.create({
+      data: {
+        customId,
+        referenceType: data.referenceType,
+        referenceId: data.referenceId, // Prisma will handle string to ObjectId conversion if valid
+        fileType: data.fileType,
+        fileUrl: data.fileUrl,
+        uploadedBy: data.uploadedBy || "ADMIN",
+        updatedByAdminId: data.adminId,
+        verificationStatus: "UNVERIFIED",
+      },
+    });
+  }
+
+  throw new Error("Invalid attachment data. Provide either 3-ID link or referenceType/referenceId/fileUrl.");
 };
 
 export const getAllAttachments = async (filters?: {

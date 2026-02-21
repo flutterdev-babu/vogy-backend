@@ -82,12 +82,14 @@ export default {
 
   async getAllPartners(req: AuthedRequest, res: Response) {
     try {
-      const { status, vendorId, isOnline, search } = req.query;
+      const { vendorId, status, verificationStatus, search, includeDeleted, cityCodeId } = req.query;
       const partners = await partnerService.getAllPartners({
-        status: status as any,
         vendorId: vendorId as string,
-        isOnline: isOnline === "true" ? true : isOnline === "false" ? false : undefined,
+        status: status ? (status as string).toUpperCase() as any : undefined,
+        verificationStatus: verificationStatus ? (verificationStatus as string).toUpperCase() as any : undefined,
         search: search as string,
+        includeDeleted: includeDeleted === "true",
+        cityCodeId: cityCodeId as string,
       });
       res.json({ success: true, data: partners });
     } catch (err: any) {
