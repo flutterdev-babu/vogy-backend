@@ -6,7 +6,7 @@ import * as partnerAuthService from "../auth/partner.auth.service";
 import { generateEntityCustomId } from "../city/city.service";
 import { validatePhoneNumber } from "../../utils/phoneValidation";
 import { hashPassword } from "../../utils/hash";
-import { EntityStatus, VerificationStatus, AttachmentReferenceType, AttachmentFileType, UploadedBy } from "@prisma/client";
+import { EntityStatus, VerificationStatus, AttachmentReferenceType, AttachmentFileType, UploadedBy, PaymentStatus, PaymentMode } from "@prisma/client";
 
 /* ============================================
     VEHICLE TYPE MANAGEMENT
@@ -420,6 +420,7 @@ export const getAllRides = async (filters?: {
           name: true,
           phone: true,
           email: true,
+          uniqueOtp: true,
         },
       },
       partner: {
@@ -465,6 +466,7 @@ export const getRideById = async (id: string) => {
           name: true,
           phone: true,
           email: true,
+          uniqueOtp: true,
         },
       },
       partner: {
@@ -1340,3 +1342,23 @@ export const getRecentActivity = async (limit: number = 20) => {
   };
 };
 
+export const updateRidePaymentStatusByAdmin = async (
+  rideId: string,
+  paymentStatus: PaymentStatus,
+  paymentMode: PaymentMode,
+  adminId?: string
+) => {
+  const ride = await prisma.ride.update({
+    where: { id: rideId },
+    data: { 
+      paymentStatus,
+      paymentMode,
+      ...(adminId && { assignedByAdminId: adminId })
+    },
+    include: {
+      user: true,
+      partner: true,
+    }
+  });
+  return ride;
+};

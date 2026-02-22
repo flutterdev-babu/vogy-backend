@@ -55,6 +55,7 @@ router.get("/rides/:id", adminController.getRideById);
 router.patch("/rides/:id/status", adminController.updateRideStatus);
 router.get("/rides/:id/otp", adminController.getRideOtp);
 router.post("/rides/:id/assign-rider", adminController.assignRiderToRide);
+router.patch("/rides/:id/payment", adminController.updateRidePaymentStatus);
 
 // ============================================
 // LEGACY RIDER MANAGEMENT
