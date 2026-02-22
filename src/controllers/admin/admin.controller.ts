@@ -280,8 +280,8 @@ export default {
   updateRideStatus: async (req: AuthedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { status } = req.body;
-      const ride = await updateRideStatusByAdmin(id, status);
+      const { status, userOtp } = req.body;
+      const ride = await updateRideStatusByAdmin(id, status, userOtp);
       res.json({ success: true, data: ride });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
