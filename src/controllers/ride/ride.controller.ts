@@ -403,7 +403,7 @@ export default {
     try {
       const partnerId = req.user?.id;
       const { id } = req.params;
-      const { status } = req.body;
+      const { status, userOtp } = req.body;
 
       if (!partnerId) {
         return res.status(401).json({
@@ -419,7 +419,7 @@ export default {
         });
       }
 
-      const ride = await updateRideStatus(id, partnerId, status);
+      const ride = await updateRideStatus(id, partnerId, status, userOtp);
 
       return res.status(200).json({
         success: true,

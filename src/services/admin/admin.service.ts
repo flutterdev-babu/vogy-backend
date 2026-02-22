@@ -507,10 +507,40 @@ export const getRideById = async (id: string) => {
   return ride;
 };
 
-export const updateRideStatusByAdmin = async (rideId: string, status: any) => {
+export const updateRideStatusByAdmin = async (rideId: string, status: any, userOtp?: string) => {
+  // If starting the ride, verify user unique OTP
+  if (status === "STARTED") {
+    const ride = await prisma.ride.findUnique({
+      where: { id: rideId },
+      include: { user: true }
+    });
+
+    if (!ride) {
+      throw new Error("Ride not found");
+    }
+
+    if (!ride.user) {
+      throw new Error("User not found for this ride");
+    }
+
+    if (!userOtp) {
+      throw new Error("User unique OTP is required to start the ride");
+    }
+
+    if (ride.user.uniqueOtp !== userOtp) {
+      throw new Error("Invalid user OTP");
+    }
+  }
+
   const ride = await prisma.ride.update({
     where: { id: rideId },
-    data: { status },
+    data: { 
+      status,
+      // If status is started, record the start time
+      ...(status === "STARTED" && { startTime: new Date() }),
+      // If status is arrived, record the arrived time
+      ...(status === "ARRIVED" && { arrivedAt: new Date() }),
+    },
     include: {
       user: true,
       partner: true,

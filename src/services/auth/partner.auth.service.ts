@@ -242,6 +242,16 @@ export const updatePartnerProfile = async (
     name?: string;
     email?: string;
     profileImage?: string;
+    dateOfBirth?: string;
+    gender?: "MALE" | "FEMALE" | "OTHER";
+    localAddress?: string;
+    permanentAddress?: string;
+    accountHolderName?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    licenseNumber?: string;
+    licenseImage?: string;
   }
 ) => {
   // Check if email is unique if being updated
@@ -261,6 +271,16 @@ export const updatePartnerProfile = async (
       ...(data.name && { name: data.name }),
       ...(data.email && { email: data.email }),
       ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
+      ...(data.dateOfBirth && { dateOfBirth: new Date(data.dateOfBirth) }),
+      ...(data.gender && { gender: data.gender }),
+      ...(data.localAddress && { localAddress: data.localAddress }),
+      ...(data.permanentAddress && { permanentAddress: data.permanentAddress }),
+      ...(data.accountHolderName && { accountHolderName: data.accountHolderName }),
+      ...(data.bankName && { bankName: data.bankName }),
+      ...(data.accountNumber && { accountNumber: data.accountNumber }),
+      ...(data.ifscCode && { ifscCode: data.ifscCode }),
+      ...(data.licenseNumber && { licenseNumber: data.licenseNumber }),
+      ...(data.licenseImage && { licenseImage: data.licenseImage }),
     },
     include: {
       vehicle: {
