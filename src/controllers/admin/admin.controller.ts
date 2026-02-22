@@ -42,6 +42,7 @@ import {
   updateRideStatusByAdmin,
   getRideOtpByAdmin,
   verifyAttachmentByAdmin,
+  updateRidePaymentStatusByAdmin,
 } from "../../services/admin/admin.service";
 
 export default {
@@ -281,6 +282,26 @@ export default {
       const { id } = req.params;
       const { status } = req.body;
       const ride = await updateRideStatusByAdmin(id, status);
+      res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  updateRidePaymentStatus: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { paymentStatus, paymentMode } = req.body;
+      const adminId = req.user?.id;
+
+      if (!paymentStatus || !paymentMode) {
+        return res.status(400).json({
+          success: false,
+          message: "paymentStatus and paymentMode are required",
+        });
+      }
+
+      const ride = await updateRidePaymentStatusByAdmin(id, paymentStatus, paymentMode, adminId);
       res.json({ success: true, data: ride });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
