@@ -676,8 +676,10 @@ export const getPartnerRides = async (partnerId: string, status?: string) => {
 export const updateRideStatus = async (
   rideId: string,
   partnerId: string,
-  status: "ARRIVED" | "STARTED",
-  userOtp?: string
+  status: "ARRIVED" | "STARTED" | "ONGOING" | "COMPLETED",
+  userOtp?: string,
+  startingKm?: number,
+  endingKm?: number
 ) => {
   const ride = await prisma.ride.findUnique({
     where: { id: rideId },
@@ -700,8 +702,13 @@ export const updateRideStatus = async (
     throw new Error("Ride must be arrived before starting");
   }
 
-  // OTP Verification for starting the ride
-  if (status === "STARTED") {
+  if (status === "ONGOING" && ride.status !== "STARTED" && ride.status !== "ARRIVED") {
+    // Some flows might go from ARRIVED -> ONGOING or STARTED -> ONGOING
+    throw new Error("Ride must be started or arrived before making it ongoing");
+  }
+
+  // OTP Verification for moving to ONGOING status
+  if (status === "ONGOING") {
     // Get user to verify uniqueOtp
     if (!ride.userId) {
       throw new Error("User not found for this ride");
@@ -717,11 +724,35 @@ export const updateRideStatus = async (
     }
 
     if (!userOtp) {
-      throw new Error("User unique OTP is required to start the ride");
+      throw new Error("User unique OTP is required to make the ride ongoing");
     }
 
     if (user.uniqueOtp !== userOtp) {
       throw new Error("Invalid user OTP");
+    }
+    
+    // Rental validation
+    if (ride.rideType === "RENTAL") {
+      if (startingKm === undefined || startingKm < 0) {
+        throw new Error("Valid starting KM is required to start a rental ride");
+      }
+    }
+  }
+
+  // Handle completion validation
+  if (status === "COMPLETED") {
+    if (ride.status !== "ONGOING" && ride.status !== "STARTED") {
+      throw new Error("Ride must be ONGOING or STARTED before completing");
+    }
+    
+    // Rental validation
+    if (ride.rideType === "RENTAL") {
+      if (endingKm === undefined || endingKm < 0) {
+        throw new Error("Ending KM is required to complete a rental ride");
+      }
+      if (!ride.startingKm || endingKm <= ride.startingKm) {
+        throw new Error("Ending KM must be greater than starting KM");
+      }
     }
   }
 
@@ -735,6 +766,44 @@ export const updateRideStatus = async (
 
   if (status === "STARTED") {
     updateData.startTime = new Date();
+  }
+  
+  if (status === "ONGOING") {
+    // If not already started, set start time
+    if (!ride.startTime) {
+       updateData.startTime = new Date();
+    }
+    if (ride.rideType === "RENTAL" && startingKm !== undefined) {
+       updateData.startingKm = startingKm;
+    }
+  }
+  
+  // Custom completion logic for pricing
+  if (status === "COMPLETED") {
+    updateData.endTime = new Date();
+    
+    if (ride.rideType === "RENTAL" && endingKm !== undefined && ride.startingKm) {
+      updateData.endingKm = endingKm;
+      const totalDistance = endingKm - ride.startingKm;
+      updateData.distanceKm = totalDistance;
+      
+      // Calculate fare for rental ride based on distance and pricing
+      const perKmPrice = ride.perKmPrice || 0;
+      const baseFare = ride.baseFare || 20;
+      
+      const newTotalFare = baseFare + (perKmPrice * totalDistance);
+      
+      const pricingConfig = await prisma.pricingConfig.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+      });
+      const riderPercentage = pricingConfig ? pricingConfig.riderPercentage : 80;
+      const appCommissionStr = pricingConfig ? pricingConfig.appCommission : 20;
+      
+      updateData.totalFare = newTotalFare;
+      updateData.riderEarnings = (newTotalFare * riderPercentage) / 100;
+      updateData.commission = (newTotalFare * appCommissionStr) / 100;
+    }
   }
 
   const updatedRide = await prisma.ride.update({
@@ -776,8 +845,24 @@ export const updateRideStatus = async (
   // Emit socket event based on status
   if (status === "ARRIVED") {
     emitRideArrived(updatedRide);
-  } else if (status === "STARTED") {
+  } else if (status === "STARTED" || status === "ONGOING") {
+    // Emitting ride started handles ONGOING well enough, depending on frontend.
     emitRideStarted(updatedRide);
+  } else if (status === "COMPLETED") {
+    
+    // Update partner's total earnings if partner exists
+    if (updatedRide.partnerId && updatedRide.riderEarnings) {
+      await prisma.partner.update({
+        where: { id: updatedRide.partnerId },
+        data: {
+          totalEarnings: {
+            increment: updatedRide.riderEarnings,
+          },
+        },
+      });
+    }
+
+    emitRideCompleted(updatedRide);
   }
 
   return updatedRide;

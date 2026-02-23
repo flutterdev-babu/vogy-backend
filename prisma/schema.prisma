@@ -18,13 +18,14 @@ datasource db {
 // ============================================
 
 enum RideStatus {
+  REQUESTED
   UPCOMING
   SCHEDULED
   ACCEPTED
   ASSIGNED
   STARTED
-  ARRIVED
   ONGOING
+  ARRIVED
   STOPPED
   COMPLETED
   CANCELLED
@@ -579,6 +580,9 @@ model Ride {
   dropAddress   String
 
   distanceKm    Float
+  startingKm    Float?    // Odometer reading at start of rental
+  endingKm      Float?    // Odometer reading at end of rental
+
   rideType      RideType   @default(LOCAL)
   altMobile     String?
   

@@ -507,9 +507,15 @@ export const getRideById = async (id: string) => {
   return ride;
 };
 
-export const updateRideStatusByAdmin = async (rideId: string, status: any, userOtp?: string) => {
-  // If starting the ride, verify user unique OTP
-  if (status === "STARTED") {
+export const updateRideStatusByAdmin = async (
+  rideId: string, 
+  status: any, 
+  userOtp?: string,
+  startingKm?: number,
+  endingKm?: number
+) => {
+  // If making the ride ONGOING, verify user unique OTP
+  if (status === "ONGOING") {
     const ride = await prisma.ride.findUnique({
       where: { id: rideId },
       include: { user: true }
@@ -524,7 +530,7 @@ export const updateRideStatusByAdmin = async (rideId: string, status: any, userO
     }
 
     if (!userOtp) {
-      throw new Error("User unique OTP is required to start the ride");
+      throw new Error("User unique OTP is required to make the ride ongoing");
     }
 
     if (ride.user.uniqueOtp !== userOtp) {
@@ -538,6 +544,15 @@ export const updateRideStatusByAdmin = async (rideId: string, status: any, userO
       status,
       // If status is started, record the start time
       ...(status === "STARTED" && { startTime: new Date() }),
+      // If status is ONGOING and not started, record start time
+      ...(status === "ONGOING" && { 
+        startTime: new Date(),
+        ...(startingKm !== undefined && { startingKm })
+      }),
+      ...(status === "COMPLETED" && {
+        endTime: new Date(),
+        ...(endingKm !== undefined && { endingKm })
+      }),
       // If status is arrived, record the arrived time
       ...(status === "ARRIVED" && { arrivedAt: new Date() }),
     },
@@ -848,13 +863,36 @@ export const createAttachment = async (data: {
     const vehicle = await prisma.vehicle.findUnique({ where: { customId: data.vehicleCustomId } });
     if (!vehicle) throw new Error("Invalid vehicle custom ID");
 
+    // Link and verify entities as per the requirements
+    await prisma.$transaction([
+      prisma.vendor.update({
+        where: { id: vendor.id },
+        data: { verificationStatus: "VERIFIED" },
+      }),
+      prisma.vehicle.update({
+        where: { id: vehicle.id },
+        data: {
+          vendorId: vendor.id,
+          verificationStatus: "VERIFIED",
+        },
+      }),
+      prisma.partner.update({
+        where: { id: partner.id },
+        data: {
+          vendorId: vendor.id,
+          vehicleId: vehicle.id,
+          verificationStatus: "VERIFIED",
+        },
+      }),
+    ]);
+
     return await prisma.attachment.create({
       data: {
         customId,
         vendorId: vendor.id,
         partnerId: partner.id,
         vehicleId: vehicle.id,
-        verificationStatus: "UNVERIFIED",
+        verificationStatus: "VERIFIED",
       },
       include: {
         vendor: true,
@@ -866,7 +904,7 @@ export const createAttachment = async (data: {
 
   // Case 2: Polymorphic Individual Document Upload
   if (data.referenceType && data.referenceId && data.fileUrl) {
-    return await prisma.attachment.create({
+    const attachment = await prisma.attachment.create({
       data: {
         customId,
         referenceType: data.referenceType,
@@ -875,9 +913,29 @@ export const createAttachment = async (data: {
         fileUrl: data.fileUrl,
         uploadedBy: data.uploadedBy || "ADMIN",
         updatedByAdminId: data.adminId,
-        verificationStatus: "UNVERIFIED",
+        verificationStatus: "VERIFIED",
       },
     });
+    
+    // Auto-verify the reference entity
+    if (data.referenceType === "PARTNER" && data.referenceId) {
+      await prisma.partner.update({
+        where: { id: data.referenceId },
+        data: { verificationStatus: "VERIFIED" }
+      });
+    } else if (data.referenceType === "VEHICLE" && data.referenceId) {
+      await prisma.vehicle.update({
+        where: { id: data.referenceId },
+        data: { verificationStatus: "VERIFIED" }
+      });
+    } else if (data.referenceType === "VENDOR" && data.referenceId) {
+      await prisma.vendor.update({
+        where: { id: data.referenceId },
+        data: { verificationStatus: "VERIFIED" }
+      });
+    }
+    
+    return attachment;
   }
 
   throw new Error("Invalid attachment data. Provide either 3-ID link or referenceType/referenceId/fileUrl.");
