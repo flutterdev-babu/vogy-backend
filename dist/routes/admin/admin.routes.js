@@ -51,6 +51,7 @@ router.get("/rides/:id", admin_controller_1.default.getRideById);
 router.patch("/rides/:id/status", admin_controller_1.default.updateRideStatus);
 router.get("/rides/:id/otp", admin_controller_1.default.getRideOtp);
 router.post("/rides/:id/assign-rider", admin_controller_1.default.assignRiderToRide);
+router.patch("/rides/:id/payment", admin_controller_1.default.updateRidePaymentStatus);
 // ============================================
 // LEGACY RIDER MANAGEMENT
 // ============================================
@@ -97,6 +98,7 @@ router.delete("/partners/:id", partner_controller_1.default.deletePartner);
 // ============================================
 router.post("/attachments", admin_controller_1.default.createAttachment);
 router.get("/attachments", admin_controller_1.default.getAllAttachments);
+router.get("/attachments/:id", admin_controller_1.default.getAttachmentById);
 router.put("/attachments/:id/status", admin_controller_1.default.toggleAttachmentStatus);
 router.post("/attachments/:id/verify", admin_controller_1.default.verifyAttachment);
 router.delete("/attachments/:id", admin_controller_1.default.deleteAttachment);

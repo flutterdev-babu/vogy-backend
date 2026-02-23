@@ -118,9 +118,13 @@ export const registerPartner = async (data: {
 /* ============================================
     PARTNER LOGIN
 ============================================ */
-export const loginPartner = async (phone: string, password: string) => {
+export const loginPartner = async (phone: string, password?: string, otp?: string) => {
   // Validate phone number format (E.164)
   validatePhoneNumber(phone);
+
+  if (!password && !otp) {
+    throw new Error("Password or OTP is required for login");
+  }
 
   // Find partner by phone
   const partner = await prisma.partner.findUnique({
@@ -149,16 +153,30 @@ export const loginPartner = async (phone: string, password: string) => {
     },
   });
 
-  if (!partner) throw new Error("Invalid phone or password");
+  if (!partner) throw new Error("Invalid phone number");
 
   // Check if partner is suspended
   if (partner.status === "SUSPENDED") {
     throw new Error("Your account has been suspended. Please contact support.");
   }
 
-  // Verify password
-  const isPasswordValid = await comparePassword(password, partner.password);
-  if (!isPasswordValid) throw new Error("Invalid phone or password");
+  if (otp) {
+    // Verify OTP logic
+    const otpRecord = await prisma.otpCode.findFirst({
+      where: { phone, role: "PARTNER", code: otp },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!otpRecord) throw new Error("Invalid OTP");
+    if (otpRecord.expiresAt < new Date()) throw new Error("OTP expired");
+
+    // Remove OTP after successful use
+    await prisma.otpCode.deleteMany({ where: { phone, role: "PARTNER" } });
+  } else if (password) {
+    // Verify password logic
+    const isPasswordValid = await comparePassword(password, partner.password);
+    if (!isPasswordValid) throw new Error("Invalid phone or password");
+  }
 
   // Generate JWT
   const token = jwt.sign({ id: partner.id, role: "PARTNER" }, JWT_SECRET, {

@@ -215,8 +215,26 @@ exports.default = {
     updateRideStatus: async (req, res) => {
         try {
             const { id } = req.params;
-            const { status } = req.body;
-            const ride = await (0, admin_service_1.updateRideStatusByAdmin)(id, status);
+            const { status, userOtp } = req.body;
+            const ride = await (0, admin_service_1.updateRideStatusByAdmin)(id, status, userOtp);
+            res.json({ success: true, data: ride });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    updateRidePaymentStatus: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { paymentStatus, paymentMode } = req.body;
+            const adminId = req.user?.id;
+            if (!paymentStatus || !paymentMode) {
+                return res.status(400).json({
+                    success: false,
+                    message: "paymentStatus and paymentMode are required",
+                });
+            }
+            const ride = await (0, admin_service_1.updateRidePaymentStatusByAdmin)(id, paymentStatus, paymentMode, adminId);
             res.json({ success: true, data: ride });
         }
         catch (err) {
@@ -505,6 +523,15 @@ exports.default = {
         }
         catch (err) {
             res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    getAttachmentById: async (req, res) => {
+        try {
+            const attachment = await (0, admin_service_1.getAttachmentById)(req.params.id);
+            res.json({ success: true, data: attachment });
+        }
+        catch (err) {
+            res.status(404).json({ success: false, message: err.message });
         }
     },
     getAllAttachments: async (req, res) => {

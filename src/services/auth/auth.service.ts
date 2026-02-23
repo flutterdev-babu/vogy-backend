@@ -107,40 +107,72 @@ export const verifyOtp = async (
   if (otpRecord.expiresAt < new Date()) throw new Error("OTP expired");
 
   // Verify phone number is registered (for login, user/partner must exist)
-  let user;
   if (role === "USER") {
-    user = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { phone },
     });
     if (!user) throw new Error("User not found. Please register first.");
+
+    // Generate JWT
+    const token = signToken({ id: user.id, role });
+
+    // Remove OTP after use
+    await prisma.otpCode.deleteMany({ where: { phone } });
+
+    return {
+      message: "Login successful",
+      token,
+      user,
+    };
   } else {
-    user = await prisma.partner.findUnique({
+    // role === "PARTNER"
+    const partner = await prisma.partner.findUnique({
       where: { phone },
       include: {
         vehicle: {
-          select: {
-            id: true,
-            customId: true,
-            registrationNumber: true,
-            vehicleModel: true,
+          include: {
+            vehicleType: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                category: true,
+              },
+            },
+            vendor: {
+              select: {
+                id: true,
+                customId: true,
+                name: true,
+                companyName: true,
+              },
+            },
           },
         },
       },
     });
-    if (!user) throw new Error("Partner not found. Please register first.");
+    
+    if (!partner) throw new Error("Partner not found. Please register first.");
+
+    // Check if partner is suspended
+    if (partner.status === "SUSPENDED") {
+      throw new Error("Your account has been suspended. Please contact support.");
+    }
+
+    // Generate JWT
+    const token = signToken({ id: partner.id, role });
+
+    // Remove OTP after use
+    await prisma.otpCode.deleteMany({ where: { phone } });
+
+    const { password, ...partnerWithoutPassword } = partner;
+
+    return {
+      message: "Login successful",
+      token,
+      partner: partnerWithoutPassword,
+    };
   }
-
-  // Generate JWT
-  const token = signToken({ id: user.id, role });
-
-  // Remove OTP after use
-  await prisma.otpCode.deleteMany({ where: { phone } });
-
-  return {
-    message: "Login successful",
-    token,
-    user,
-  };
 };
 
 /* ============================================

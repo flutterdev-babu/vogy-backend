@@ -51,11 +51,11 @@ exports.default = {
     },
     async login(req, res) {
         try {
-            const { phone, password } = req.body;
-            if (!phone || !password) {
-                return res.status(400).json({ success: false, message: "Phone and password are required" });
+            const { phone, password, otp } = req.body;
+            if (!phone || (!password && !otp)) {
+                return res.status(400).json({ success: false, message: "Phone and either password or otp are required" });
             }
-            const result = await partnerAuthService.loginPartner(phone, password);
+            const result = await partnerAuthService.loginPartner(phone, password, otp);
             res.json({ success: true, data: result });
         }
         catch (err) {
