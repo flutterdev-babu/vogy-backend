@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.updateAttachmentStatus = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
+exports.updateRidePaymentStatusByAdmin = exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.updateAttachmentStatus = exports.getAttachmentById = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
 const prisma_1 = require("../../config/prisma");
 const generateUniqueOtp_1 = require("../../utils/generateUniqueOtp");
 const socket_service_1 = require("../socket/socket.service");
@@ -377,6 +377,7 @@ const getAllRides = async (filters) => {
                     name: true,
                     phone: true,
                     email: true,
+                    uniqueOtp: true,
                 },
             },
             partner: {
@@ -421,6 +422,7 @@ const getRideById = async (id) => {
                     name: true,
                     phone: true,
                     email: true,
+                    uniqueOtp: true,
                 },
             },
             partner: {
@@ -459,10 +461,35 @@ const getRideById = async (id) => {
     return ride;
 };
 exports.getRideById = getRideById;
-const updateRideStatusByAdmin = async (rideId, status) => {
+const updateRideStatusByAdmin = async (rideId, status, userOtp) => {
+    // If starting the ride, verify user unique OTP
+    if (status === "STARTED") {
+        const ride = await prisma_1.prisma.ride.findUnique({
+            where: { id: rideId },
+            include: { user: true }
+        });
+        if (!ride) {
+            throw new Error("Ride not found");
+        }
+        if (!ride.user) {
+            throw new Error("User not found for this ride");
+        }
+        if (!userOtp) {
+            throw new Error("User unique OTP is required to start the ride");
+        }
+        if (ride.user.uniqueOtp !== userOtp) {
+            throw new Error("Invalid user OTP");
+        }
+    }
     const ride = await prisma_1.prisma.ride.update({
         where: { id: rideId },
-        data: { status },
+        data: {
+            status,
+            // If status is started, record the start time
+            ...(status === "STARTED" && { startTime: new Date() }),
+            // If status is arrived, record the arrived time
+            ...(status === "ARRIVED" && { arrivedAt: new Date() }),
+        },
         include: {
             user: true,
             partner: true,
@@ -782,6 +809,35 @@ const getAllAttachments = async (filters) => {
     return attachments;
 };
 exports.getAllAttachments = getAllAttachments;
+const getAttachmentById = async (id) => {
+    const attachment = await prisma_1.prisma.attachment.findUnique({
+        where: { id },
+        include: {
+            vendor: {
+                include: {
+                    cityCode: true,
+                    agent: true,
+                }
+            },
+            partner: {
+                include: {
+                    cityCode: true,
+                    ownVehicleType: true,
+                }
+            },
+            vehicle: {
+                include: {
+                    vehicleType: true,
+                    cityCode: true,
+                }
+            },
+        },
+    });
+    if (!attachment)
+        throw new Error("Attachment not found");
+    return attachment;
+};
+exports.getAttachmentById = getAttachmentById;
 const updateAttachmentStatus = async (id, status, adminId) => {
     return await prisma_1.prisma.attachment.update({
         where: { id },
@@ -1162,3 +1218,19 @@ const getRecentActivity = async (limit = 20) => {
     };
 };
 exports.getRecentActivity = getRecentActivity;
+const updateRidePaymentStatusByAdmin = async (rideId, paymentStatus, paymentMode, adminId) => {
+    const ride = await prisma_1.prisma.ride.update({
+        where: { id: rideId },
+        data: {
+            paymentStatus,
+            paymentMode,
+            ...(adminId && { assignedByAdminId: adminId })
+        },
+        include: {
+            user: true,
+            partner: true,
+        }
+    });
+    return ride;
+};
+exports.updateRidePaymentStatusByAdmin = updateRidePaymentStatusByAdmin;

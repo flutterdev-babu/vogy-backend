@@ -102,9 +102,12 @@ exports.registerPartner = registerPartner;
 /* ============================================
     PARTNER LOGIN
 ============================================ */
-const loginPartner = async (phone, password) => {
+const loginPartner = async (phone, password, otp) => {
     // Validate phone number format (E.164)
     (0, phoneValidation_1.validatePhoneNumber)(phone);
+    if (!password && !otp) {
+        throw new Error("Password or OTP is required for login");
+    }
     // Find partner by phone
     const partner = await prisma_1.prisma.partner.findUnique({
         where: { phone },
@@ -132,15 +135,30 @@ const loginPartner = async (phone, password) => {
         },
     });
     if (!partner)
-        throw new Error("Invalid phone or password");
+        throw new Error("Invalid phone number");
     // Check if partner is suspended
     if (partner.status === "SUSPENDED") {
         throw new Error("Your account has been suspended. Please contact support.");
     }
-    // Verify password
-    const isPasswordValid = await (0, hash_1.comparePassword)(password, partner.password);
-    if (!isPasswordValid)
-        throw new Error("Invalid phone or password");
+    if (otp) {
+        // Verify OTP logic
+        const otpRecord = await prisma_1.prisma.otpCode.findFirst({
+            where: { phone, role: "PARTNER", code: otp },
+            orderBy: { createdAt: "desc" },
+        });
+        if (!otpRecord)
+            throw new Error("Invalid OTP");
+        if (otpRecord.expiresAt < new Date())
+            throw new Error("OTP expired");
+        // Remove OTP after successful use
+        await prisma_1.prisma.otpCode.deleteMany({ where: { phone, role: "PARTNER" } });
+    }
+    else if (password) {
+        // Verify password logic
+        const isPasswordValid = await (0, hash_1.comparePassword)(password, partner.password);
+        if (!isPasswordValid)
+            throw new Error("Invalid phone or password");
+    }
     // Generate JWT
     const token = jsonwebtoken_1.default.sign({ id: partner.id, role: "PARTNER" }, JWT_SECRET, {
         expiresIn: "7d",
@@ -232,6 +250,16 @@ const updatePartnerProfile = async (partnerId, data) => {
             ...(data.name && { name: data.name }),
             ...(data.email && { email: data.email }),
             ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
+            ...(data.dateOfBirth && { dateOfBirth: new Date(data.dateOfBirth) }),
+            ...(data.gender && { gender: data.gender }),
+            ...(data.localAddress && { localAddress: data.localAddress }),
+            ...(data.permanentAddress && { permanentAddress: data.permanentAddress }),
+            ...(data.accountHolderName && { accountHolderName: data.accountHolderName }),
+            ...(data.bankName && { bankName: data.bankName }),
+            ...(data.accountNumber && { accountNumber: data.accountNumber }),
+            ...(data.ifscCode && { ifscCode: data.ifscCode }),
+            ...(data.licenseNumber && { licenseNumber: data.licenseNumber }),
+            ...(data.licenseImage && { licenseImage: data.licenseImage }),
         },
         include: {
             vehicle: {

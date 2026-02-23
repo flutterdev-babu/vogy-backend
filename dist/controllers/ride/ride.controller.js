@@ -318,7 +318,7 @@ exports.default = {
         try {
             const partnerId = req.user?.id;
             const { id } = req.params;
-            const { status } = req.body;
+            const { status, userOtp } = req.body;
             if (!partnerId) {
                 return res.status(401).json({
                     success: false,
@@ -331,7 +331,7 @@ exports.default = {
                     message: "Status must be ARRIVED or STARTED",
                 });
             }
-            const ride = await (0, ride_service_1.updateRideStatus)(id, partnerId, status);
+            const ride = await (0, ride_service_1.updateRideStatus)(id, partnerId, status, userOtp);
             return res.status(200).json({
                 success: true,
                 message: "Ride status updated successfully",
