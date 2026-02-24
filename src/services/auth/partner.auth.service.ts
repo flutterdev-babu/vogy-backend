@@ -226,7 +226,16 @@ export const getPartnerProfile = async (partnerId: string) => {
               phone: true,
             },
           },
+          attachments: true,
         },
+      },
+      ownVehicleType: {
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          category: true,
+        }
       },
       vendor: {
         select: {
@@ -236,6 +245,7 @@ export const getPartnerProfile = async (partnerId: string) => {
           companyName: true,
         },
       },
+      attachments: true,
       _count: {
         select: {
           rides: true,

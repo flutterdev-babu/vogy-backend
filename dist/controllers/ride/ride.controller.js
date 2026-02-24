@@ -313,25 +313,26 @@ exports.default = {
             });
         }
     },
-    // Update ride status (ARRIVED, STARTED)
+    // Update ride status (ARRIVED, STARTED, ONGOING, COMPLETED)
     updateRideStatus: async (req, res) => {
         try {
             const partnerId = req.user?.id;
             const { id } = req.params;
-            const { status, userOtp } = req.body;
+            const { status, userOtp, startingKm, endingKm } = req.body;
             if (!partnerId) {
                 return res.status(401).json({
                     success: false,
                     message: "Unauthorized",
                 });
             }
-            if (!status || !["ARRIVED", "STARTED"].includes(status)) {
+            const validStatuses = ["ARRIVED", "STARTED", "ONGOING", "COMPLETED"];
+            if (!status || !validStatuses.includes(status)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Status must be ARRIVED or STARTED",
+                    message: "Status must be ARRIVED, STARTED, ONGOING, or COMPLETED",
                 });
             }
-            const ride = await (0, ride_service_1.updateRideStatus)(id, partnerId, status, userOtp);
+            const ride = await (0, ride_service_1.updateRideStatus)(id, partnerId, status, userOtp, startingKm ? parseFloat(startingKm) : undefined, endingKm ? parseFloat(endingKm) : undefined);
             return res.status(200).json({
                 success: true,
                 message: "Ride status updated successfully",

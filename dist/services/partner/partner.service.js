@@ -330,6 +330,7 @@ const getPartnerRides = async (partnerId, filters) => {
                     customId: true,
                     name: true,
                     companyName: true,
+                    phone: true,
                 },
             },
             vehicle: {
@@ -345,6 +346,9 @@ const getPartnerRides = async (partnerId, filters) => {
                     id: true,
                     name: true,
                     displayName: true,
+                    category: true,
+                    pricePerKm: true,
+                    baseFare: true,
                 },
             },
             user: {
@@ -358,6 +362,8 @@ const getPartnerRides = async (partnerId, filters) => {
                 select: {
                     id: true,
                     companyName: true,
+                    contactPerson: true,
+                    phone: true,
                 },
             },
         },
@@ -575,6 +581,8 @@ const getPartnerVehicleInfo = async (partnerId) => {
                             name: true,
                             companyName: true,
                             phone: true,
+                            address: true,
+                            email: true,
                         },
                     },
                     vehicleType: {
@@ -584,8 +592,10 @@ const getPartnerVehicleInfo = async (partnerId) => {
                             displayName: true,
                             category: true,
                             pricePerKm: true,
+                            baseFare: true,
                         },
                     },
+                    attachments: true,
                 },
             },
         },
