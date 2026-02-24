@@ -215,8 +215,8 @@ exports.default = {
     updateRideStatus: async (req, res) => {
         try {
             const { id } = req.params;
-            const { status, userOtp } = req.body;
-            const ride = await (0, admin_service_1.updateRideStatusByAdmin)(id, status, userOtp);
+            const { status, userOtp, startingKm, endingKm } = req.body;
+            const ride = await (0, admin_service_1.updateRideStatusByAdmin)(id, status, userOtp, startingKm ? parseFloat(startingKm) : undefined, endingKm ? parseFloat(endingKm) : undefined);
             res.json({ success: true, data: ride });
         }
         catch (err) {

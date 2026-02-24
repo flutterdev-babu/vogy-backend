@@ -396,6 +396,7 @@ export const getPartnerRides = async (partnerId: string, filters?: {
           customId: true,
           name: true,
           companyName: true,
+          phone: true,
         },
       },
       vehicle: {
@@ -411,6 +412,9 @@ export const getPartnerRides = async (partnerId: string, filters?: {
           id: true,
           name: true,
           displayName: true,
+          category: true,
+          pricePerKm: true,
+          baseFare: true,
         },
       },
       user: {
@@ -424,6 +428,8 @@ export const getPartnerRides = async (partnerId: string, filters?: {
         select: {
           id: true,
           companyName: true,
+          contactPerson: true,
+          phone: true,
         },
       },
     },
@@ -660,6 +666,8 @@ export const getPartnerVehicleInfo = async (partnerId: string) => {
               name: true,
               companyName: true,
               phone: true,
+              address: true,
+              email: true,
             },
           },
           vehicleType: {
@@ -669,8 +677,10 @@ export const getPartnerVehicleInfo = async (partnerId: string) => {
               displayName: true,
               category: true,
               pricePerKm: true,
+              baseFare: true,
             },
           },
+          attachments: true,
         },
       },
     },
