@@ -4,6 +4,7 @@ import adminController from "../../controllers/admin/admin.controller";
 import vendorController from "../../controllers/vendor/vendor.controller";
 import partnerController from "../../controllers/partner/partner.controller";
 import agentController from "../../controllers/agent/agent.controller";
+import agentCouponController from "../../controllers/admin/agentCoupon.controller";
 import corporateController from "../../controllers/corporate/corporate.controller";
 import vehicleController from "../../controllers/vehicle/vehicle.controller";
 import billingController from "../../controllers/billing/billing.controller";
@@ -143,6 +144,16 @@ router.get("/agents/:id", agentController.getAgentById);
 router.put("/agents/:id", agentController.updateAgentByAdmin);
 router.patch("/agents/:id", agentController.updateAgentByAdmin);
 router.delete("/agents/:id", agentController.deleteAgent);
+
+// ============================================
+// AGENT COUPON MANAGEMENT
+// ============================================
+router.post("/agent-coupons", agentCouponController.createCoupon);
+router.get("/agent-coupons", agentCouponController.getAllCoupons);
+router.get("/agent-coupons/:id", agentCouponController.getCouponById);
+router.put("/agent-coupons/:id", agentCouponController.updateCoupon);
+router.patch("/agent-coupons/:id/status", agentCouponController.toggleCouponStatus);
+router.delete("/agent-coupons/:id", agentCouponController.deleteCoupon);
 
 // ============================================
 // CORPORATE MANAGEMENT

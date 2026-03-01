@@ -419,6 +419,9 @@ model Agent {
   // Rides sourced through this agent (via agentCode)
   rides        Ride[]     @relation("AgentRides")
   
+  // Coupons created by this agent/admin for this agent
+  coupons      AgentCoupon[] @relation("AgentCoupons")
+  
   // DEPRECATED: Legacy relationships
   vendors      Vendor[]   @relation("AgentVendors")
   corporates   Corporate[] @relation("AgentCorporates")
@@ -436,8 +439,52 @@ model Corporate {
   phone         String          @unique
   email         String          @unique
   password      String
+  
+  // Basic Information
   address       String?
+  state         String?
+  area          String?
+
+  // Address Details
+  headOfficeAddress   String?
+  branchOfficeAddress String?
+
+  // Tax & Legal Details
   gstNumber     String?
+  panNumber     String?
+  
+  // Additional Info
+  comments      String?
+  
+  // Owner Details
+  ownerName     String?
+  ownerPhone    String?
+  ownerEmail    String?
+  ownerAadhaar  String?
+  ownerPan      String?
+  
+  // Primary Contact Details
+  primaryContactName   String?
+  primaryContactEmail  String?
+  primaryContactNumber String?
+  
+  // Secondary Contact Details
+  secondaryContactName   String?
+  secondaryContactNumber String?
+  secondaryContactEmail  String?
+  
+  // Finance Contact Details
+  financeContactName   String?
+  financeContactNumber String?
+  financeContactEmail  String?
+  
+  // Bank Details
+  accountHolderName String?
+  bankName          String?
+  accountNumber     String?
+  ifscCode          String?
+  branchAddress     String?
+  upiLinkedNumber   String?
   
   status        EntityStatus @default(ACTIVE)
   verificationStatus VerificationStatus @default(UNVERIFIED)
@@ -590,6 +637,8 @@ model Ride {
   baseFare      Float?      // Base fare from pricing config
   perKmPrice    Float?      // Price per km for this vehicle type
   totalFare     Float?      // Total calculated fare
+  couponCode    String?     // Applied coupon code
+  discountAmount Float?     @default(0) // Discount amount derived from coupon
   riderEarnings Float?      // Amount rider receives (percentage)
   commission    Float?      // App commission (percentage)
 
@@ -686,4 +735,29 @@ model Rider {
   totalEarnings  Float    @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+// ============================================
+// AGENT COUPON MODEL
+// ============================================
+
+model AgentCoupon {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  agentId           String   @db.ObjectId
+  agent             Agent    @relation("AgentCoupons", fields: [agentId], references: [id])
+  
+  couponCode        String   @unique
+  description       String?
+  discountValue     Float    // Percentage (e.g., 10 for 10%)
+  minBookingAmount  Float    @default(0)
+  maxDiscountAmount Float    @default(0)
+  
+  validFrom         DateTime
+  validTo           DateTime
+  
+  isActive          Boolean  @default(true)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

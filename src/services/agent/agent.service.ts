@@ -28,6 +28,14 @@ export const getAllAgents = async (search?: string) => {
           rides: true,
         },
       },
+      coupons: {
+        select: {
+          id: true,
+          couponCode: true,
+          discountValue: true,
+          isActive: true,
+        },
+      },
       createdAt: true,
       updatedAt: true,
     },
@@ -49,6 +57,14 @@ export const getAgentById = async (agentId: string) => {
       _count: {
         select: {
           rides: true,
+        },
+      },
+      coupons: {
+        select: {
+          id: true,
+          couponCode: true,
+          discountValue: true,
+          isActive: true,
         },
       },
     },
@@ -86,6 +102,15 @@ export const updateAgentByAdmin = async (
     email?: string;
     profileImage?: string;
     agentCode?: string;
+    coupon?: {
+      couponCode: string;
+      discountValue: number;
+      minBookingAmount?: number;
+      maxDiscountAmount?: number;
+      validFrom: Date;
+      validTo: Date;
+      isActive?: boolean;
+    };
   }
 ) => {
   // Check if email is unique if being updated
@@ -110,19 +135,63 @@ export const updateAgentByAdmin = async (
     if (existingByCode) throw new Error("Agent code already in use");
   }
 
-  const agent = await prisma.agent.update({
-    where: { id: agentId },
-    data: {
-      ...(data.name && { name: data.name }),
-      ...(data.email !== undefined && { email: data.email }),
-      ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
-      ...(data.agentCode !== undefined && { agentCode: data.agentCode }),
-    },
-  });
+  // If coupon data is provided, handle it within a transaction
+  return await prisma.$transaction(async (tx) => {
+    const agent = await tx.agent.update({
+      where: { id: agentId },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.email !== undefined && { email: data.email }),
+        ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
+        ...(data.agentCode !== undefined && { agentCode: data.agentCode }),
+      },
+    });
 
-  // Remove password from response
-  const { password, ...agentWithoutPassword } = agent;
-  return agentWithoutPassword;
+    if (data.coupon) {
+      // Check if a coupon with this code exists globally but belongs to another agent
+      const existingCoupon = await tx.agentCoupon.findUnique({
+        where: { couponCode: data.coupon.couponCode },
+      });
+
+      if (existingCoupon && existingCoupon.agentId !== agentId) {
+        throw new Error("Coupon code already exists for another agent");
+      }
+
+      if (existingCoupon) {
+        // Update existing coupon
+        await tx.agentCoupon.update({
+          where: { couponCode: data.coupon.couponCode },
+          data: {
+            discountValue: data.coupon.discountValue,
+            minBookingAmount: data.coupon.minBookingAmount || 0,
+            maxDiscountAmount: data.coupon.maxDiscountAmount || 0,
+            validFrom: new Date(data.coupon.validFrom),
+            validTo: new Date(data.coupon.validTo),
+            ...(data.coupon.isActive !== undefined && { isActive: data.coupon.isActive }),
+          },
+        });
+      } else {
+        // Find if this agent already has ANY coupon. We'll optionally just create a new one, 
+        // as they can have multiple. But per typical usage, we'll just create the new coupon.
+        await tx.agentCoupon.create({
+          data: {
+            agentId: agent.id,
+            couponCode: data.coupon.couponCode,
+            discountValue: data.coupon.discountValue,
+            minBookingAmount: data.coupon.minBookingAmount || 0,
+            maxDiscountAmount: data.coupon.maxDiscountAmount || 0,
+            validFrom: new Date(data.coupon.validFrom),
+            validTo: new Date(data.coupon.validTo),
+            isActive: data.coupon.isActive !== undefined ? data.coupon.isActive : true,
+          },
+        });
+      }
+    }
+
+    // Remove password from response
+    const { password, ...agentWithoutPassword } = agent;
+    return agentWithoutPassword;
+  });
 };
 
 /* ============================================

@@ -11,6 +11,7 @@ import {
   acceptRide,
   getPartnerRides,
   updateRideStatus,
+  validateCouponLogic,
 } from "../../services/ride/ride.service";
 
 export default {
@@ -45,6 +46,7 @@ export default {
         paymentMode,
         corporateId,
         agentCode,
+        couponCode,
       } = req.body;
 
       // Validate required fields
@@ -81,6 +83,7 @@ export default {
         paymentMode,
         corporateId,
         agentCode,
+        couponCode,
       });
 
       return res.status(201).json({
@@ -125,6 +128,7 @@ export default {
         paymentMode,
         corporateId,
         agentCode,
+        couponCode,
       } = req.body;
 
       // Validate required fields
@@ -164,6 +168,7 @@ export default {
         paymentMode,
         corporateId,
         agentCode,
+        couponCode,
       });
 
       return res.status(201).json({
@@ -175,6 +180,33 @@ export default {
       return res.status(400).json({
         success: false,
         message: error.message || "Failed to create scheduled ride",
+      });
+    }
+  },
+
+  // Validate a coupon before ride booking
+  validateCoupon: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { couponCode, cityCodeId, totalFare } = req.body;
+
+      if (!couponCode || !cityCodeId || totalFare === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: "couponCode, cityCodeId, and totalFare are required for validation",
+        });
+      }
+
+      const couponData = await validateCouponLogic(couponCode, cityCodeId, parseFloat(totalFare));
+
+      return res.status(200).json({
+        success: true,
+        message: "Coupon applied successfully",
+        data: couponData,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to validate coupon",
       });
     }
   },
