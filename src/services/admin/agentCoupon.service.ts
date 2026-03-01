@@ -1,12 +1,11 @@
 import { prisma } from "../../config/prisma";
 
 export const createAgentCoupon = async (data: {
-  agentId: string;
   couponCode: string;
   description?: string;
   discountValue: number;
-  minBookingAmount?: number;
-  maxDiscountAmount?: number;
+  minBookingAmount: number;
+  maxDiscountAmount: number;
   validFrom: Date;
   validTo: Date;
 }) => {
@@ -19,23 +18,23 @@ export const createAgentCoupon = async (data: {
     throw new Error("Coupon code already exists");
   }
 
-  // Check if agent exists
+  // Check if agent exists by their assigned agentCode which acts as the coupon code
   const agent = await prisma.agent.findUnique({
-    where: { id: data.agentId },
+    where: { agentCode: data.couponCode },
   });
 
   if (!agent) {
-    throw new Error("Agent not found");
+    throw new Error("No agent found with this designated coupon code. Please ensure the agentCode is updated first via the Agent profile.");
   }
 
   return await prisma.agentCoupon.create({
     data: {
-      agentId: data.agentId,
+      agentId: agent.id,
       couponCode: data.couponCode,
       description: data.description || null,
       discountValue: data.discountValue,
-      minBookingAmount: data.minBookingAmount || 0,
-      maxDiscountAmount: data.maxDiscountAmount || 0,
+      minBookingAmount: data.minBookingAmount,
+      maxDiscountAmount: data.maxDiscountAmount,
       validFrom: data.validFrom,
       validTo: data.validTo,
     },

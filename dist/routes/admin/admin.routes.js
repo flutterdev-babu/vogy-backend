@@ -9,6 +9,7 @@ const admin_controller_1 = __importDefault(require("../../controllers/admin/admi
 const vendor_controller_1 = __importDefault(require("../../controllers/vendor/vendor.controller"));
 const partner_controller_1 = __importDefault(require("../../controllers/partner/partner.controller"));
 const agent_controller_1 = __importDefault(require("../../controllers/agent/agent.controller"));
+const agentCoupon_controller_1 = __importDefault(require("../../controllers/admin/agentCoupon.controller"));
 const corporate_controller_1 = __importDefault(require("../../controllers/corporate/corporate.controller"));
 const vehicle_controller_1 = __importDefault(require("../../controllers/vehicle/vehicle.controller"));
 const billing_controller_1 = __importDefault(require("../../controllers/billing/billing.controller"));
@@ -126,11 +127,21 @@ router.delete("/vehicles/:id", vehicle_controller_1.default.deleteVehicle);
 // ============================================
 // AGENT MANAGEMENT
 // ============================================
+router.post("/agents", admin_controller_1.default.createAgent);
 router.get("/agents", agent_controller_1.default.getAllAgents);
 router.get("/agents/:id", agent_controller_1.default.getAgentById);
 router.put("/agents/:id", agent_controller_1.default.updateAgentByAdmin);
 router.patch("/agents/:id", agent_controller_1.default.updateAgentByAdmin);
 router.delete("/agents/:id", agent_controller_1.default.deleteAgent);
+// ============================================
+// AGENT COUPON MANAGEMENT
+// ============================================
+router.post("/agent-coupons", agentCoupon_controller_1.default.createCoupon);
+router.get("/agent-coupons", agentCoupon_controller_1.default.getAllCoupons);
+router.get("/agent-coupons/:id", agentCoupon_controller_1.default.getCouponById);
+router.put("/agent-coupons/:id", agentCoupon_controller_1.default.updateCoupon);
+router.patch("/agent-coupons/:id/status", agentCoupon_controller_1.default.toggleCouponStatus);
+router.delete("/agent-coupons/:id", agentCoupon_controller_1.default.deleteCoupon);
 // ============================================
 // CORPORATE MANAGEMENT
 // ============================================

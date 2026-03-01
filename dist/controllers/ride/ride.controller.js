@@ -16,7 +16,7 @@ exports.default = {
                 });
             }
             const { vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, cityCodeId, // NEW
-            rideType, altMobile, paymentMode, corporateId, agentCode, } = req.body;
+            rideType, altMobile, paymentMode, corporateId, agentCode, couponCode, expectedFare, } = req.body;
             // Validate required fields
             if (!vehicleTypeId ||
                 pickupLat === undefined ||
@@ -48,6 +48,8 @@ exports.default = {
                 paymentMode,
                 corporateId,
                 agentCode,
+                couponCode,
+                expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
             });
             return res.status(201).json({
                 success: true,
@@ -73,7 +75,7 @@ exports.default = {
                 });
             }
             const { vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, scheduledDateTime, bookingNotes, cityCodeId, // NEW
-            rideType, altMobile, paymentMode, corporateId, agentCode, } = req.body;
+            rideType, altMobile, paymentMode, corporateId, agentCode, couponCode, expectedFare, } = req.body;
             // Validate required fields
             if (!vehicleTypeId ||
                 pickupLat === undefined ||
@@ -108,6 +110,8 @@ exports.default = {
                 paymentMode,
                 corporateId,
                 agentCode,
+                couponCode,
+                expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
             });
             return res.status(201).json({
                 success: true,
@@ -119,6 +123,57 @@ exports.default = {
             return res.status(400).json({
                 success: false,
                 message: error.message || "Failed to create scheduled ride",
+            });
+        }
+    },
+    // Estimate fare before booking (no ride created)
+    estimateFare: async (req, res) => {
+        try {
+            const { distanceKm, cityCodeId, couponCode } = req.body;
+            if (distanceKm === undefined || !cityCodeId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "distanceKm and cityCodeId are required",
+                });
+            }
+            const fareData = await (0, ride_service_1.estimateFare)({
+                distanceKm: parseFloat(distanceKm),
+                cityCodeId,
+                couponCode,
+            });
+            return res.status(200).json({
+                success: true,
+                data: fareData,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to estimate fare",
+            });
+        }
+    },
+    // Validate a coupon before ride booking
+    validateCoupon: async (req, res) => {
+        try {
+            const { couponCode, cityCodeId, totalFare } = req.body;
+            if (!couponCode || !cityCodeId || totalFare === undefined) {
+                return res.status(400).json({
+                    success: false,
+                    message: "couponCode, cityCodeId, and totalFare are required for validation",
+                });
+            }
+            const couponData = await (0, ride_service_1.validateCouponLogic)(couponCode, cityCodeId, parseFloat(totalFare));
+            return res.status(200).json({
+                success: true,
+                message: "Coupon applied successfully",
+                data: couponData,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to validate coupon",
             });
         }
     },

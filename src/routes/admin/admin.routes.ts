@@ -139,6 +139,7 @@ router.delete("/vehicles/:id", vehicleController.deleteVehicle);
 // ============================================
 // AGENT MANAGEMENT
 // ============================================
+router.post("/agents", adminController.createAgent);
 router.get("/agents", agentController.getAllAgents);
 router.get("/agents/:id", agentController.getAgentById);
 router.put("/agents/:id", agentController.updateAgentByAdmin);

@@ -33,10 +33,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateRidePaymentStatusByAdmin = exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.updateAttachmentStatus = exports.getAttachmentById = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
+exports.updateRidePaymentStatusByAdmin = exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createAgentByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.updateAttachmentStatus = exports.getAttachmentById = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
 const prisma_1 = require("../../config/prisma");
 const generateUniqueOtp_1 = require("../../utils/generateUniqueOtp");
 const socket_service_1 = require("../socket/socket.service");
+const ride_service_1 = require("../ride/ride.service");
 const vendorAuthService = __importStar(require("../auth/vendor.auth.service"));
 const partnerAuthService = __importStar(require("../auth/partner.auth.service"));
 const city_service_1 = require("../city/city.service");
@@ -916,6 +917,12 @@ const createPartnerByAdmin = async (data) => {
     return await partnerAuthService.registerPartner(data);
 };
 exports.createPartnerByAdmin = createPartnerByAdmin;
+const createAgentByAdmin = async (data) => {
+    // Use the exact same registration pattern as vendors/partners
+    const agentAuthService = await Promise.resolve().then(() => __importStar(require("../auth/agent.auth.service")));
+    return await agentAuthService.registerAgent(data);
+};
+exports.createAgentByAdmin = createAgentByAdmin;
 const createManualRideByAdmin = async (adminId, data) => {
     // 1. Handle User (Find or Create)
     let user;
@@ -982,6 +989,31 @@ const createManualRideByAdmin = async (adminId, data) => {
         perKmPrice = vehicleType.pricePerKm;
         totalFare = baseFare + (perKmPrice * data.distanceKm);
     }
+    // 2b. Validate and Apply Coupon
+    let appliedCouponCode = null;
+    let appliedDiscountAmount = 0;
+    if (data.couponCode) {
+        try {
+            const couponData = await (0, ride_service_1.validateCouponLogic)(data.couponCode.trim(), data.cityCodeId, totalFare);
+            appliedCouponCode = couponData.couponCode;
+            appliedDiscountAmount = couponData.discountAmount;
+            totalFare = totalFare - appliedDiscountAmount;
+        }
+        catch (couponError) {
+            // If coupon validation fails, we can either throw error or proceed without coupon.
+            // Given it's manual admin booking, it's safer to throw so admin knows it's invalid.
+            throw new Error(`Coupon Error: ${couponError.message}`);
+        }
+    }
+    // 2c. Calculate Partner Earnings and Commission
+    const pricingConfig = await prisma_1.prisma.pricingConfig.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+    });
+    if (!pricingConfig)
+        throw new Error("Pricing configuration not found");
+    const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
+    const commission = (totalFare * pricingConfig.appCommission) / 100;
     // 3. Generate Custom ID
     const cityCodeEntry = await prisma_1.prisma.cityCode.findUnique({
         where: { id: data.cityCodeId },
@@ -1003,7 +1035,11 @@ const createManualRideByAdmin = async (adminId, data) => {
             distanceKm: data.distanceKm,
             baseFare,
             perKmPrice,
-            totalFare,
+            totalFare: Math.max(0, totalFare), // Ensure fare isn't negative
+            couponCode: appliedCouponCode,
+            discountAmount: appliedDiscountAmount,
+            riderEarnings,
+            commission,
             status: "SCHEDULED",
             isManualBooking: true,
             scheduledDateTime: new Date(data.scheduledDateTime),

@@ -8,6 +8,7 @@ const prisma_1 = require("../../config/prisma");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const hash_1 = require("../../utils/hash");
 const phoneValidation_1 = require("../../utils/phoneValidation");
+const city_service_1 = require("../city/city.service");
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 /* ============================================
     AGENT REGISTRATION
@@ -30,9 +31,20 @@ const registerAgent = async (data) => {
     }
     // Hash password
     const hashedPassword = await (0, hash_1.hashPassword)(data.password);
-    // Create agent (customId will be generated when agent creates their first city code)
+    // Generate custom ID if cityCodeId provided
+    let customId = null;
+    if (data.cityCodeId) {
+        const cityCode = await prisma_1.prisma.cityCode.findUnique({
+            where: { id: data.cityCodeId },
+        });
+        if (!cityCode)
+            throw new Error("Invalid city code ID");
+        customId = await (0, city_service_1.generateEntityCustomId)(cityCode.code, "AGENT");
+    }
+    // Create agent
     const agent = await prisma_1.prisma.agent.create({
         data: {
+            customId,
             name: data.name,
             phone: data.phone,
             email: data.email || null,
@@ -97,6 +109,14 @@ const getAgentProfile = async (agentId) => {
                     cityCodes: true,
                 },
             },
+            coupons: {
+                select: {
+                    id: true,
+                    couponCode: true,
+                    discountValue: true,
+                    isActive: true,
+                },
+            },
         },
     });
     if (!agent)
@@ -121,12 +141,35 @@ const updateAgentProfile = async (agentId, data) => {
         if (existingAgent)
             throw new Error("Email already in use by another agent");
     }
+    // Handle lazy CustomId generation if cityCodeId is provided
+    let newCustomId = undefined;
+    if (data.cityCodeId) {
+        const currentAgent = await prisma_1.prisma.agent.findUnique({
+            where: { id: agentId },
+            select: { customId: true }
+        });
+        // Only generate if they don't already have one
+        if (currentAgent && !currentAgent.customId) {
+            const cityCode = await prisma_1.prisma.cityCode.findUnique({
+                where: { id: data.cityCodeId },
+                select: { code: true }
+            });
+            if (cityCode) {
+                newCustomId = await (0, city_service_1.generateEntityCustomId)(cityCode.code, "AGENT");
+            }
+            else {
+                throw new Error("Invalid city code ID provided");
+            }
+        }
+    }
     const agent = await prisma_1.prisma.agent.update({
         where: { id: agentId },
         data: {
             ...(data.name && { name: data.name }),
             ...(data.email && { email: data.email }),
             ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
+            ...(data.cityCodeId !== undefined && { cityCodeId: data.cityCodeId }),
+            ...(newCustomId && { customId: newCustomId }),
         },
     });
     // Remove password from response

@@ -19,6 +19,7 @@ import vendorRoutes from "./routes/vendor/vendor.routes";
 import partnerRoutes from "./routes/partner/partner.routes";
 import agentRoutes from "./routes/agent/agent.routes";
 import corporateRoutes from "./routes/corporate/corporate.routes";
+import rideRoutes from "./routes/ride/ride.routes";
 
 // Public routes
 import cityRoutes from "./routes/public/city.routes";
@@ -60,6 +61,9 @@ app.use("/api/rider/rides", riderRideRoutes);
 
 // Public ride routes (no authentication required)
 app.use("/api/rides", publicRideRoutes);
+
+// Common ride routes (validate coupon etc)
+app.use("/api/ride", rideRoutes);
 
 // ============================================
 // NEW ENTITY ROUTES
