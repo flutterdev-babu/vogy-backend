@@ -107,6 +107,14 @@ export const getAgentProfile = async (agentId: string) => {
           cityCodes: true,
         },
       },
+      coupons: {
+        select: {
+          id: true,
+          couponCode: true,
+          discountValue: true,
+          isActive: true,
+        },
+      },
     },
   });
 

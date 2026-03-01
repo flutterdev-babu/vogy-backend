@@ -11,6 +11,61 @@ import {
 import { generateEntityCustomId } from "../city/city.service";
 
 /* ============================================
+    COUPON VALIDATION LOGIC
+============================================ */
+export const validateCouponLogic = async (
+  couponCode: string,
+  cityCodeId: string,
+  totalFare: number
+) => {
+  const coupon = await prisma.agentCoupon.findUnique({
+    where: { couponCode },
+    include: {
+      agent: {
+        include: {
+          cityCodes: true,
+        },
+      },
+    },
+  });
+
+  if (!coupon) {
+    throw new Error("Invalid coupon code");
+  }
+
+  if (!coupon.isActive) {
+    throw new Error("Coupon is not active");
+  }
+
+  const currentDate = new Date();
+  if (currentDate < coupon.validFrom || currentDate > coupon.validTo) {
+    throw new Error("Coupon has expired or is not yet valid");
+  }
+
+  if (totalFare < coupon.minBookingAmount) {
+    throw new Error(`Minimum booking amount for this coupon is ${coupon.minBookingAmount}`);
+  }
+
+  // Check if city matches
+  const isCityValid = coupon.agent.cityCodes.some((c) => c.id === cityCodeId);
+  if (!isCityValid) {
+    throw new Error("Coupon is not valid for this city");
+  }
+
+  // Calculate discount
+  let discountAmount = (totalFare * coupon.discountValue) / 100;
+  if (coupon.maxDiscountAmount > 0 && discountAmount > coupon.maxDiscountAmount) {
+    discountAmount = coupon.maxDiscountAmount;
+  }
+
+  return {
+    couponId: coupon.id,
+    discountAmount,
+    couponCode: coupon.couponCode,
+  };
+};
+
+/* ============================================
     CREATE RIDE (USER) - Instant Booking
 ============================================ */
 export const createRide = async (
@@ -30,6 +85,7 @@ export const createRide = async (
     paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
     corporateId?: string;
     agentCode?: string;
+    couponCode?: string;
   }
 ) => {
   // Get city code for ID generation
@@ -70,7 +126,19 @@ export const createRide = async (
   // TOTAL FARE = baseFare + (pricePerKm × distanceKm)
   const baseFare = pricingConfig.baseFare || 20;
   const perKmPrice = vehicleType.pricePerKm;
-  const totalFare = baseFare + (perKmPrice * data.distanceKm);
+  let totalFare = baseFare + (perKmPrice * data.distanceKm);
+
+  // NEW: Validate and apply Coupon Code
+  let appliedCouponCode = null;
+  let appliedDiscountAmount = 0;
+
+  if (data.couponCode) {
+    const couponData = await validateCouponLogic(data.couponCode, data.cityCodeId, totalFare);
+    appliedCouponCode = couponData.couponCode;
+    appliedDiscountAmount = couponData.discountAmount;
+    totalFare = totalFare - appliedDiscountAmount;
+  }
+
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
   const commission = (totalFare * pricingConfig.appCommission) / 100;
 
@@ -102,6 +170,8 @@ export const createRide = async (
       baseFare: baseFare,
       perKmPrice: perKmPrice,
       totalFare: totalFare,
+      couponCode: appliedCouponCode,
+      discountAmount: appliedDiscountAmount,
       riderEarnings: riderEarnings,
       commission: commission,
       status: "UPCOMING",
@@ -155,6 +225,7 @@ export const createManualRide = async (
     paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
     corporateId?: string;
     agentCode?: string;
+    couponCode?: string;
   }
 ) => {
   // Get city code for ID generation
@@ -200,7 +271,19 @@ export const createManualRide = async (
   // Calculate fare with admin-controlled pricing
   const baseFare = pricingConfig.baseFare || 20;
   const perKmPrice = vehicleType.pricePerKm;
-  const totalFare = baseFare + (perKmPrice * data.distanceKm);
+  let totalFare = baseFare + (perKmPrice * data.distanceKm);
+
+  // NEW: Validate and apply Coupon Code
+  let appliedCouponCode = null;
+  let appliedDiscountAmount = 0;
+
+  if (data.couponCode) {
+    const couponData = await validateCouponLogic(data.couponCode, data.cityCodeId, totalFare);
+    appliedCouponCode = couponData.couponCode;
+    appliedDiscountAmount = couponData.discountAmount;
+    totalFare = totalFare - appliedDiscountAmount;
+  }
+
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
   const commission = (totalFare * pricingConfig.appCommission) / 100;
 
@@ -232,6 +315,8 @@ export const createManualRide = async (
       baseFare: baseFare,
       perKmPrice: perKmPrice,
       totalFare: totalFare,
+      couponCode: appliedCouponCode,
+      discountAmount: appliedDiscountAmount,
       riderEarnings: riderEarnings,
       commission: commission,
       status: "SCHEDULED",

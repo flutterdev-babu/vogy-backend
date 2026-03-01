@@ -20,6 +20,9 @@ router.post("/manual", rideController.createManualRide);
 // Get all rides for user (optional status filter)
 router.get("/all-rides", rideController.getUserRides);
 
+// Validate a coupon before ride booking
+router.post("/validate-coupon", rideController.validateCoupon);
+
 // Get a specific ride by ID
 router.get("/rideby/:id", rideController.getRideById);
 
