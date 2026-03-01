@@ -181,9 +181,12 @@ model CityCode {
   corporates  Corporate[] @relation("CorporateCityCode")
   rides       Ride[]      @relation("RideCityCode")
   
-  // DEPRECATED: Linked Agent (Governance shifting to Admin)
+  // DEPRECATED: Legacy Linked Agent (Governance shifting to Admin)
   agentId     String?     @db.ObjectId
   agent       Agent?      @relation("AgentCityCodes", fields: [agentId], references: [id])
+  
+  // NEW: Primary Agent Relationship (One-to-Many)
+  primaryAgents Agent[]   @relation("AgentPrimaryCityCode")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -421,6 +424,10 @@ model Agent {
   
   // Coupons created by this agent/admin for this agent
   coupons      AgentCoupon[] @relation("AgentCoupons")
+  
+  // Registration City Code for CustomId generation
+  cityCodeId   String?    @db.ObjectId
+  cityCode     CityCode?  @relation(fields: [cityCodeId], references: [id], name: "AgentPrimaryCityCode", onDelete: NoAction, onUpdate: NoAction)
   
   // DEPRECATED: Legacy relationships
   vendors      Vendor[]   @relation("AgentVendors")

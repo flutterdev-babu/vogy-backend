@@ -12,6 +12,7 @@ import {
   getPartnerRides,
   updateRideStatus,
   validateCouponLogic,
+  estimateFare,
 } from "../../services/ride/ride.service";
 
 export default {
@@ -47,6 +48,7 @@ export default {
         corporateId,
         agentCode,
         couponCode,
+        expectedFare,
       } = req.body;
 
       // Validate required fields
@@ -84,6 +86,7 @@ export default {
         corporateId,
         agentCode,
         couponCode,
+        expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
       });
 
       return res.status(201).json({
@@ -129,6 +132,7 @@ export default {
         corporateId,
         agentCode,
         couponCode,
+        expectedFare,
       } = req.body;
 
       // Validate required fields
@@ -169,6 +173,7 @@ export default {
         corporateId,
         agentCode,
         couponCode,
+        expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
       });
 
       return res.status(201).json({
@@ -180,6 +185,36 @@ export default {
       return res.status(400).json({
         success: false,
         message: error.message || "Failed to create scheduled ride",
+      });
+    }
+  },
+
+  // Estimate fare before booking (no ride created)
+  estimateFare: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { distanceKm, cityCodeId, couponCode } = req.body;
+
+      if (distanceKm === undefined || !cityCodeId) {
+        return res.status(400).json({
+          success: false,
+          message: "distanceKm and cityCodeId are required",
+        });
+      }
+
+      const fareData = await estimateFare({
+        distanceKm: parseFloat(distanceKm),
+        cityCodeId,
+        couponCode,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: fareData,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to estimate fare",
       });
     }
   },

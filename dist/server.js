@@ -21,6 +21,7 @@ const vendor_routes_1 = __importDefault(require("./routes/vendor/vendor.routes")
 const partner_routes_1 = __importDefault(require("./routes/partner/partner.routes"));
 const agent_routes_1 = __importDefault(require("./routes/agent/agent.routes"));
 const corporate_routes_1 = __importDefault(require("./routes/corporate/corporate.routes"));
+const ride_routes_1 = __importDefault(require("./routes/ride/ride.routes"));
 // Public routes
 const city_routes_1 = __importDefault(require("./routes/public/city.routes"));
 const vehicleType_routes_1 = __importDefault(require("./routes/public/vehicleType.routes"));
@@ -50,6 +51,8 @@ app.use("/api/user/rides", user_ride_routes_1.default);
 app.use("/api/rider/rides", rider_ride_routes_1.default);
 // Public ride routes (no authentication required)
 app.use("/api/rides", public_routes_1.default);
+// Common ride routes (validate coupon etc)
+app.use("/api/ride", ride_routes_1.default);
 // ============================================
 // NEW ENTITY ROUTES
 // ============================================

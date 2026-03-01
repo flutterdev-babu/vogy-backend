@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma";
 import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
 import { emitRiderAssigned, emitManualRideCreated } from "../socket/socket.service";
+import { validateCouponLogic } from "../ride/ride.service";
 import * as vendorAuthService from "../auth/vendor.auth.service";
 import * as partnerAuthService from "../auth/partner.auth.service";
 import { generateEntityCustomId } from "../city/city.service";
@@ -1023,6 +1024,12 @@ export const createPartnerByAdmin = async (data: any) => {
   return await partnerAuthService.registerPartner(data);
 };
 
+export const createAgentByAdmin = async (data: any) => {
+  // Use the exact same registration pattern as vendors/partners
+  const agentAuthService = await import("../auth/agent.auth.service");
+  return await agentAuthService.registerAgent(data);
+};
+
 export const createManualRideByAdmin = async (
   adminId: string,
   data: {
@@ -1045,6 +1052,7 @@ export const createManualRideByAdmin = async (
     paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
     rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
     altMobile?: string;
+    couponCode?: string;
   }
 ) => {
   // 1. Handle User (Find or Create)
@@ -1113,6 +1121,33 @@ export const createManualRideByAdmin = async (
     totalFare = baseFare + (perKmPrice * data.distanceKm);
   }
 
+  // 2b. Validate and Apply Coupon
+  let appliedCouponCode = null;
+  let appliedDiscountAmount = 0;
+
+  if (data.couponCode) {
+    try {
+      const couponData = await validateCouponLogic(data.couponCode.trim(), data.cityCodeId, totalFare);
+      appliedCouponCode = couponData.couponCode;
+      appliedDiscountAmount = couponData.discountAmount;
+      totalFare = totalFare - appliedDiscountAmount;
+    } catch (couponError: any) {
+      // If coupon validation fails, we can either throw error or proceed without coupon.
+      // Given it's manual admin booking, it's safer to throw so admin knows it's invalid.
+      throw new Error(`Coupon Error: ${couponError.message}`);
+    }
+  }
+
+  // 2c. Calculate Partner Earnings and Commission
+  const pricingConfig = await prisma.pricingConfig.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "desc" },
+  });
+  
+  if (!pricingConfig) throw new Error("Pricing configuration not found");
+  const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
+  const commission = (totalFare * pricingConfig.appCommission) / 100;
+
   // 3. Generate Custom ID
   const cityCodeEntry = await prisma.cityCode.findUnique({
     where: { id: data.cityCodeId },
@@ -1134,7 +1169,11 @@ export const createManualRideByAdmin = async (
       distanceKm: data.distanceKm,
       baseFare,
       perKmPrice,
-      totalFare,
+      totalFare: Math.max(0, totalFare), // Ensure fare isn't negative
+      couponCode: appliedCouponCode,
+      discountAmount: appliedDiscountAmount,
+      riderEarnings,
+      commission,
       status: "SCHEDULED",
       isManualBooking: true,
       scheduledDateTime: new Date(data.scheduledDateTime),

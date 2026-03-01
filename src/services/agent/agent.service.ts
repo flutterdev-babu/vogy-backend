@@ -1,4 +1,5 @@
 import { prisma } from "../../config/prisma";
+import { generateEntityCustomId } from "../city/city.service";
 
 /* ============================================
     GET ALL AGENTS
@@ -19,6 +20,8 @@ export const getAllAgents = async (search?: string) => {
     select: {
       id: true,
       customId: true,
+      agentCode: true,
+      cityCodeId: true,
       name: true,
       phone: true,
       email: true,
@@ -102,15 +105,7 @@ export const updateAgentByAdmin = async (
     email?: string;
     profileImage?: string;
     agentCode?: string;
-    coupon?: {
-      couponCode: string;
-      discountValue: number;
-      minBookingAmount?: number;
-      maxDiscountAmount?: number;
-      validFrom: Date;
-      validTo: Date;
-      isActive?: boolean;
-    };
+    cityCodeId?: string;
   }
 ) => {
   // Check if email is unique if being updated
@@ -135,6 +130,30 @@ export const updateAgentByAdmin = async (
     if (existingByCode) throw new Error("Agent code already in use");
   }
 
+  // Handle lazy CustomId generation if cityCodeId is provided
+  let newCustomId: string | undefined = undefined;
+  
+  // Fetch current agent state once
+  const currentAgent = await prisma.agent.findUnique({
+    where: { id: agentId },
+    select: { customId: true, agentCode: true }
+  });
+
+  if (data.cityCodeId) {
+    // Only generate if they don't already have one
+    if (currentAgent && !currentAgent.customId) {
+      const cityCode = await prisma.cityCode.findUnique({
+        where: { id: data.cityCodeId },
+        select: { code: true }
+      });
+      if (cityCode) {
+        newCustomId = await generateEntityCustomId(cityCode.code, "AGENT");
+      } else {
+        throw new Error("Invalid city code ID provided");
+      }
+    }
+  }
+
   // If coupon data is provided, handle it within a transaction
   return await prisma.$transaction(async (tx) => {
     const agent = await tx.agent.update({
@@ -144,49 +163,10 @@ export const updateAgentByAdmin = async (
         ...(data.email !== undefined && { email: data.email }),
         ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
         ...(data.agentCode !== undefined && { agentCode: data.agentCode }),
+        ...(data.cityCodeId !== undefined && { cityCodeId: data.cityCodeId }),
+        ...(newCustomId && { customId: newCustomId }),
       },
     });
-
-    if (data.coupon) {
-      // Check if a coupon with this code exists globally but belongs to another agent
-      const existingCoupon = await tx.agentCoupon.findUnique({
-        where: { couponCode: data.coupon.couponCode },
-      });
-
-      if (existingCoupon && existingCoupon.agentId !== agentId) {
-        throw new Error("Coupon code already exists for another agent");
-      }
-
-      if (existingCoupon) {
-        // Update existing coupon
-        await tx.agentCoupon.update({
-          where: { couponCode: data.coupon.couponCode },
-          data: {
-            discountValue: data.coupon.discountValue,
-            minBookingAmount: data.coupon.minBookingAmount || 0,
-            maxDiscountAmount: data.coupon.maxDiscountAmount || 0,
-            validFrom: new Date(data.coupon.validFrom),
-            validTo: new Date(data.coupon.validTo),
-            ...(data.coupon.isActive !== undefined && { isActive: data.coupon.isActive }),
-          },
-        });
-      } else {
-        // Find if this agent already has ANY coupon. We'll optionally just create a new one, 
-        // as they can have multiple. But per typical usage, we'll just create the new coupon.
-        await tx.agentCoupon.create({
-          data: {
-            agentId: agent.id,
-            couponCode: data.coupon.couponCode,
-            discountValue: data.coupon.discountValue,
-            minBookingAmount: data.coupon.minBookingAmount || 0,
-            maxDiscountAmount: data.coupon.maxDiscountAmount || 0,
-            validFrom: new Date(data.coupon.validFrom),
-            validTo: new Date(data.coupon.validTo),
-            isActive: data.coupon.isActive !== undefined ? data.coupon.isActive : true,
-          },
-        });
-      }
-    }
 
     // Remove password from response
     const { password, ...agentWithoutPassword } = agent;

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAgentRides = exports.createUser = exports.getAllUsers = exports.deleteAgent = exports.updateAgentByAdmin = exports.getAgentByCode = exports.getAgentById = exports.getAllAgents = void 0;
 const prisma_1 = require("../../config/prisma");
+const city_service_1 = require("../city/city.service");
 /* ============================================
     GET ALL AGENTS
 ============================================ */
@@ -19,6 +20,8 @@ const getAllAgents = async (search) => {
         select: {
             id: true,
             customId: true,
+            agentCode: true,
+            cityCodeId: true,
             name: true,
             phone: true,
             email: true,
@@ -26,6 +29,14 @@ const getAllAgents = async (search) => {
             _count: {
                 select: {
                     rides: true,
+                },
+            },
+            coupons: {
+                select: {
+                    id: true,
+                    couponCode: true,
+                    discountValue: true,
+                    isActive: true,
                 },
             },
             createdAt: true,
@@ -48,6 +59,14 @@ const getAgentById = async (agentId) => {
             _count: {
                 select: {
                     rides: true,
+                },
+            },
+            coupons: {
+                select: {
+                    id: true,
+                    couponCode: true,
+                    discountValue: true,
+                    isActive: true,
                 },
             },
         },
@@ -100,18 +119,45 @@ const updateAgentByAdmin = async (agentId, data) => {
         if (existingByCode)
             throw new Error("Agent code already in use");
     }
-    const agent = await prisma_1.prisma.agent.update({
+    // Handle lazy CustomId generation if cityCodeId is provided
+    let newCustomId = undefined;
+    // Fetch current agent state once
+    const currentAgent = await prisma_1.prisma.agent.findUnique({
         where: { id: agentId },
-        data: {
-            ...(data.name && { name: data.name }),
-            ...(data.email !== undefined && { email: data.email }),
-            ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
-            ...(data.agentCode !== undefined && { agentCode: data.agentCode }),
-        },
+        select: { customId: true, agentCode: true }
     });
-    // Remove password from response
-    const { password, ...agentWithoutPassword } = agent;
-    return agentWithoutPassword;
+    if (data.cityCodeId) {
+        // Only generate if they don't already have one
+        if (currentAgent && !currentAgent.customId) {
+            const cityCode = await prisma_1.prisma.cityCode.findUnique({
+                where: { id: data.cityCodeId },
+                select: { code: true }
+            });
+            if (cityCode) {
+                newCustomId = await (0, city_service_1.generateEntityCustomId)(cityCode.code, "AGENT");
+            }
+            else {
+                throw new Error("Invalid city code ID provided");
+            }
+        }
+    }
+    // If coupon data is provided, handle it within a transaction
+    return await prisma_1.prisma.$transaction(async (tx) => {
+        const agent = await tx.agent.update({
+            where: { id: agentId },
+            data: {
+                ...(data.name && { name: data.name }),
+                ...(data.email !== undefined && { email: data.email }),
+                ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
+                ...(data.agentCode !== undefined && { agentCode: data.agentCode }),
+                ...(data.cityCodeId !== undefined && { cityCodeId: data.cityCodeId }),
+                ...(newCustomId && { customId: newCustomId }),
+            },
+        });
+        // Remove password from response
+        const { password, ...agentWithoutPassword } = agent;
+        return agentWithoutPassword;
+    });
 };
 exports.updateAgentByAdmin = updateAgentByAdmin;
 /* ============================================

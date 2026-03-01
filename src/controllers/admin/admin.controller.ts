@@ -33,6 +33,7 @@ import {
   deleteAttachment,
   createVendorByAdmin,
   createPartnerByAdmin,
+  createAgentByAdmin,
   createManualRideByAdmin,
   getAdminDashboard,
   getRevenueAnalytics,
@@ -494,6 +495,15 @@ export default {
     try {
       const vendor = await createVendorByAdmin(req.body);
       res.status(201).json({ success: true, message: "Vendor created successfully", data: vendor });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  createAgent: async (req: AuthedRequest, res: Response) => {
+    try {
+      const agent = await createAgentByAdmin(req.body);
+      res.status(201).json({ success: true, message: "Agent created successfully", data: agent });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
     }

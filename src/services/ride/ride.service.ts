@@ -46,9 +46,11 @@ export const validateCouponLogic = async (
     throw new Error(`Minimum booking amount for this coupon is ${coupon.minBookingAmount}`);
   }
 
-  // Check if city matches
-  const isCityValid = coupon.agent.cityCodes.some((c) => c.id === cityCodeId);
-  if (!isCityValid) {
+  // Check if city matches (Primary or Legacy)
+  const isPrimaryCity = coupon.agent.cityCodeId === cityCodeId;
+  const isLegacyCity = coupon.agent.cityCodes.some((c) => c.id === cityCodeId);
+  
+  if (!isPrimaryCity && !isLegacyCity) {
     throw new Error("Coupon is not valid for this city");
   }
 
@@ -62,6 +64,113 @@ export const validateCouponLogic = async (
     couponId: coupon.id,
     discountAmount,
     couponCode: coupon.couponCode,
+  };
+};
+
+/* ============================================
+    FARE ESTIMATION (No ride created)
+    Returns ALL active vehicle types with prices
+============================================ */
+export const estimateFare = async (data: {
+  distanceKm: number;
+  cityCodeId: string;
+  couponCode?: string;
+}) => {
+  // Validate city code
+  const cityCodeEntry = await prisma.cityCode.findUnique({
+    where: { id: data.cityCodeId },
+  });
+  if (!cityCodeEntry) {
+    throw new Error("Invalid city code ID");
+  }
+
+  // Get ALL active vehicle types
+  const vehicleTypes = await prisma.vehicleType.findMany({
+    where: { isActive: true },
+    orderBy: { pricePerKm: "asc" },
+  });
+
+  if (vehicleTypes.length === 0) {
+    throw new Error("No active vehicle types found");
+  }
+
+  // Get active pricing config
+  const pricingConfig = await prisma.pricingConfig.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!pricingConfig) {
+    throw new Error("Pricing configuration not found");
+  }
+
+  const globalBaseFare = pricingConfig.baseFare || 20;
+
+  // Validate coupon if provided (once, reuse for all vehicles)
+  let couponInfo: { discountValue: number; maxDiscountAmount: number; couponCode: string } | null = null;
+  if (data.couponCode) {
+    const coupon = await prisma.agentCoupon.findUnique({
+      where: { couponCode: data.couponCode },
+      include: { agent: { include: { cityCodes: true } } },
+    });
+
+    if (coupon && coupon.isActive) {
+      const now = new Date();
+      const isDateValid = now >= coupon.validFrom && now <= coupon.validTo;
+      
+      const isPrimaryCity = coupon.agent.cityCodeId === data.cityCodeId;
+      const isLegacyCity = coupon.agent.cityCodes.some((c) => c.id === data.cityCodeId);
+
+      if (isDateValid && (isPrimaryCity || isLegacyCity)) {
+        couponInfo = {
+          discountValue: coupon.discountValue,
+          maxDiscountAmount: coupon.maxDiscountAmount,
+          couponCode: coupon.couponCode,
+        };
+      }
+    }
+  }
+
+  // Build fare for each vehicle type
+  const vehicleOptions = vehicleTypes.map((vt) => {
+    const baseFare = vt.baseFare || globalBaseFare;
+    const estimatedFare = parseFloat((baseFare + vt.pricePerKm * data.distanceKm).toFixed(2));
+
+    let discountAmount = 0;
+    let finalFare = estimatedFare;
+
+    if (couponInfo && estimatedFare >= 0) {
+      discountAmount = parseFloat(((estimatedFare * couponInfo.discountValue) / 100).toFixed(2));
+      if (couponInfo.maxDiscountAmount > 0 && discountAmount > couponInfo.maxDiscountAmount) {
+        discountAmount = couponInfo.maxDiscountAmount;
+      }
+      finalFare = parseFloat((estimatedFare - discountAmount).toFixed(2));
+    }
+
+    return {
+      vehicleTypeId: vt.id,
+      category: vt.category,
+      name: vt.name,
+      displayName: vt.displayName,
+      baseFare,
+      pricePerKm: vt.pricePerKm,
+      estimatedFare,
+      ...(couponInfo && {
+        discountAmount,
+        finalFare,
+      }),
+    };
+  });
+
+  return {
+    distanceKm: data.distanceKm,
+    vehicleOptions,
+    ...(couponInfo && {
+      couponApplied: {
+        couponCode: couponInfo.couponCode,
+        discountPercentage: couponInfo.discountValue,
+        maxDiscountAmount: couponInfo.maxDiscountAmount,
+      },
+    }),
   };
 };
 
@@ -83,9 +192,10 @@ export const createRide = async (
     rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
     altMobile?: string;
     paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
-    corporateId?: string;
     agentCode?: string;
     couponCode?: string;
+    expectedFare?: number;
+    corporateId?: string;
   }
 ) => {
   // Get city code for ID generation
@@ -137,6 +247,16 @@ export const createRide = async (
     appliedCouponCode = couponData.couponCode;
     appliedDiscountAmount = couponData.discountAmount;
     totalFare = totalFare - appliedDiscountAmount;
+  }
+
+  // EXPECTED FARE VALIDATION (Strict Mode)
+  // If the frontend explicitly passed an `expectedFare` (what the user agreed to pay), 
+  // the backend calculation must exactly match it to prevent hidden price jumps.
+  if (data.expectedFare !== undefined) {
+    // allow a 1 rupee buffer for floating point JS rounding
+    if (Math.abs(totalFare - data.expectedFare) > 1) {
+      throw new Error(`Price mismatch. The frontend expected ₹${data.expectedFare}, but the server calculated ₹${totalFare}. Please refresh and try again.`);
+    }
   }
 
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
@@ -223,9 +343,10 @@ export const createManualRide = async (
     rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
     altMobile?: string;
     paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
-    corporateId?: string;
     agentCode?: string;
     couponCode?: string;
+    expectedFare?: number;
+    corporateId?: string;
   }
 ) => {
   // Get city code for ID generation
@@ -282,6 +403,13 @@ export const createManualRide = async (
     appliedCouponCode = couponData.couponCode;
     appliedDiscountAmount = couponData.discountAmount;
     totalFare = totalFare - appliedDiscountAmount;
+  }
+
+  // EXPECTED FARE VALIDATION (Strict Mode)
+  if (data.expectedFare !== undefined) {
+    if (Math.abs(totalFare - data.expectedFare) > 1) {
+      throw new Error(`Price mismatch. The frontend expected ₹${data.expectedFare}, but the server calculated ₹${totalFare}. Please refresh and try again.`);
+    }
   }
 
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;

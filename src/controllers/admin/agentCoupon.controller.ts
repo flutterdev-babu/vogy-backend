@@ -6,7 +6,6 @@ export default {
   createCoupon: async (req: AuthedRequest, res: Response) => {
     try {
       const {
-        agentId,
         couponCode,
         description,
         discountValue,
@@ -16,20 +15,27 @@ export default {
         validTo,
       } = req.body;
 
-      if (!agentId || !couponCode || discountValue === undefined || !validFrom || !validTo) {
+      if (
+        !couponCode ||
+        discountValue === undefined ||
+        minBookingAmount === undefined ||
+        maxDiscountAmount === undefined ||
+        !validFrom ||
+        !validTo
+      ) {
         return res.status(400).json({
           success: false,
-          message: "agentId, couponCode, discountValue, validFrom, and validTo are required",
+          message:
+            "couponCode, discountValue, minBookingAmount, maxDiscountAmount, validFrom, and validTo are all required",
         });
       }
 
       const coupon = await agentCouponService.createAgentCoupon({
-        agentId,
         couponCode,
         description,
         discountValue: parseFloat(discountValue),
-        minBookingAmount: minBookingAmount ? parseFloat(minBookingAmount) : undefined,
-        maxDiscountAmount: maxDiscountAmount ? parseFloat(maxDiscountAmount) : undefined,
+        minBookingAmount: parseFloat(minBookingAmount),
+        maxDiscountAmount: parseFloat(maxDiscountAmount),
         validFrom: new Date(validFrom),
         validTo: new Date(validTo),
       });

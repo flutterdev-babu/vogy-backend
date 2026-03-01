@@ -410,6 +410,15 @@ exports.default = {
             res.status(400).json({ success: false, message: err.message });
         }
     },
+    createAgent: async (req, res) => {
+        try {
+            const agent = await (0, admin_service_1.createAgentByAdmin)(req.body);
+            res.status(201).json({ success: true, message: "Agent created successfully", data: agent });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
     getAllVendors: async (req, res) => {
         try {
             const { search, status, verificationStatus, includeDeleted } = req.query;

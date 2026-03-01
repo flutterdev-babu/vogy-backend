@@ -18,6 +18,10 @@ router.post("/new-ride", ride_controller_1.default.createRide);
 router.post("/manual", ride_controller_1.default.createManualRide);
 // Get all rides for user (optional status filter)
 router.get("/all-rides", ride_controller_1.default.getUserRides);
+// Estimate fare before booking
+router.post("/estimate-fare", ride_controller_1.default.estimateFare);
+// Validate a coupon before ride booking
+router.post("/validate-coupon", ride_controller_1.default.validateCoupon);
 // Get a specific ride by ID
 router.get("/rideby/:id", ride_controller_1.default.getRideById);
 // Cancel a ride
