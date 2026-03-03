@@ -623,8 +623,19 @@ export const updateUserUniqueOtpByAdmin = async (userId: string) => {
   return updatedUser;
 };
 
-export const getAllUsers = async () => {
+export const getAllUsers = async (filters?: { search?: string }) => {
+  const where: any = {};
+
+  if (filters?.search) {
+    where.OR = [
+      { name: { contains: filters.search, mode: "insensitive" } },
+      { phone: { contains: filters.search } },
+      { email: { contains: filters.search, mode: "insensitive" } },
+    ];
+  }
+
   const users = await prisma.user.findMany({
+    where,
     select: {
       id: true,
       name: true,
@@ -638,6 +649,57 @@ export const getAllUsers = async () => {
   });
 
   return users;
+};
+
+export const createUserByAdmin = async (data: {
+  name: string;
+  phone: string;
+  email?: string;
+  [key: string]: any;
+}) => {
+  // Check if user already exists
+  const existingUser = await prisma.user.findFirst({
+    where: { phone: data.phone },
+  });
+
+  if (existingUser) {
+    throw new Error("User with this phone number already exists");
+  }
+
+  // Generate unique OTP for the user
+  const uniqueOtp = await generateUnique4DigitOtp();
+
+  const user = await prisma.user.create({
+    data: {
+      ...data,
+      uniqueOtp,
+    },
+  });
+
+  return user;
+};
+
+export const updateUserByAdmin = async (id: string, data: any) => {
+  // If changing phone number, check if it already exists for another user
+  if (data.phone) {
+    const existingUser = await prisma.user.findFirst({
+      where: { 
+        phone: data.phone,
+        id: { not: id } 
+      },
+    });
+
+    if (existingUser) {
+      throw new Error("Phone number already associated with another user");
+    }
+  }
+
+  const user = await prisma.user.update({
+    where: { id },
+    data,
+  });
+
+  return user;
 };
 
 export const getUserById = async (userId: string) => {

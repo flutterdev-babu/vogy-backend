@@ -67,8 +67,11 @@ router.get("/riders/:id", adminController.getRiderById);
 // ============================================
 // USER MANAGEMENT
 // ============================================
+router.post("/users", adminController.createUser);
 router.get("/users", adminController.getAllUsers);
 router.get("/users/:id", adminController.getUserById);
+router.put("/users/:id", adminController.updateUser);
+router.patch("/users/:id", adminController.updateUser);
 router.post("/users/:id/regenerate-otp", adminController.updateUserUniqueOtp);
 router.put("/users/:id/unique-otp", adminController.updateUserUniqueOtp);
 router.patch("/users/:id/unique-otp", adminController.updateUserUniqueOtp);

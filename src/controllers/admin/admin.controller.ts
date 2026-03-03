@@ -13,6 +13,8 @@ import {
   updateUserUniqueOtpByAdmin,
   getAllUsers,
   getUserById,
+  createUserByAdmin,
+  updateUserByAdmin,
   getAllPartners,
   getPartnerById,
   getScheduledRides,
@@ -328,9 +330,28 @@ export default {
       USER MANAGEMENT
   ============================================ */
 
+  createUser: async (req: AuthedRequest, res: Response) => {
+    try {
+      const user = await createUserByAdmin(req.body);
+      res.status(201).json({ success: true, message: "User created successfully", data: user });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  updateUser: async (req: AuthedRequest, res: Response) => {
+    try {
+      const user = await updateUserByAdmin(req.params.id, req.body);
+      res.json({ success: true, message: "User updated successfully", data: user });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
   getAllUsers: async (req: AuthedRequest, res: Response) => {
     try {
-      const users = await getAllUsers();
+      const { search } = req.query;
+      const users = await getAllUsers({ search: search as string });
 
       return res.status(200).json({
         success: true,
