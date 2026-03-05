@@ -44,8 +44,8 @@ export const emitRideCreated = (ride: any): void => {
     });
   }
 
-  // If instant booking, notify online partners
-  if (!ride.isManualBooking) {
+  // If instant booking (or admin instant ride), notify online partners
+  if (!ride.isManualBooking || ride.status === "UPCOMING") {
     emitToOnlineRiders(RideSocketEvents.RIDE_NEW_REQUEST, {
       message: "New ride request available",
       ride,
