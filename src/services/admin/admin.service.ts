@@ -9,6 +9,20 @@ import { validatePhoneNumber } from "../../utils/phoneValidation";
 import { hashPassword } from "../../utils/hash";
 import { EntityStatus, VerificationStatus, AttachmentReferenceType, AttachmentFileType, UploadedBy, PaymentStatus, PaymentMode } from "@prisma/client";
 
+// Haversine formula for distance calculation in kilometers
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2); 
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  const d = R * c; // Distance in km
+  return d;
+};
+
 /* ============================================
     VEHICLE TYPE MANAGEMENT
 ============================================ */
@@ -267,6 +281,44 @@ export const getPartnerById = async (partnerId: string) => {
   }
 
   return partner;
+};
+
+export const getActivePartnerLocations = async () => {
+  const partners = await prisma.partner.findMany({
+    where: {
+      isOnline: true,
+      currentLat: { not: null },
+      currentLng: { not: null }
+    },
+    select: {
+      id: true,
+      customId: true,
+      name: true,
+      phone: true,
+      currentLat: true,
+      currentLng: true,
+      vehicle: {
+        select: {
+          vehicleType: {
+            select: { name: true, displayName: true }
+          }
+        }
+      },
+      ownVehicleType: {
+        select: { name: true, displayName: true }
+      }
+    }
+  });
+
+  return partners.map(p => ({
+    id: p.id,
+    customId: p.customId,
+    name: p.name,
+    phone: p.phone,
+    lat: p.currentLat,
+    lng: p.currentLng,
+    vehicleType: p.vehicle?.vehicleType?.name || p.ownVehicleType?.name || "Unknown"
+  }));
 };
 
 /* ============================================
@@ -1219,6 +1271,54 @@ export const createManualRideByAdmin = async (
   const customId = await generateEntityCustomId(cityCodeEntry.code, "RIDE");
 
   // 4. Create Ride
+  let assignedPartnerId: string | null = null;
+  let finalStatus = data.isInstant ? "UPCOMING" : "SCHEDULED";
+  let assignedVendorId: string | null = null;
+  let assignedVehicleId: string | null = null;
+  
+  // 4b. Find Nearest Active Partner if not instant and it's a "Now" booking (scheduledDateTime is null/now)
+  const isNowBooking = !data.scheduledDateTime || new Date(data.scheduledDateTime).getTime() <= new Date().getTime() + 5 * 60000; // Within 5 minutes
+
+  if (!data.isInstant && isNowBooking) {
+    // Note: We need to match vehicleTypeId either through partner's own vehicle or vendor assigned vehicle.
+    const activePartners = await prisma.partner.findMany({
+      where: {
+        isOnline: true,
+        currentLat: { not: null },
+        currentLng: { not: null },
+        status: "ACTIVE",
+        OR: [
+          { ownVehicleTypeId: data.vehicleTypeId },
+          { vehicle: { vehicleTypeId: data.vehicleTypeId } }
+        ]
+      },
+      include: {
+        vehicle: true
+      }
+    });
+
+    let nearestPartner = null;
+    let minDistance = Infinity;
+
+    for (const partner of activePartners) {
+      if (partner.currentLat && partner.currentLng) {
+        const dist = calculateDistance(data.pickupLat, data.pickupLng, partner.currentLat, partner.currentLng);
+        // Assuming we only assign if within a reasonable radius, e.g., 10 km
+        if (dist < minDistance && dist <= 10) {
+          minDistance = dist;
+          nearestPartner = partner;
+        }
+      }
+    }
+
+    if (nearestPartner) {
+      assignedPartnerId = nearestPartner.id;
+      finalStatus = "ACCEPTED";
+      assignedVendorId = nearestPartner.vendorId || (nearestPartner.vehicle?.vendorId) || null;
+      assignedVehicleId = nearestPartner.vehicleId || null; // Might be null if own vehicle, handle accordingly based on DB model
+    }
+  }
+
   const ride = await prisma.ride.create({
     data: {
       userId: user.id,
@@ -1237,9 +1337,9 @@ export const createManualRideByAdmin = async (
       discountAmount: appliedDiscountAmount,
       riderEarnings,
       commission,
-      status: data.isInstant ? "UPCOMING" : "SCHEDULED",
+      status: finalStatus as any,
       isManualBooking: true, // We can keep this true, but we will emit the right event
-      scheduledDateTime: data.isInstant ? new Date() : new Date(data.scheduledDateTime!),
+      scheduledDateTime: data.isInstant ? new Date() : new Date(data.scheduledDateTime || new Date()),
       bookingNotes: data.bookingNotes || null,
       cityCodeId: data.cityCodeId,
       customId,
@@ -1250,6 +1350,10 @@ export const createManualRideByAdmin = async (
       paymentMode: data.paymentMode || "CASH",
       rideType: data.rideType || "LOCAL",
       altMobile: data.altMobile || null,
+      partnerId: assignedPartnerId,
+      vendorId: assignedVendorId,
+      vehicleId: assignedVehicleId,
+      acceptedAt: assignedPartnerId ? new Date() : null,
     },
     include: {
       user: true,
@@ -1261,6 +1365,8 @@ export const createManualRideByAdmin = async (
   if (data.isInstant) {
     // We import emitRideCreated and use it to broadcast to all online partners
     emitRideCreated(ride);
+  } else if (assignedPartnerId) {
+    emitRiderAssigned(ride);
   } else {
     emitManualRideCreated(ride);
   }
