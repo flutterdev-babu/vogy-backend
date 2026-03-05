@@ -46,6 +46,7 @@ import {
   getRideOtpByAdmin,
   verifyAttachmentByAdmin,
   updateRidePaymentStatusByAdmin,
+  getActivePartnerLocations, // NEW: added for active partner locations
 } from "../../services/admin/admin.service";
 
 export default {
@@ -455,6 +456,22 @@ export default {
       return res.status(400).json({
         success: false,
         message: error.message || "Failed to get rider",
+      });
+    }
+  },
+
+  getActivePartnerLocations: async (req: AuthedRequest, res: Response) => {
+    try {
+      const locations = await getActivePartnerLocations();
+      return res.status(200).json({
+        success: true,
+        message: "Active partner locations retrieved successfully",
+        data: locations,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get active partner locations",
       });
     }
   },

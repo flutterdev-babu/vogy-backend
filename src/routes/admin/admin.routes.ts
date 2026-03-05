@@ -93,6 +93,7 @@ router.delete("/vendors/:id", vendorController.deleteVendor);
 // ============================================
 router.post("/partners", adminController.createPartner);
 router.get("/partners", partnerController.getAllPartners);
+router.get("/partners/active-locations", adminController.getActivePartnerLocations);
 router.get("/partners/available", partnerController.getAvailablePartners);
 router.get("/partners/:id", partnerController.getPartnerById);
 router.put("/partners/:id", partnerController.updatePartnerByAdmin);
