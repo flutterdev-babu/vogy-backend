@@ -1,6 +1,6 @@
 import { prisma } from "../../config/prisma";
 import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
-import { emitRiderAssigned, emitManualRideCreated } from "../socket/socket.service";
+import { emitRiderAssigned, emitManualRideCreated, emitRideCreated } from "../socket/socket.service";
 import { validateCouponLogic } from "../ride/ride.service";
 import * as vendorAuthService from "../auth/vendor.auth.service";
 import * as partnerAuthService from "../auth/partner.auth.service";
@@ -1106,7 +1106,7 @@ export const createManualRideByAdmin = async (
     dropLng: number;
     dropAddress: string;
     distanceKm: number;
-    scheduledDateTime: Date;
+    scheduledDateTime?: Date; // Made optional for instant rides
     bookingNotes?: string;
     cityCodeId: string;
     agentCode?: string;
@@ -1115,6 +1115,7 @@ export const createManualRideByAdmin = async (
     rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
     altMobile?: string;
     couponCode?: string;
+    isInstant?: boolean; // NEW: True if the ride should broadcast to captains immediately
   }
 ) => {
   // 1. Handle User (Find or Create)
@@ -1236,9 +1237,9 @@ export const createManualRideByAdmin = async (
       discountAmount: appliedDiscountAmount,
       riderEarnings,
       commission,
-      status: "SCHEDULED",
-      isManualBooking: true,
-      scheduledDateTime: new Date(data.scheduledDateTime),
+      status: data.isInstant ? "UPCOMING" : "SCHEDULED",
+      isManualBooking: true, // We can keep this true, but we will emit the right event
+      scheduledDateTime: data.isInstant ? new Date() : new Date(data.scheduledDateTime!),
       bookingNotes: data.bookingNotes || null,
       cityCodeId: data.cityCodeId,
       customId,
@@ -1257,7 +1258,12 @@ export const createManualRideByAdmin = async (
   });
 
   // 5. Notify
-  emitManualRideCreated(ride);
+  if (data.isInstant) {
+    // We import emitRideCreated and use it to broadcast to all online partners
+    emitRideCreated(ride);
+  } else {
+    emitManualRideCreated(ride);
+  }
 
   return ride;
 };
