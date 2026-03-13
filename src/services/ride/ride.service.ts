@@ -719,7 +719,8 @@ export const completeRideWithOtp = async (
 export const getAvailableRides = async (
   partnerLat: number,
   partnerLng: number,
-  vehicleTypeId?: string
+  vehicleTypeId?: string,
+  cityCodeId?: string
 ) => {
   // Get pending rides not yet accepted
   const rides = await prisma.ride.findMany({
@@ -727,6 +728,12 @@ export const getAvailableRides = async (
       status: "UPCOMING",
       ...(vehicleTypeId && { vehicleTypeId: vehicleTypeId }),
       partnerId: null, // Only rides not yet accepted
+      ...(cityCodeId && {
+        OR: [
+          { cityCodeId: cityCodeId },
+          // Distance check is handled post-fetch, but typically we want to see rides in the same city anyway
+        ],
+      }),
     },
     include: {
       vehicleType: true,
@@ -753,7 +760,13 @@ export const getAvailableRides = async (
       );
       return { ...ride, distanceFromPartner: distance };
     })
-    .filter((ride) => ride.distanceFromPartner <= 10) // Within 10km
+    .filter((ride) => {
+      // Show ALL rides in the same city, OR rides within 10km (in case cityCodeId is missing or ride is near border)
+      if (cityCodeId && ride.cityCodeId === cityCodeId) {
+        return true;
+      }
+      return ride.distanceFromPartner <= 10;
+    })
     .sort((a, b) => a.distanceFromPartner - b.distanceFromPartner); // Closest first
 
   return nearbyRides;

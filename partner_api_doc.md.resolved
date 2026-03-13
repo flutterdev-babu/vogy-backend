@@ -1,0 +1,404 @@
+# Vogy Partner Application - Full API Documentation
+
+This document covers all API endpoints, Socket.IO channels, and events required for integrating the Partner (mobile driver) application. 
+
+> **Important Conceptual Note:** 
+> Vogy refers to the driver entity as a **`PARTNER`**. Legacy references to `RIDER` might still be present in some socket events or endpoints for backward compatibility, but developers should operate under the assumption that the driver entity is `PARTNER`.
+
+---
+
+## 1. Authentication APIs
+
+### 1.1 Register Partner
+- **Endpoint:** `POST /api/partner/auth/register`
+- **Description:** Registers a new partner.
+- **Request Body (JSON):**
+  ```json
+  {
+    "firstName": "John",
+    "lastName": "Doe",
+    "phone": "9876543210",
+    "email": "john.doe@example.com",           // Optional
+    "password": "strongpassword",
+    "profileImage": "https://img.url/...",    // Optional
+    "cityCodeId": "64...abc",                 // Optional (Auto-generates custom ID)
+    "vendorId": "64...xyz",                   // Optional (Links to vendor)
+    "vendorCustomId": "VNDR123",              // Optional (Alternative to vendorId)
+    "dateOfBirth": "1990-01-01T00:00:00Z",    // Optional
+    "gender": "MALE",                         // Optional (MALE | FEMALE | OTHER)
+    "localAddress": "123 Main St...",         // Optional
+    "permanentAddress": "456 Old St...",      // Optional
+    "hasLicense": true,                       // Required true
+    "licenseNumber": "KA01...",               // Required if hasLicense
+    "licenseImage": "https://img.url/..."     // Required if hasLicense
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "64...abc",
+      "customId": "PRTNR123", // Custom string if cityCodeId provided
+      "name": "John Doe",
+      "phone": "9876543210",
+      "email": "john.doe@example.com",
+      // ... (other fields, EXCLUDES password)
+      "cityCode": { "id": "...", "code": "...", "cityName": "..." }
+    }
+  }
+  ```
+
+### 1.2 Login Partner
+- **Endpoint:** `POST /api/partner/auth/login`
+- **Description:** Logs in an existing partner using either a `password` or an `otp`.
+- **Request Body (JSON):**
+  ```json
+  {
+    "phone": "9876543210",
+    "password": "strongpassword", // Required if OTP is not provided
+    "otp": "1234"                 // Required if password is not provided
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "Login successful",
+      "token": "eyJhbGciOiJIUzI...",
+      "partner": {
+        "id": "64...abc",
+        "name": "John Doe",
+        "phone": "9876543210",
+        "isOnline": false,
+        // ...
+        "vehicle": {
+          "vehicleType": { "id": "...", "name": "SEDAN", ... },
+          "vendor": { "id": "...", "name": "Vendor Corp", ... }
+        }
+      }
+    }
+  }
+  ```
+
+**Authentication Note:** All subsequent endpoints require the authorization header:
+`Authorization: Bearer <your_jwt_token>`
+
+---
+
+## 2. Partner Profile & Account Info
+
+### 2.1 Get Dashboard Data
+- **Endpoint:** `GET /api/partner/dashboard`
+- **Description:** Returns the overall dashboard summary for the partner (earnings, online status, today's rides count).
+
+### 2.2 Get Profile
+- **Endpoint:** `GET /api/partner/profile`
+- **Description:** Returns full partner profile metadata (personal details, bank details, ratings).
+
+### 2.3 Update Profile
+- **Endpoint:** `PUT /api/partner/profile` (or `PATCH`)
+- **Description:** Updates specific profile fields (e.g., email, address, bank details).
+
+### 2.4 Upload Attachments (KYC / Documents)
+- **Endpoint:** `POST /api/partner/attachments`
+- **Description:** Upload specific documents via Multipart form-data or Base64 (depending on server config).
+
+### 2.5 Get Vehicle Details
+- **Endpoint:** `GET /api/partner/vehicle`
+- **Description:** Returns details of the vehicle currently assigned to or owned by the partner.
+
+### 2.6 Get Earnings Summary
+- **Endpoint:** `GET /api/partner/earnings`
+- **Description:** Returns a detailed summary of the partner's earnings (daily, weekly, total).
+
+### 2.7 Get Analytics
+- **Endpoint:** `GET /api/partner/analytics`
+- **Description:** Detailed performance metrics (acceptance rate, average rating, etc.).
+
+---
+
+## 3. Real-Time Tracking & Online Status
+
+### 3.1 Toggle Online Status
+- **Endpoint:** `PUT /api/partner/online-status`
+- **Description:** Toggles the partner's online availability status to receive rides.
+- **Request Body (JSON):**
+  ```json
+  {
+    "isOnline": true
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "64...abc",
+      "name": "John Doe",
+      "isOnline": true,
+      "currentLat": 12.971598,
+      "currentLng": 77.594562
+    }
+  }
+  ```
+
+### 3.2 Update Current Location (REST Fallback)
+- **Endpoint:** `PUT /api/partner/location`
+- **Description:** Updates the partner's real-time GPS coordinates.
+- **Request Body (JSON):**
+  ```json
+  {
+    "lat": 12.971598,
+    "lng": 77.594562
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "64...abc",
+      "name": "John Doe",
+      "currentLat": 12.971598,
+      "currentLng": 77.594562,
+      "isOnline": true
+    }
+  }
+  ```
+  *(Note: Location updates should ideally be handled via Socket.IO - see Socket details below)*
+
+---
+
+## 4. Ride Management APIs
+
+### 4.1 Get Available Rides
+- **Endpoint:** `GET /api/partner/rides/available?lat=12.97&lng=77.59` (or `GET /api/rider/rides/available`)
+- **Query Params:** [lat](file:///c:/Users/amesh/flutter%20projects/vogy_backend/src/services/ride/ride.service.ts#1084-1106), `lng` (Required)
+- **Description:** Fetches a list of pending `UPCOMING` rides within a 10km radius from the partner's coordinates.
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "64...def",
+        "customId": "RIDE001",
+        "pickupLat": 12.971598,
+        "pickupLng": 77.594562,
+        "pickupAddress": "123 Indiranagar, Bangalore",
+        "dropAddress": "Koramangala, Bangalore",
+        "distanceKm": 5.2,
+        "totalFare": 150,
+        "status": "UPCOMING",
+        "distanceFromPartner": 2.5,
+        "vehicleType": { "name": "SEDAN", ... },
+        "user": { "name": "Alice", "phone": "1234567890", "profileImage": "..." }
+      }
+    ]
+  }
+  ```
+
+### 4.2 Accept a Ride
+- **Endpoint:** `POST /api/partner/rides/:id/accept`
+- **Description:** Partner accepts an available ride. The socket automatically notifies the user.
+- **Condition:** Partner must be 'Online' and the ride must be in `UPCOMING` status.
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Ride accepted successfully",
+    "data": {
+      "id": "64...def",
+      "status": "ASSIGNED",
+      "acceptedAt": "2026-03-09T10:00:00Z",
+      "pickupLat": 12.971598,
+      "pickupLng": 77.594562,
+      "user": { "name": "Alice", ... },
+      "partner": { "id": "64...abc", "name": "John Doe", ... },
+      "vehicle": { "registrationNumber": "KA01AB1234", ... }
+    }
+  }
+  ```
+
+### 4.3 Update Ride Status
+- **Endpoint:** `PATCH /api/partner/rides/:id/status`
+- **Description:** Used to transition the ride through its lifecycle.
+- **Valid Statuses:**
+   1. `ARRIVED`: Call when the partner reaches the pickup location.
+   2. `STARTED` or `ONGOING`: Call when the trip begins. Requires `userOtp`. (For `RENTAL` rides, requires `startingKm`).
+   3. `COMPLETED`: Call when the destination is reached. (For `RENTAL` rides, requires `endingKm`).
+- **Request Example (Starting a Ride):**
+  ```json
+  {
+    "status": "ONGOING",
+    "userOtp": "1234",
+    "startingKm": 10500 // Required ONLY if rideType is RENTAL
+  }
+  ```
+- **Request Example (Completing a Ride):**
+  ```json
+  {
+    "status": "COMPLETED",
+    "endingKm": 10550 // Required ONLY if rideType is RENTAL
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "64...def",
+      "status": "COMPLETED",
+      "endTime": "2026-03-09T10:30:00Z",
+      // ... Updated ride details
+    }
+  }
+  ```
+
+### 4.4 Get My Rides (History/Ongoing)
+- **Endpoint:** `GET /api/partner/rides`
+- **Query Params:** `?status=COMPLETED` (Optional, filters by status). `startDate`, `endDate` (Optional, ISO string dates).
+- **Description:** Fetches all rides assigned to or driven by the partner.
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "...",
+        "status": "COMPLETED",
+        "createdAt": "...",
+        "user": { "name": "Alice", "phone": "..." }
+        // ...
+      }
+    ]
+  }
+  ```
+
+---
+
+## 5. Socket.IO Integration Guide
+
+Socket.IO handles real-time bidirectional communication regarding location tracking and state changes between the Partner, the User, and the Admin.
+
+### 5.1 Initialization & Authentication
+Connect to the socket namespace (base URL) and pass the partner auth token via the handshake.
+
+**Connection Example (Client-side):**
+```javascript
+const socket = io("wss://your-api-url.com", {
+  auth: {
+    token: "partner_jwt_token_here"
+  }
+});
+```
+On successful connection, the server will log the connection and auto-join the partner to `partner_{userId}`.
+
+### 5.2 Emitting Events FROM the Mobile App (Partner -> Server)
+
+1. **`partner:online`**
+   - **Action:** Call this when the partner toggles "Online" state.
+   - **Result:** Joins the partner to the global `online_partners` socket room.
+
+2. **`partner:offline`**
+   - **Action:** Call this when the partner toggles "Offline" state.
+   - **Result:** Leaves the `online_partners` room.
+
+3. **`location:update`** (CRITICAL FOR LIVE TRACKING)
+   - **Frequency:** Emit every 5-10 seconds while the app is active or executing a ride.
+   - **Payload (JSON):**
+     ```json
+     {
+       "lat": 12.971598,
+       "lng": 77.594562,
+       "rideId": "64...def" // Optional. Send if currently assigned to an active ride.
+     }
+     ```
+   - **Result:** Automatically passes location to the user connected to `ride_{rideId}` and the admin active tracking dashboard.
+
+4. **`ride:join`**
+   - **Action:** Emitted immediately after successfully accepting a ride or resuming an ongoing ride.
+   - **Payload (String):** `"64...def"` (The Ride ID)
+   - **Result:** Subscribes the partner to specific real-time alerts for this ride.
+
+5. **`ride:leave`**
+   - **Action:** Emitted when a ride is completed or cancelled.
+   - **Payload (String):** `"64...def"` (The Ride ID)
+
+### 5.3 Listening for Events ON the Mobile App (Server -> Partner)
+
+The Partner app must listen for the following events to immediately update the UI without polling the server:
+
+1. **`ride:new_request`**
+   - **Action:** Fired to all `online_partners` when a user requests a new ride nearby.
+   - **Response Payload (JSON):** 
+     ```json
+     {
+       "message": "New ride request available",
+       "ride": {
+          "id": "64...def",
+          "pickupLat": 12.971598,
+          "pickupLng": 77.594562,
+          "pickupAddress": "Indiranagar",
+          "dropAddress": "Koramangala",
+          "distanceKm": 5.5,
+          "totalFare": 250,
+          "status": "UPCOMING"
+       }
+     }
+     ```
+   - **Response Action:** Trigger an incoming ride alert / overlay on the app.
+
+2. **`ride:user_cancelled`**
+   - **Action:** Fired if the User cancels the ride after it was accepted.
+   - **Response Payload (JSON):** 
+     ```json
+     {
+       "message": "The user has cancelled the ride",
+       "ride": {
+         "id": "64...def",
+         "status": "CANCELLED"
+       }
+     }
+     ```
+   - **Response Action:** Immediately close the current navigation flow and return to the idle dashboard.
+
+3. **`ride:assigned`**
+   - **Action:** Fired to `partner_{userId}` if an admin manually assigns a ride to this partner.
+   - **Response Payload (JSON):**
+     ```json
+     {
+       "message": "You have been assigned a new ride",
+       "ride": {
+         "id": "64...def",
+         "status": "ASSIGNED",
+         // full ride details ...
+       }
+     }
+     ```
+
+4. **`ride:completed`**
+   - **Action:** Confirms completion (useful if completion was triggered from another device/admin).
+   - **Response Payload (JSON):**
+     ```json
+     {
+       "message": "Ride completed successfully",
+       "ride": {
+         "id": "64...def",
+         "status": "COMPLETED"
+       }
+     }
+     ```
+
+---
+
+### Integration Checklist for Mobile Devs
+- [ ] Implement JWT token addition logic on the `/api/partner/auth/login` step for subsequent requests.
+- [ ] Connect Socket.IO immediately on successful login.
+- [ ] Map the "Go Online" slider strictly to both REST `POST /api/partner/online-status` + SOCKET emit `partner:online`.
+- [ ] Build a background task that emits `location:update` frequently via sockets.
+- [ ] Listen globally for `ride:created` on sockets to generate push-like overlays.
+- [ ] Use `POST /api/rider/rides/:id/accept` to claim a ride request.
+- [ ] Validate `ONGOING` transition with a PIN module where the partner inputs the customer's `userOtp`.
