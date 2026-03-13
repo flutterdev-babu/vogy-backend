@@ -390,10 +390,17 @@ export default {
         });
       }
 
+      const { prisma } = require("../../config/prisma");
+      const partner = await prisma.partner.findUnique({
+        where: { id: partnerId },
+        select: { cityCodeId: true }
+      });
+
       const rides = await getAvailableRides(
         parseFloat(lat as string),
         parseFloat(lng as string),
-        vehicleTypeId as string | undefined
+        vehicleTypeId as string | undefined,
+        partner?.cityCodeId || undefined
       );
 
       return res.status(200).json({

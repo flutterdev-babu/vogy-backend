@@ -1313,7 +1313,7 @@ export const createManualRideByAdmin = async (
 
     if (nearestPartner) {
       assignedPartnerId = nearestPartner.id;
-      finalStatus = "ACCEPTED";
+      finalStatus = "ASSIGNED";
       assignedVendorId = nearestPartner.vendorId || (nearestPartner.vehicle?.vendorId) || null;
       assignedVehicleId = nearestPartner.vehicleId || null; // Might be null if own vehicle, handle accordingly based on DB model
     }
