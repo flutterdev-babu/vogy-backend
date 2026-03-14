@@ -47,6 +47,14 @@ router.put("/pricing-config", adminController.updatePricingConfig);
 router.patch("/pricing-config", adminController.updatePricingConfig);
 
 // ============================================
+// VEHICLE PRICING GROUPS (NEW)
+// ============================================
+router.post("/vehicle-pricing-groups", adminController.createPricingGroup);
+router.get("/vehicle-pricing-groups", adminController.getPricingGroups);
+router.put("/vehicle-pricing-groups/:id", adminController.updatePricingGroup);
+router.delete("/vehicle-pricing-groups/:id", adminController.deletePricingGroup);
+
+// ============================================
 // RIDE MANAGEMENT (Legacy)
 // ============================================
 router.post("/rides", adminController.createManualRide);

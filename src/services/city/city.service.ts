@@ -230,125 +230,108 @@ export const deleteCityCode = async (cityCodeId: string, agentId: string) => {
 };
 
 /* ============================================
-    SET CITY PRICING (Agent)
+    VEHICLE PRICING GROUPS (Admin)
 ============================================ */
-export const setCityPricing = async (
-  agentId: string,
-  cityCodeId: string,
-  data: {
-    vehicleTypeId: string;
-    baseKm: number;
-    baseFare: number;
-    perKmAfterBase: number;
-  }
-) => {
-  // Verify city code ownership
-  const cityCode = await prisma.cityCode.findFirst({
-    where: { id: cityCodeId, agentId },
-  });
-
-  if (!cityCode) throw new Error("City code not found or not owned by this agent");
-
+export const createPricingGroup = async (data: {
+  vehicleTypeId: string;
+  name?: string;
+  baseKm: number;
+  baseFare: number;
+  perKmPrice: number;
+  cityCodeIds: string[];
+}) => {
   // Verify vehicle type exists
   const vehicleType = await prisma.vehicleType.findUnique({
     where: { id: data.vehicleTypeId },
   });
+  if (!vehicleType) throw new Error("Vehicle type not found");
+
+  // Create pricing group
+  const pricingGroup = await prisma.vehiclePricingGroup.create({
+    data: {
+      vehicleTypeId: data.vehicleTypeId,
+      name: data.name,
+      baseKm: data.baseKm,
+      baseFare: data.baseFare,
+      perKmPrice: data.perKmPrice,
+      cityCodeIds: data.cityCodeIds,
+    },
+    include: {
+      vehicleType: true,
+    },
+  });
+
+  return pricingGroup;
+};
+
+export const getPricingGroups = async (vehicleTypeId?: string) => {
+  const where = vehicleTypeId ? { vehicleTypeId } : {};
+  return await prisma.vehiclePricingGroup.findMany({
+    where,
+    include: {
+      vehicleType: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+export const updatePricingGroup = async (
+  id: string,
+  data: {
+    name?: string;
+    baseKm?: number;
+    baseFare?: number;
+    perKmPrice?: number;
+    cityCodeIds?: string[];
+    isActive?: boolean;
+  }
+) => {
+  return await prisma.vehiclePricingGroup.update({
+    where: { id },
+    data,
+    include: {
+      vehicleType: true,
+    },
+  });
+};
+
+export const deletePricingGroup = async (id: string) => {
+  await prisma.vehiclePricingGroup.delete({
+    where: { id },
+  });
+  return { message: "Pricing group deleted successfully" };
+};
+
+export const getPricingForCity = async (vehicleTypeId: string, cityCodeId: string) => {
+  // Find an active pricing group that contains this city and vehicle type
+  const pricingGroup = await prisma.vehiclePricingGroup.findFirst({
+    where: {
+      vehicleTypeId,
+      cityCodeIds: { has: cityCodeId },
+      isActive: true,
+    },
+  });
+
+  if (pricingGroup) {
+    return {
+      baseFare: pricingGroup.baseFare,
+      perKmPrice: pricingGroup.perKmPrice,
+      baseKm: pricingGroup.baseKm,
+    };
+  }
+
+  // Fallback to vehicle type defaults if no specific group found
+  const vehicleType = await prisma.vehicleType.findUnique({
+    where: { id: vehicleTypeId },
+  });
 
   if (!vehicleType) throw new Error("Vehicle type not found");
 
-  // Upsert pricing (create or update)
-  const pricing = await prisma.cityPricing.upsert({
-    where: {
-      cityCodeId_vehicleTypeId: {
-        cityCodeId,
-        vehicleTypeId: data.vehicleTypeId,
-      },
-    },
-    update: {
-      baseKm: data.baseKm,
-      baseFare: data.baseFare,
-      perKmAfterBase: data.perKmAfterBase,
-    },
-    create: {
-      cityCodeId,
-      vehicleTypeId: data.vehicleTypeId,
-      baseKm: data.baseKm,
-      baseFare: data.baseFare,
-      perKmAfterBase: data.perKmAfterBase,
-    },
-    include: {
-      vehicleType: {
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-          category: true,
-        },
-      },
-      cityCode: {
-        select: {
-          id: true,
-          code: true,
-          cityName: true,
-        },
-      },
-    },
-  });
-
-  return pricing;
-};
-
-/* ============================================
-    GET CITY PRICING
-============================================ */
-export const getCityPricing = async (cityCodeId: string) => {
-  const pricing = await prisma.cityPricing.findMany({
-    where: { cityCodeId },
-    include: {
-      vehicleType: {
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-          category: true,
-        },
-      },
-    },
-    orderBy: {
-      vehicleType: {
-        category: "asc",
-      },
-    },
-  });
-
-  return pricing;
-};
-
-/* ============================================
-    DELETE CITY PRICING
-============================================ */
-export const deleteCityPricing = async (
-  agentId: string,
-  cityCodeId: string,
-  vehicleTypeId: string
-) => {
-  // Verify city code ownership
-  const cityCode = await prisma.cityCode.findFirst({
-    where: { id: cityCodeId, agentId },
-  });
-
-  if (!cityCode) throw new Error("City code not found or not owned by this agent");
-
-  await prisma.cityPricing.delete({
-    where: {
-      cityCodeId_vehicleTypeId: {
-        cityCodeId,
-        vehicleTypeId,
-      },
-    },
-  });
-
-  return { message: "Pricing deleted successfully" };
+  return {
+    baseFare: vehicleType.baseFare || 20, // Global default if not set
+    perKmPrice: vehicleType.pricePerKm,
+    baseKm: 0, // No base distance for manual/default pricing usually?
+  };
 };
 
 /* ============================================

@@ -8,7 +8,7 @@ import {
   emitRideCompleted,
   emitRideCancelled,
 } from "../socket/socket.service";
-import { generateEntityCustomId } from "../city/city.service";
+import { generateEntityCustomId, getPricingForCity } from "../city/city.service";
 
 /* ============================================
     COUPON VALIDATION LOGIC
@@ -131,9 +131,17 @@ export const estimateFare = async (data: {
   }
 
   // Build fare for each vehicle type
-  const vehicleOptions = vehicleTypes.map((vt) => {
-    const baseFare = vt.baseFare || globalBaseFare;
-    const estimatedFare = parseFloat((baseFare + vt.pricePerKm * data.distanceKm).toFixed(2));
+  const vehicleOptions = await Promise.all(vehicleTypes.map(async (vt) => {
+    // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+    const cityPricing = await getPricingForCity(vt.id, data.cityCodeId);
+    
+    const baseFare = cityPricing.baseFare;
+    const perKmPrice = cityPricing.perKmPrice;
+    
+    // Calculation: baseFare + (perKmPrice * (distanceKm - baseKm))
+    // If distance is less than baseKm, it's just baseFare
+    const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
+    const estimatedFare = parseFloat((baseFare + perKmPrice * billableKm).toFixed(2));
 
     let discountAmount = 0;
     let finalFare = estimatedFare;
@@ -152,14 +160,15 @@ export const estimateFare = async (data: {
       name: vt.name,
       displayName: vt.displayName,
       baseFare,
-      pricePerKm: vt.pricePerKm,
+      pricePerKm: perKmPrice,
+      baseKm: cityPricing.baseKm,
       estimatedFare,
       ...(couponInfo && {
         discountAmount,
         finalFare,
       }),
     };
-  });
+  }));
 
   return {
     distanceKm: data.distanceKm,
@@ -232,11 +241,13 @@ export const createRide = async (
     throw new Error("Pricing configuration not found");
   }
 
-  // Calculate fare with admin-controlled pricing
-  // TOTAL FARE = baseFare + (pricePerKm × distanceKm)
-  const baseFare = pricingConfig.baseFare || 20;
-  const perKmPrice = vehicleType.pricePerKm;
-  let totalFare = baseFare + (perKmPrice * data.distanceKm);
+  // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+  const cityPricing = await getPricingForCity(data.vehicleTypeId, data.cityCodeId);
+
+  const baseFare = cityPricing.baseFare;
+  const perKmPrice = cityPricing.perKmPrice;
+  const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
+  let totalFare = baseFare + (perKmPrice * billableKm);
 
   // NEW: Validate and apply Coupon Code
   let appliedCouponCode = null;
@@ -389,10 +400,13 @@ export const createManualRide = async (
     throw new Error("Pricing configuration not found");
   }
 
-  // Calculate fare with admin-controlled pricing
-  const baseFare = pricingConfig.baseFare || 20;
-  const perKmPrice = vehicleType.pricePerKm;
-  let totalFare = baseFare + (perKmPrice * data.distanceKm);
+  // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+  const cityPricing = await getPricingForCity(data.vehicleTypeId, data.cityCodeId);
+
+  const baseFare = cityPricing.baseFare;
+  const perKmPrice = cityPricing.perKmPrice;
+  const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
+  let totalFare = baseFare + (perKmPrice * billableKm);
 
   // NEW: Validate and apply Coupon Code
   let appliedCouponCode = null;
