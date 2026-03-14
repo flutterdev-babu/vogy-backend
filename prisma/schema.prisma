@@ -171,8 +171,8 @@ model CityCode {
   cityName    String              // e.g., "Bangalore", "Hyderabad"
   isActive    Boolean  @default(true)
   
-  // Fare pricing for this city (per vehicle type)
-  pricing     CityPricing[]
+  // Relations to pricing groups
+  pricingGroupIds String[] @db.ObjectId
   
   // Entities registered in this city
   vendors     Vendor[]
@@ -192,29 +192,26 @@ model CityCode {
   updatedAt   DateTime @updatedAt
 }
 
-model CityPricing {
+model VehiclePricingGroup {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // City this pricing belongs to
-  cityCodeId     String       @db.ObjectId
-  cityCode       CityCode     @relation(fields: [cityCodeId], references: [id])
+  name           String?      // e.g., "Metros", "Tier 2 Cities"
   
   // Vehicle type for this pricing
   vehicleTypeId  String       @db.ObjectId
   vehicleType    VehicleType  @relation(fields: [vehicleTypeId], references: [id])
   
   // Pricing details
-  baseKm         Float        // e.g., 2 km
-  baseFare       Float        // e.g., ₹50 for first 2 km
-  perKmAfterBase Float        // e.g., ₹12 per km after base
+  baseKm         Float        @default(2) // e.g., 2 km
+  baseFare       Float        @default(50) // e.g., ₹50 for first 2 km
+  perKmPrice     Float        // e.g., ₹12 per km after base
+  
+  // Cities in this pricing group
+  cityCodeIds    String[]     @db.ObjectId
   
   isActive       Boolean      @default(true)
   
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  
-  // Unique constraint: one pricing per city per vehicle type
-  @@unique([cityCodeId, vehicleTypeId])
 }
 
 // ============================================
@@ -697,7 +694,7 @@ model VehicleType {
   // 1 vehicle type → many vehicles (vendor vehicles)
   vehicles    Vehicle[]       @relation("VehicleToType")
   // City pricing for this vehicle type
-  cityPricing CityPricing[]
+  pricingGroups VehiclePricingGroup[]
 }
 
 // ============================================
