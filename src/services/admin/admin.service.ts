@@ -4,7 +4,7 @@ import { emitRiderAssigned, emitManualRideCreated, emitRideCreated } from "../so
 import { validateCouponLogic } from "../ride/ride.service";
 import * as vendorAuthService from "../auth/vendor.auth.service";
 import * as partnerAuthService from "../auth/partner.auth.service";
-import { generateEntityCustomId } from "../city/city.service";
+import { generateEntityCustomId, getPricingForCity } from "../city/city.service";
 import { validatePhoneNumber } from "../../utils/phoneValidation";
 import { hashPassword } from "../../utils/hash";
 import { EntityStatus, VerificationStatus, AttachmentReferenceType, AttachmentFileType, UploadedBy, PaymentStatus, PaymentMode } from "@prisma/client";
@@ -911,13 +911,6 @@ export const updateCorporate = async (id: string, data: any) => {
 
 export const getAllCityCodes = async () => {
   return await prisma.cityCode.findMany({
-    include: {
-      pricing: {
-        include: {
-          vehicleType: true,
-        },
-      },
-    },
     orderBy: { cityName: "asc" },
   });
 };
@@ -1210,29 +1203,18 @@ export const createManualRideByAdmin = async (
   if (!vehicleType) throw new Error("Vehicle type not found");
 
   // Check city pricing first
-  const cityPricing = await prisma.cityPricing.findUnique({
-    where: {
-      cityCodeId_vehicleTypeId: {
-        cityCodeId: data.cityCodeId,
-        vehicleTypeId: data.vehicleTypeId,
-      },
-    },
-  });
+  const cityPricing: any = await getPricingForCity(data.vehicleTypeId, data.cityCodeId);
 
   let baseFare, perKmPrice, totalFare;
   if (cityPricing) {
     baseFare = cityPricing.baseFare;
-    perKmPrice = cityPricing.perKmAfterBase;
-    const billableKm = Math.max(0, data.distanceKm - cityPricing.baseKm);
+    perKmPrice = cityPricing.perKmPrice;
+    const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
     totalFare = baseFare + (billableKm * perKmPrice);
   } else {
-    // Fallback to global config
-    const pricingConfig = await prisma.pricingConfig.findFirst({
-      where: { isActive: true },
-    });
-    if (!pricingConfig) throw new Error("Pricing configuration not found");
-    baseFare = vehicleType.baseFare || pricingConfig.baseFare;
-    perKmPrice = vehicleType.pricePerKm;
+    // This fallback is now handled inside getPricingForCity, but if it returns defaults:
+    baseFare = cityPricing?.baseFare || 20;
+    perKmPrice = cityPricing?.perKmPrice || 0;
     totalFare = baseFare + (perKmPrice * data.distanceKm);
   }
 
