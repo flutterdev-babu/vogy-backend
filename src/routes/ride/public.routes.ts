@@ -127,6 +127,7 @@ router.get("/fare-estimate", async (req, res) => {
 
     // NEW: Use rideService.estimateFare to centralize logic
     const { estimateFare } = require("../../services/ride/ride.service");
+    const cityCodeId = req.query.cityCodeId;
     const fareData = await estimateFare({
       distanceKm: distance,
       cityCodeId: cityCodeId as string,
@@ -137,7 +138,7 @@ router.get("/fare-estimate", async (req, res) => {
     // The original code filtered vehicleTypes by nearby drivers. 
     // We should probably keep that filtering logic but use the fare calculation from service.
 
-    const enhancedFareEstimates = fareData.vehicleOptions.map(vo => {
+    const enhancedFareEstimates = (fareData.vehicleOptions as any[]).map((vo: any) => {
       const nearbyDrivers = nearbyRidersCount[vo.vehicleTypeId] || 0;
       return {
         ...vo,

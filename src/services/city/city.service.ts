@@ -152,7 +152,6 @@ export const getAgentCityCodes = async (agentId: string) => {
           vendors: true,
           partners: true,
           vehicles: true,
-          pricing: true,
         },
       },
     },
@@ -217,10 +216,21 @@ export const deleteCityCode = async (cityCodeId: string, agentId: string) => {
     throw new Error("Cannot delete city code with registered entities");
   }
 
-  // Delete associated pricing first
-  await prisma.cityPricing.deleteMany({
-    where: { cityCodeId },
+  // Remove this city ID from any pricing groups it was part of
+  const pricingGroups = await prisma.vehiclePricingGroup.findMany({
+    where: { cityCodeIds: { has: cityCodeId } }
   });
+
+  for (const group of pricingGroups) {
+    await prisma.vehiclePricingGroup.update({
+      where: { id: group.id },
+      data: {
+        cityCodeIds: {
+          set: group.cityCodeIds.filter(id => id !== cityCodeId)
+        }
+      }
+    });
+  }
 
   await prisma.cityCode.delete({
     where: { id: cityCodeId },
@@ -314,9 +324,11 @@ export const getPricingForCity = async (vehicleTypeId: string, cityCodeId: strin
 
   if (pricingGroup) {
     return {
+      id: pricingGroup.id,
       baseFare: pricingGroup.baseFare,
       perKmPrice: pricingGroup.perKmPrice,
       baseKm: pricingGroup.baseKm,
+      name: pricingGroup.name
     };
   }
 
@@ -340,6 +352,89 @@ export const getPricingForCity = async (vehicleTypeId: string, cityCodeId: strin
 export const generateEntityCustomId = generateCustomId;
 
 /* ============================================
+    LEGACY PRICING MAPPING (Shim for controllers)
+============================================ */
+
+export const setCityPricing = async (
+  agentId: string,
+  cityCodeId: string,
+  data: {
+    vehicleTypeId: string;
+    baseKm: number;
+    baseFare: number;
+    perKmAfterBase: number;
+  }
+) => {
+  // Map back to createPricingGroup or similar
+  // Since new system uses groups, we look for an existing group for this vehicle type
+  // that already has this city, or create a new one.
+  const existingGroup = await prisma.vehiclePricingGroup.findFirst({
+    where: {
+      vehicleTypeId: data.vehicleTypeId,
+      cityCodeIds: { has: cityCodeId }
+    }
+  });
+
+  if (existingGroup) {
+    return await updatePricingGroup(existingGroup.id, {
+      baseKm: data.baseKm,
+      baseFare: data.baseFare,
+      perKmPrice: data.perKmAfterBase
+    });
+  } else {
+    return await createPricingGroup({
+      vehicleTypeId: data.vehicleTypeId,
+      baseKm: data.baseKm,
+      baseFare: data.baseFare,
+      perKmPrice: data.perKmAfterBase,
+      cityCodeIds: [cityCodeId],
+      name: `Pricing for City ${cityCodeId}`
+    });
+  }
+};
+
+export const getCityPricing = async (cityCodeId: string) => {
+  // Get all pricing groups for this city
+  const groups = await prisma.vehiclePricingGroup.findMany({
+    where: { cityCodeIds: { has: cityCodeId } },
+    include: { vehicleType: true }
+  });
+
+  return groups.map(g => ({
+    vehicleTypeId: g.vehicleTypeId,
+    vehicleType: g.vehicleType,
+    baseKm: g.baseKm,
+    baseFare: g.baseFare,
+    perKmAfterBase: g.perKmPrice
+  }));
+};
+
+export const deleteCityPricing = async (
+  agentId: string,
+  cityCodeId: string,
+  vehicleTypeId: string
+) => {
+  const group = await prisma.vehiclePricingGroup.findFirst({
+    where: {
+      vehicleTypeId,
+      cityCodeIds: { has: cityCodeId }
+    }
+  });
+
+  if (!group) throw new Error("Pricing group not found");
+
+  // If this group only has this city, delete the group
+  if (group.cityCodeIds.length === 1) {
+    return await deletePricingGroup(group.id);
+  } else {
+    // Remove city from group
+    return await updatePricingGroup(group.id, {
+      cityCodeIds: group.cityCodeIds.filter(id => id !== cityCodeId)
+    });
+  }
+};
+
+/* ============================================
     GET CITY CODE BY ID
 ============================================ */
 export const getCityCodeById = async (cityCodeId: string) => {
@@ -351,18 +446,6 @@ export const getCityCodeById = async (cityCodeId: string) => {
           id: true,
           name: true,
           phone: true,
-        },
-      },
-      pricing: {
-        include: {
-          vehicleType: {
-            select: {
-              id: true,
-              name: true,
-              displayName: true,
-              category: true,
-            },
-          },
         },
       },
       _count: {
