@@ -16,7 +16,33 @@ export const registerCorporate = async (data: {
   email: string;
   password: string;
   address?: string;
+  state?: string;
+  area?: string;
+  headOfficeAddress?: string;
+  branchOfficeAddress?: string;
   gstNumber?: string;
+  panNumber?: string;
+  comments?: string;
+  ownerName?: string;
+  ownerPhone?: string;
+  ownerEmail?: string;
+  ownerAadhaar?: string;
+  ownerPan?: string;
+  primaryContactName?: string;
+  primaryContactEmail?: string;
+  primaryContactNumber?: string;
+  secondaryContactName?: string;
+  secondaryContactNumber?: string;
+  secondaryContactEmail?: string;
+  financeContactName?: string;
+  financeContactNumber?: string;
+  financeContactEmail?: string;
+  accountHolderName?: string;
+  bankName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  branchAddress?: string;
+  upiLinkedNumber?: string;
   agentId?: string;
   cityCodeId?: string;  // For custom ID generation
 }) => {
@@ -67,7 +93,33 @@ export const registerCorporate = async (data: {
       email: data.email,
       password: hashedPassword,
       address: data.address || null,
+      state: data.state || null,
+      area: data.area || null,
+      headOfficeAddress: data.headOfficeAddress || null,
+      branchOfficeAddress: data.branchOfficeAddress || null,
       gstNumber: data.gstNumber || null,
+      panNumber: data.panNumber || null,
+      comments: data.comments || null,
+      ownerName: data.ownerName || null,
+      ownerPhone: data.ownerPhone || null,
+      ownerEmail: data.ownerEmail || null,
+      ownerAadhaar: data.ownerAadhaar || null,
+      ownerPan: data.ownerPan || null,
+      primaryContactName: data.primaryContactName || null,
+      primaryContactEmail: data.primaryContactEmail || null,
+      primaryContactNumber: data.primaryContactNumber || null,
+      secondaryContactName: data.secondaryContactName || null,
+      secondaryContactNumber: data.secondaryContactNumber || null,
+      secondaryContactEmail: data.secondaryContactEmail || null,
+      financeContactName: data.financeContactName || null,
+      financeContactNumber: data.financeContactNumber || null,
+      financeContactEmail: data.financeContactEmail || null,
+      accountHolderName: data.accountHolderName || null,
+      bankName: data.bankName || null,
+      accountNumber: data.accountNumber || null,
+      ifscCode: data.ifscCode || null,
+      branchAddress: data.branchAddress || null,
+      upiLinkedNumber: data.upiLinkedNumber || null,
       agentId: data.agentId || null,
       cityCodeId: data.cityCodeId || null,
     },
@@ -186,7 +238,33 @@ export const updateCorporateProfile = async (
     companyName?: string;
     contactPerson?: string;
     address?: string;
+    state?: string;
+    area?: string;
+    headOfficeAddress?: string;
+    branchOfficeAddress?: string;
     gstNumber?: string;
+    panNumber?: string;
+    comments?: string;
+    ownerName?: string;
+    ownerPhone?: string;
+    ownerEmail?: string;
+    ownerAadhaar?: string;
+    ownerPan?: string;
+    primaryContactName?: string;
+    primaryContactEmail?: string;
+    primaryContactNumber?: string;
+    secondaryContactName?: string;
+    secondaryContactNumber?: string;
+    secondaryContactEmail?: string;
+    financeContactName?: string;
+    financeContactNumber?: string;
+    financeContactEmail?: string;
+    accountHolderName?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    branchAddress?: string;
+    upiLinkedNumber?: string;
   }
 ) => {
   const corporate = await prisma.corporate.update({
@@ -195,7 +273,33 @@ export const updateCorporateProfile = async (
       ...(data.companyName && { companyName: data.companyName }),
       ...(data.contactPerson && { contactPerson: data.contactPerson }),
       ...(data.address !== undefined && { address: data.address }),
+      ...(data.state !== undefined && { state: data.state }),
+      ...(data.area !== undefined && { area: data.area }),
+      ...(data.headOfficeAddress !== undefined && { headOfficeAddress: data.headOfficeAddress }),
+      ...(data.branchOfficeAddress !== undefined && { branchOfficeAddress: data.branchOfficeAddress }),
       ...(data.gstNumber !== undefined && { gstNumber: data.gstNumber }),
+      ...(data.panNumber !== undefined && { panNumber: data.panNumber }),
+      ...(data.comments !== undefined && { comments: data.comments }),
+      ...(data.ownerName !== undefined && { ownerName: data.ownerName }),
+      ...(data.ownerPhone !== undefined && { ownerPhone: data.ownerPhone }),
+      ...(data.ownerEmail !== undefined && { ownerEmail: data.ownerEmail }),
+      ...(data.ownerAadhaar !== undefined && { ownerAadhaar: data.ownerAadhaar }),
+      ...(data.ownerPan !== undefined && { ownerPan: data.ownerPan }),
+      ...(data.primaryContactName !== undefined && { primaryContactName: data.primaryContactName }),
+      ...(data.primaryContactEmail !== undefined && { primaryContactEmail: data.primaryContactEmail }),
+      ...(data.primaryContactNumber !== undefined && { primaryContactNumber: data.primaryContactNumber }),
+      ...(data.secondaryContactName !== undefined && { secondaryContactName: data.secondaryContactName }),
+      ...(data.secondaryContactNumber !== undefined && { secondaryContactNumber: data.secondaryContactNumber }),
+      ...(data.secondaryContactEmail !== undefined && { secondaryContactEmail: data.secondaryContactEmail }),
+      ...(data.financeContactName !== undefined && { financeContactName: data.financeContactName }),
+      ...(data.financeContactNumber !== undefined && { financeContactNumber: data.financeContactNumber }),
+      ...(data.financeContactEmail !== undefined && { financeContactEmail: data.financeContactEmail }),
+      ...(data.accountHolderName !== undefined && { accountHolderName: data.accountHolderName }),
+      ...(data.bankName !== undefined && { bankName: data.bankName }),
+      ...(data.accountNumber !== undefined && { accountNumber: data.accountNumber }),
+      ...(data.ifscCode !== undefined && { ifscCode: data.ifscCode }),
+      ...(data.branchAddress !== undefined && { branchAddress: data.branchAddress }),
+      ...(data.upiLinkedNumber !== undefined && { upiLinkedNumber: data.upiLinkedNumber }),
     },
     include: {
       agent: {

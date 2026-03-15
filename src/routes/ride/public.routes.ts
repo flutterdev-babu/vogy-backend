@@ -125,27 +125,26 @@ router.get("/fare-estimate", async (req, res) => {
       // If no nearby riders found, still return all vehicle types but mark as unavailable
     }
 
-    // Calculate fare for each vehicle type
-    const fareEstimates = vehicleTypes.map((vehicleType) => {
-      // Use per-type baseFare if set, otherwise use global config
-      const baseFare = vehicleType.baseFare ?? pricingConfig.baseFare ?? 20;
-      const totalFare = baseFare + (vehicleType.pricePerKm * distance);
-      const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
-      const appCommission = (totalFare * pricingConfig.appCommission) / 100;
+    // NEW: Use rideService.estimateFare to centralize logic
+    const { estimateFare } = require("../../services/ride/ride.service");
+    const cityCodeId = req.query.cityCodeId;
+    const fareData = await estimateFare({
+      distanceKm: distance,
+      cityCodeId: cityCodeId as string,
+      // If we want to support coupon here too in future, we can
+    });
 
+    // Merge nearby drivers info if needed, or just return fareData
+    // The original code filtered vehicleTypes by nearby drivers. 
+    // We should probably keep that filtering logic but use the fare calculation from service.
+
+    const enhancedFareEstimates = (fareData.vehicleOptions as any[]).map((vo: any) => {
+      const nearbyDrivers = nearbyRidersCount[vo.vehicleTypeId] || 0;
       return {
-        vehicleTypeId: vehicleType.id,
-        category: vehicleType.category,
-        vehicleTypeName: vehicleType.name,
-        displayName: vehicleType.displayName,
-        pricePerKm: vehicleType.pricePerKm,
-        baseFare: baseFare,
-        distanceKm: distance,
-        totalFare: Math.round(totalFare * 100) / 100,
-        riderEarnings: Math.round(riderEarnings * 100) / 100,
-        appCommission: Math.round(appCommission * 100) / 100,
-        nearbyDrivers: nearbyRidersCount[vehicleType.id] || 0,
-        isAvailable: hasLocationFilter ? (nearbyRidersCount[vehicleType.id] || 0) > 0 : true,
+        ...vo,
+        vehicleTypeName: vo.name, // compatibility with old response
+        nearbyDrivers,
+        isAvailable: hasLocationFilter ? nearbyDrivers > 0 : true,
       };
     });
 
@@ -155,12 +154,11 @@ router.get("/fare-estimate", async (req, res) => {
       data: {
         distanceKm: distance,
         locationFiltered: hasLocationFilter,
-        pricingConfig: {
-          baseFare: pricingConfig.baseFare,
-          riderPercentage: pricingConfig.riderPercentage,
-          appCommission: pricingConfig.appCommission,
-        },
-        fareEstimates: fareEstimates,
+        pricingConfig: fareData.couponApplied ? {
+           // if coupon applied, maybe return coupon info? 
+           // but original response had global pricing config
+        } : {}, 
+        fareEstimates: enhancedFareEstimates,
       },
     });
   } catch (error: any) {

@@ -4,6 +4,7 @@ import * as partnerAuthService from "../../services/auth/partner.auth.service";
 import * as partnerService from "../../services/partner/partner.service";
 import * as adminService from "../../services/admin/admin.service";
 import * as rideService from "../../services/ride/ride.service";
+import { prisma } from "../../config/prisma";
 
 export default {
   /* ============================================
@@ -21,11 +22,11 @@ export default {
 
   async login(req: AuthedRequest, res: Response) {
     try {
-      const { phone, password } = req.body;
-      if (!phone || !password) {
-        return res.status(400).json({ success: false, message: "Phone and password are required" });
+      const { phone, password, otp } = req.body;
+      if (!phone || (!password && !otp)) {
+        return res.status(400).json({ success: false, message: "Phone and either password or otp are required" });
       }
-      const result = await partnerAuthService.loginPartner(phone, password);
+      const result = await partnerAuthService.loginPartner(phone, password, otp);
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(401).json({ success: false, message: err.message });
@@ -82,12 +83,14 @@ export default {
 
   async getAllPartners(req: AuthedRequest, res: Response) {
     try {
-      const { status, vendorId, isOnline, search } = req.query;
+      const { vendorId, status, verificationStatus, search, includeDeleted, cityCodeId } = req.query;
       const partners = await partnerService.getAllPartners({
-        status: status as any,
         vendorId: vendorId as string,
-        isOnline: isOnline === "true" ? true : isOnline === "false" ? false : undefined,
+        status: status ? (status as string).toUpperCase() as any : undefined,
+        verificationStatus: verificationStatus ? (verificationStatus as string).toUpperCase() as any : undefined,
         search: search as string,
+        includeDeleted: includeDeleted === "true",
+        cityCodeId: cityCodeId as string,
       });
       res.json({ success: true, data: partners });
     } catch (err: any) {
@@ -107,10 +110,25 @@ export default {
   async updatePartnerStatus(req: AuthedRequest, res: Response) {
     try {
       const { status } = req.body;
+      const adminId = req.user?.id;
       if (!status) {
         return res.status(400).json({ success: false, message: "Status is required" });
       }
-      const partner = await partnerService.updatePartnerStatus(req.params.id, status);
+      const partner = await partnerService.updatePartnerStatus(req.params.id, status, adminId);
+      res.json({ success: true, data: partner });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async updatePartnerVerification(req: AuthedRequest, res: Response) {
+    try {
+      const { status } = req.body;
+      const adminId = req.user?.id;
+      if (!status) {
+        return res.status(400).json({ success: false, message: "Verification status is required" });
+      }
+      const partner = await partnerService.updatePartnerVerification(req.params.id, status, adminId);
       res.json({ success: true, data: partner });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -185,7 +203,8 @@ export default {
 
   async deletePartner(req: AuthedRequest, res: Response) {
     try {
-      const result = await partnerService.deletePartner(req.params.id);
+      const adminId = req.user?.id;
+      const result = await partnerService.deletePartner(req.params.id, adminId);
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -194,11 +213,16 @@ export default {
 
   async createAttachment(req: AuthedRequest, res: Response) {
     try {
-      const { vendorId, vehicleId } = req.body;
+      const { fileType, fileUrl, uploadedBy } = req.body;
+      const adminId = req.user?.id;
+      
       const attachment = await adminService.createAttachment({
-        vendorId,
-        partnerId: req.user.id,
-        vehicleId,
+        referenceType: "PARTNER",
+        referenceId: req.user.id,
+        fileType,
+        fileUrl,
+        uploadedBy: uploadedBy || "PARTNER",
+        adminId
       });
       res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {

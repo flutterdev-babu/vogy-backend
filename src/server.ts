@@ -3,6 +3,9 @@ import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
 
+// Load environment variables before any other imports
+dotenv.config();
+
 // Existing routes
 import authRoutes from "./routes/auth/auth.routes";
 import adminRoutes from "./routes/admin/admin.routes";
@@ -16,6 +19,7 @@ import vendorRoutes from "./routes/vendor/vendor.routes";
 import partnerRoutes from "./routes/partner/partner.routes";
 import agentRoutes from "./routes/agent/agent.routes";
 import corporateRoutes from "./routes/corporate/corporate.routes";
+import rideRoutes from "./routes/ride/ride.routes";
 
 // Public routes
 import cityRoutes from "./routes/public/city.routes";
@@ -24,8 +28,6 @@ import lookupRoutes from "./routes/public/lookup.routes";
 import paymentRoutes from "./routes/payment/payment.routes";
 
 import { initializeSocket } from "./config/socket";
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
@@ -59,6 +61,9 @@ app.use("/api/rider/rides", riderRideRoutes);
 
 // Public ride routes (no authentication required)
 app.use("/api/rides", publicRideRoutes);
+
+// Common ride routes (validate coupon etc)
+app.use("/api/ride", rideRoutes);
 
 // ============================================
 // NEW ENTITY ROUTES

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getFareEstimate = exports.assignPartnerToRide = exports.updateAgentRideStatus = exports.createAgentManualRide = exports.getAgentPartners = exports.getAgentVendorRides = exports.getOverallRides = void 0;
+exports.getFareEstimate = exports.assignPartnerToRide = exports.updateAgentRideStatus = exports.createAgentManualRide = exports.getAgentVehicles = exports.getAgentPartners = exports.getAgentVendorRides = exports.getOverallRides = void 0;
 const prisma_1 = require("../../config/prisma");
 const socket_service_1 = require("../socket/socket.service");
 /* ============================================
@@ -128,13 +128,8 @@ const getAgentPartners = async (agentId, filters) => {
         select: { id: true },
     });
     const vendorIds = vendors.map(v => v.id);
-    const vehicles = await prisma_1.prisma.vehicle.findMany({
-        where: { vendorId: { in: vendorIds } },
-        select: { id: true },
-    });
-    const vehicleIds = vehicles.map(v => v.id);
     const where = {
-        vehicleId: { in: vehicleIds },
+        vendorId: { in: vendorIds },
     };
     if (filters?.status) {
         where.status = filters.status;
@@ -179,6 +174,45 @@ const getAgentPartners = async (agentId, filters) => {
     return partners;
 };
 exports.getAgentPartners = getAgentPartners;
+/* ============================================
+    GET AGENT VEHICLES (Vehicles under agent's vendors)
+============================================ */
+const getAgentVehicles = async (agentId, filters) => {
+    const vendors = await prisma_1.prisma.vendor.findMany({
+        where: { agentId },
+        select: { id: true },
+    });
+    const vendorIds = vendors.map(v => v.id);
+    const where = {
+        vendorId: { in: vendorIds },
+    };
+    if (filters?.vehicleTypeId) {
+        where.vehicleTypeId = filters.vehicleTypeId;
+    }
+    if (filters?.search) {
+        where.OR = [
+            { registrationNumber: { contains: filters.search, mode: "insensitive" } },
+            { vehicleModel: { contains: filters.search, mode: "insensitive" } },
+            { customId: { contains: filters.search, mode: "insensitive" } },
+        ];
+    }
+    const vehicles = await prisma_1.prisma.vehicle.findMany({
+        where,
+        include: {
+            vehicleType: true,
+            partner: {
+                select: { id: true, name: true, phone: true, customId: true },
+            },
+            vendor: {
+                select: { id: true, name: true, companyName: true, customId: true },
+            },
+            cityCode: true,
+        },
+        orderBy: { createdAt: "desc" },
+    });
+    return vehicles;
+};
+exports.getAgentVehicles = getAgentVehicles;
 /* ============================================
     CREATE AGENT MANUAL RIDE
 ============================================ */

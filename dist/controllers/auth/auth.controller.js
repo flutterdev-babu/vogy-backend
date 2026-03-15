@@ -68,11 +68,19 @@ exports.default = {
     ============================================ */
     registerAdmin: async (req, res) => {
         try {
-            const { name, email, password, role } = req.body;
+            const { name, email, password, role, secretKey } = req.body;
             if (!name || !email || !password) {
                 return res.status(400).json({
                     success: false,
                     message: "Name, email, and password are required",
+                });
+            }
+            // Secure registration with secret key
+            const adminSecret = process.env.ADMIN_REGISTRATION_SECRET;
+            if (!secretKey || secretKey !== adminSecret) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Unauthorized: Invalid administration secret key",
                 });
             }
             const admin = await (0, auth_service_1.registerAdmin)({ name, email, password, role });

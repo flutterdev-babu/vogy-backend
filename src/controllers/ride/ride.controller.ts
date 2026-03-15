@@ -12,6 +12,8 @@ import {
   acceptRide,
   getPartnerRides,
   updateRideStatus,
+  validateCouponLogic,
+  estimateFare,
 } from "../../services/ride/ride.service";
 
 export default {
@@ -41,6 +43,13 @@ export default {
         dropAddress,
         distanceKm,
         cityCodeId, // NEW
+        rideType,
+        altMobile,
+        paymentMode,
+        corporateId,
+        agentCode,
+        couponCode,
+        expectedFare,
       } = req.body;
 
       // Validate required fields
@@ -72,6 +81,13 @@ export default {
         dropAddress,
         distanceKm: parseFloat(distanceKm),
         cityCodeId, // NEW
+        rideType,
+        altMobile,
+        paymentMode,
+        corporateId,
+        agentCode,
+        couponCode,
+        expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
       });
 
       return res.status(201).json({
@@ -111,6 +127,13 @@ export default {
         scheduledDateTime,
         bookingNotes,
         cityCodeId, // NEW
+        rideType,
+        altMobile,
+        paymentMode,
+        corporateId,
+        agentCode,
+        couponCode,
+        expectedFare,
       } = req.body;
 
       // Validate required fields
@@ -145,6 +168,13 @@ export default {
         scheduledDateTime: new Date(scheduledDateTime),
         bookingNotes,
         cityCodeId, // NEW
+        rideType,
+        altMobile,
+        paymentMode,
+        corporateId,
+        agentCode,
+        couponCode,
+        expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
       });
 
       return res.status(201).json({
@@ -156,6 +186,63 @@ export default {
       return res.status(400).json({
         success: false,
         message: error.message || "Failed to create scheduled ride",
+      });
+    }
+  },
+
+  // Estimate fare before booking (no ride created)
+  estimateFare: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { distanceKm, cityCodeId, couponCode } = req.body;
+
+      if (distanceKm === undefined || !cityCodeId) {
+        return res.status(400).json({
+          success: false,
+          message: "distanceKm and cityCodeId are required",
+        });
+      }
+
+      const fareData = await estimateFare({
+        distanceKm: parseFloat(distanceKm),
+        cityCodeId,
+        couponCode,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: fareData,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to estimate fare",
+      });
+    }
+  },
+
+  // Validate a coupon before ride booking
+  validateCoupon: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { couponCode, cityCodeId, totalFare } = req.body;
+
+      if (!couponCode || !cityCodeId || totalFare === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: "couponCode, cityCodeId, and totalFare are required for validation",
+        });
+      }
+
+      const couponData = await validateCouponLogic(couponCode, cityCodeId, parseFloat(totalFare));
+
+      return res.status(200).json({
+        success: true,
+        message: "Coupon applied successfully",
+        data: couponData,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to validate coupon",
       });
     }
   },
@@ -304,10 +391,17 @@ export default {
         });
       }
 
+      const { prisma } = require("../../config/prisma");
+      const partner = await prisma.partner.findUnique({
+        where: { id: partnerId },
+        select: { cityCodeId: true }
+      });
+
       const rides = await getAvailableRides(
         parseFloat(lat as string),
         parseFloat(lng as string),
-        vehicleTypeId as string | undefined
+        vehicleTypeId as string | undefined,
+        partner?.cityCodeId || undefined
       );
 
       return res.status(200).json({
@@ -384,7 +478,7 @@ export default {
     try {
       const partnerId = req.user?.id;
       const { id } = req.params;
-      const { status, userOtp } = req.body;
+      const { status, userOtp, startingKm, endingKm } = req.body;
 
       if (!partnerId) {
         return res.status(401).json({
@@ -393,50 +487,22 @@ export default {
         });
       }
 
-      if (!status || !["ARRIVED", "STARTED", "ONGOING", "COMPLETED", "CANCELLED"].includes(status)) {
+      const validStatuses = ["ARRIVED", "STARTED", "ONGOING", "COMPLETED", "CANCELLED"];
+      if (!status || !validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
           message: "Status must be ARRIVED, STARTED, ONGOING, COMPLETED, or CANCELLED",
         });
       }
 
-      // OTP validation for starting the ride
-      if (status === "ONGOING" || status === "STARTED") {
-        if (!userOtp) {
-          return res.status(400).json({
-            success: false,
-            message: "OTP is required to start the ride",
-          });
-        }
-
-        // Get the ride to find the user
-        const rideForOtp = await prisma.ride.findUnique({
-          where: { id },
-          include: {
-            user: {
-              select: { uniqueOtp: true },
-            },
-          },
-        });
-
-        if (!rideForOtp) {
-          return res.status(404).json({
-            success: false,
-            message: "Ride not found",
-          });
-        }
-
-        if (!rideForOtp.user || rideForOtp.user.uniqueOtp !== userOtp) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid OTP. Please check with the customer and try again.",
-          });
-        }
-      }
-
-      // Map ONGOING to STARTED for the service
-      const mappedStatus = status === "ONGOING" ? "STARTED" : status;
-      const ride = await updateRideStatus(id, partnerId, mappedStatus);
+      const ride = await updateRideStatus(
+        id, 
+        partnerId, 
+        status, 
+        userOtp, 
+        startingKm ? parseFloat(startingKm) : undefined,
+        endingKm ? parseFloat(endingKm) : undefined
+      );
 
       return res.status(200).json({
         success: true,

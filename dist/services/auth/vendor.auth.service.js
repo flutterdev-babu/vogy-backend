@@ -59,7 +59,6 @@ const registerVendor = async (data) => {
             email: data.email || null,
             password: hashedPassword,
             address: data.address || null,
-            profileImage: data.profileImage || null,
             agentId: data.agentId || null,
             cityCodeId: data.cityCodeId || null,
             // New contact fields
@@ -73,9 +72,7 @@ const registerVendor = async (data) => {
             officeAddress: data.officeAddress || null,
             // Banking details
             accountNumber: data.accountNumber || null,
-            bankName: data.bankName || null,
-            ifscCode: data.ifscCode || null,
-            accountHolderName: data.accountHolderName || null,
+            type: data.type || "BUSINESS",
         },
         include: {
             agent: {
@@ -184,6 +181,15 @@ const getVendorProfile = async (vendorId) => {
                     },
                 },
             },
+            partners: {
+                select: {
+                    id: true,
+                    customId: true,
+                    name: true,
+                    phone: true,
+                    status: true,
+                },
+            },
             _count: {
                 select: {
                     rides: true,
@@ -221,7 +227,6 @@ const updateVendorProfile = async (vendorId, data) => {
             ...(data.companyName && { companyName: data.companyName }),
             ...(data.email && { email: data.email }),
             ...(data.address !== undefined && { address: data.address }),
-            ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
         },
         include: {
             agent: {

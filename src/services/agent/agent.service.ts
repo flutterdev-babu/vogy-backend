@@ -1,4 +1,5 @@
 import { prisma } from "../../config/prisma";
+import { generateEntityCustomId } from "../city/city.service";
 
 /* ============================================
     GET ALL AGENTS
@@ -19,6 +20,8 @@ export const getAllAgents = async (search?: string) => {
     select: {
       id: true,
       customId: true,
+      agentCode: true,
+      cityCodeId: true,
       name: true,
       phone: true,
       email: true,
@@ -26,6 +29,14 @@ export const getAllAgents = async (search?: string) => {
       _count: {
         select: {
           rides: true,
+        },
+      },
+      coupons: {
+        select: {
+          id: true,
+          couponCode: true,
+          discountValue: true,
+          isActive: true,
         },
       },
       createdAt: true,
@@ -49,6 +60,14 @@ export const getAgentById = async (agentId: string) => {
       _count: {
         select: {
           rides: true,
+        },
+      },
+      coupons: {
+        select: {
+          id: true,
+          couponCode: true,
+          discountValue: true,
+          isActive: true,
         },
       },
     },
@@ -86,6 +105,7 @@ export const updateAgentByAdmin = async (
     email?: string;
     profileImage?: string;
     agentCode?: string;
+    cityCodeId?: string;
   }
 ) => {
   // Check if email is unique if being updated
@@ -110,19 +130,48 @@ export const updateAgentByAdmin = async (
     if (existingByCode) throw new Error("Agent code already in use");
   }
 
-  const agent = await prisma.agent.update({
+  // Handle lazy CustomId generation if cityCodeId is provided
+  let newCustomId: string | undefined = undefined;
+  
+  // Fetch current agent state once
+  const currentAgent = await prisma.agent.findUnique({
     where: { id: agentId },
-    data: {
-      ...(data.name && { name: data.name }),
-      ...(data.email !== undefined && { email: data.email }),
-      ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
-      ...(data.agentCode !== undefined && { agentCode: data.agentCode }),
-    },
+    select: { customId: true, agentCode: true }
   });
 
-  // Remove password from response
-  const { password, ...agentWithoutPassword } = agent;
-  return agentWithoutPassword;
+  if (data.cityCodeId) {
+    // Only generate if they don't already have one
+    if (currentAgent && !currentAgent.customId) {
+      const cityCode = await prisma.cityCode.findUnique({
+        where: { id: data.cityCodeId },
+        select: { code: true }
+      });
+      if (cityCode) {
+        newCustomId = await generateEntityCustomId(cityCode.code, "AGENT");
+      } else {
+        throw new Error("Invalid city code ID provided");
+      }
+    }
+  }
+
+  // If coupon data is provided, handle it within a transaction
+  return await prisma.$transaction(async (tx) => {
+    const agent = await tx.agent.update({
+      where: { id: agentId },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.email !== undefined && { email: data.email }),
+        ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
+        ...(data.agentCode !== undefined && { agentCode: data.agentCode }),
+        ...(data.cityCodeId !== undefined && { cityCodeId: data.cityCodeId }),
+        ...(newCustomId && { customId: newCustomId }),
+      },
+    });
+
+    // Remove password from response
+    const { password, ...agentWithoutPassword } = agent;
+    return agentWithoutPassword;
+  });
 };
 
 /* ============================================

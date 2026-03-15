@@ -4,6 +4,7 @@ import adminController from "../../controllers/admin/admin.controller";
 import vendorController from "../../controllers/vendor/vendor.controller";
 import partnerController from "../../controllers/partner/partner.controller";
 import agentController from "../../controllers/agent/agent.controller";
+import agentCouponController from "../../controllers/admin/agentCoupon.controller";
 import corporateController from "../../controllers/corporate/corporate.controller";
 import vehicleController from "../../controllers/vehicle/vehicle.controller";
 import billingController from "../../controllers/billing/billing.controller";
@@ -46,13 +47,24 @@ router.put("/pricing-config", adminController.updatePricingConfig);
 router.patch("/pricing-config", adminController.updatePricingConfig);
 
 // ============================================
+// VEHICLE PRICING GROUPS (NEW)
+// ============================================
+router.post("/vehicle-pricing-groups", adminController.createPricingGroup);
+router.get("/vehicle-pricing-groups", adminController.getPricingGroups);
+router.put("/vehicle-pricing-groups/:id", adminController.updatePricingGroup);
+router.delete("/vehicle-pricing-groups/:id", adminController.deletePricingGroup);
+
+// ============================================
 // RIDE MANAGEMENT (Legacy)
 // ============================================
 router.post("/rides", adminController.createManualRide);
 router.get("/rides", adminController.getAllRides);
 router.get("/rides/scheduled", adminController.getScheduledRides);
 router.get("/rides/:id", adminController.getRideById);
+router.patch("/rides/:id/status", adminController.updateRideStatus);
+router.get("/rides/:id/otp", adminController.getRideOtp);
 router.post("/rides/:id/assign-rider", adminController.assignRiderToRide);
+router.patch("/rides/:id/payment", adminController.updateRidePaymentStatus);
 
 // ============================================
 // LEGACY RIDER MANAGEMENT
@@ -63,8 +75,11 @@ router.get("/riders/:id", adminController.getRiderById);
 // ============================================
 // USER MANAGEMENT
 // ============================================
+router.post("/users", adminController.createUser);
 router.get("/users", adminController.getAllUsers);
 router.get("/users/:id", adminController.getUserById);
+router.put("/users/:id", adminController.updateUser);
+router.patch("/users/:id", adminController.updateUser);
 router.post("/users/:id/regenerate-otp", adminController.updateUserUniqueOtp);
 router.put("/users/:id/unique-otp", adminController.updateUserUniqueOtp);
 router.patch("/users/:id/unique-otp", adminController.updateUserUniqueOtp);
@@ -77,18 +92,23 @@ router.get("/vendors", adminController.getAllVendors);
 router.get("/vendors/:id", adminController.getVendorById);
 router.put("/vendors/:id", adminController.updateVendor);
 router.patch("/vendors/:id", adminController.updateVendor);
+router.patch("/vendors/:id/status", vendorController.updateVendorStatus);
+router.patch("/vendors/:id/verify", vendorController.updateVendorVerification);
+router.delete("/vendors/:id", vendorController.deleteVendor);
 
 // ============================================
 // PARTNER MANAGEMENT
 // ============================================
 router.post("/partners", adminController.createPartner);
 router.get("/partners", partnerController.getAllPartners);
+router.get("/partners/active-locations", adminController.getActivePartnerLocations);
 router.get("/partners/available", partnerController.getAvailablePartners);
 router.get("/partners/:id", partnerController.getPartnerById);
 router.put("/partners/:id", partnerController.updatePartnerByAdmin);
 router.patch("/partners/:id", partnerController.updatePartnerByAdmin);
 router.put("/partners/:id/status", partnerController.updatePartnerStatus);
 router.patch("/partners/:id/status", partnerController.updatePartnerStatus);
+router.patch("/partners/:id/verify", partnerController.updatePartnerVerification);
 router.post("/partners/:id/assign-vehicle", partnerController.assignPartnerToVehicle);
 router.delete("/partners/:id/unassign-vehicle", partnerController.unassignPartnerFromVehicle);
 router.get("/partners/:id/rides", partnerController.getPartnerRides);
@@ -100,8 +120,18 @@ router.delete("/partners/:id", partnerController.deletePartner);
 // ============================================
 router.post("/attachments", adminController.createAttachment);
 router.get("/attachments", adminController.getAllAttachments);
+router.get("/attachments/:id", adminController.getAttachmentById);
 router.put("/attachments/:id/status", adminController.toggleAttachmentStatus);
+router.post("/attachments/:id/verify", adminController.verifyAttachment);
 router.delete("/attachments/:id", adminController.deleteAttachment);
+
+// ============================================
+// CITY CODE MANAGEMENT
+// ============================================
+router.get("/city-codes", adminController.getAllCityCodes);
+router.post("/city-codes", adminController.createCityCode);
+router.put("/city-codes/:id", adminController.updateCityCode);
+router.patch("/city-codes/:id", adminController.updateCityCode);
 
 // ============================================
 // VEHICLE MANAGEMENT
@@ -112,6 +142,8 @@ router.get("/vehicles/available", vehicleController.getAvailableVehicles);
 router.get("/vehicles/:id", vehicleController.getVehicleById);
 router.put("/vehicles/:id", vehicleController.updateVehicle);
 router.patch("/vehicles/:id", vehicleController.updateVehicle);
+router.patch("/vehicles/:id/status", vehicleController.updateVehicleStatus);
+router.patch("/vehicles/:id/verify", vehicleController.updateVehicleVerification);
 router.post("/vehicles/:id/assign-vendor", vehicleController.assignVehicleToVendor);
 router.get("/vehicles/:id/rides", vehicleController.getVehicleRides);
 router.delete("/vehicles/:id", vehicleController.deleteVehicle);
@@ -119,11 +151,22 @@ router.delete("/vehicles/:id", vehicleController.deleteVehicle);
 // ============================================
 // AGENT MANAGEMENT
 // ============================================
+router.post("/agents", adminController.createAgent);
 router.get("/agents", agentController.getAllAgents);
 router.get("/agents/:id", agentController.getAgentById);
 router.put("/agents/:id", agentController.updateAgentByAdmin);
 router.patch("/agents/:id", agentController.updateAgentByAdmin);
 router.delete("/agents/:id", agentController.deleteAgent);
+
+// ============================================
+// AGENT COUPON MANAGEMENT
+// ============================================
+router.post("/agent-coupons", agentCouponController.createCoupon);
+router.get("/agent-coupons", agentCouponController.getAllCoupons);
+router.get("/agent-coupons/:id", agentCouponController.getCouponById);
+router.put("/agent-coupons/:id", agentCouponController.updateCoupon);
+router.patch("/agent-coupons/:id/status", agentCouponController.toggleCouponStatus);
+router.delete("/agent-coupons/:id", agentCouponController.deleteCoupon);
 
 // ============================================
 // CORPORATE MANAGEMENT
@@ -159,4 +202,3 @@ router.get("/analytics/entities", adminController.getEntityStatusOverview);
 router.get("/recent-activity", adminController.getRecentActivity);
 
 export default router;
-

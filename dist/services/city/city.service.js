@@ -13,6 +13,7 @@ const generateCustomId = async (cityCode, entityType) => {
         AGENT: "A",
         CORPORATE: "C",
         RIDE: "R",
+        ATTACHMENT: "AA",
     };
     const prefix = prefixMap[entityType];
     // Count existing entities with this city code
@@ -48,14 +49,19 @@ const generateCustomId = async (cityCode, entityType) => {
             where: { cityCode: { code: cityCode } },
         });
     }
+    else if (entityType === "ATTACHMENT") {
+        count = await prisma_1.prisma.attachment.count({
+            where: { customId: { contains: `ACAA${cityCode}` } }
+        });
+    }
     // Generate next serial number
-    // For RIDE, we use 4 digits to reach 10 chars (IC + R + CITY + 0001)
-    // For others, we keep 2 digits for backward compatibility
-    const serialPadding = entityType === "RIDE" ? 4 : 2;
+    // For RIDE we use 4 digits to reach 10 chars
+    // For others, we keep 2 digits
+    const serialPadding = (entityType === "RIDE") ? 4 : 2;
     const serialNumber = String(count + 1).padStart(serialPadding, "0");
-    // Format: IC + prefix + cityCode + serial (no hyphen)
-    // e.g., ICVBLR01, ICPBLR01, ICABLR01, ICCBLR01, ICRBLR0001
-    return `IC${prefix}${cityCode}${serialNumber}`;
+    // Format: AC + prefix + cityCode + serial (no hyphen)
+    // e.g., ACVBLR01, ACPBLR01, ACABLR01, ACCBLR01, ACRBLR0001, ACAABLR01
+    return `AC${prefix}${cityCode}${serialNumber}`;
 };
 /* ============================================
     CREATE CITY CODE (Agent only)

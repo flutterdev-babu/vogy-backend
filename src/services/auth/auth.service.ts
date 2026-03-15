@@ -1,12 +1,10 @@
 import { prisma } from "../../config/prisma";
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
 import twilio from "twilio";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
 import { validatePhoneNumber } from "../../utils/phoneValidation";
-
-const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
+import { signToken } from "../../utils/jwt";
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID!,
@@ -109,42 +107,72 @@ export const verifyOtp = async (
   if (otpRecord.expiresAt < new Date()) throw new Error("OTP expired");
 
   // Verify phone number is registered (for login, user/partner must exist)
-  let user;
   if (role === "USER") {
-    user = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { phone },
     });
     if (!user) throw new Error("User not found. Please register first.");
+
+    // Generate JWT
+    const token = signToken({ id: user.id, role });
+
+    // Remove OTP after use
+    await prisma.otpCode.deleteMany({ where: { phone } });
+
+    return {
+      message: "Login successful",
+      token,
+      user,
+    };
   } else {
-    user = await prisma.partner.findUnique({
+    // role === "PARTNER"
+    const partner = await prisma.partner.findUnique({
       where: { phone },
       include: {
         vehicle: {
-          select: {
-            id: true,
-            customId: true,
-            registrationNumber: true,
-            vehicleModel: true,
+          include: {
+            vehicleType: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                category: true,
+              },
+            },
+            vendor: {
+              select: {
+                id: true,
+                customId: true,
+                name: true,
+                companyName: true,
+              },
+            },
           },
         },
       },
     });
-    if (!user) throw new Error("Partner not found. Please register first.");
+    
+    if (!partner) throw new Error("Partner not found. Please register first.");
+
+    // Check if partner is suspended
+    if (partner.status === "SUSPENDED") {
+      throw new Error("Your account has been suspended. Please contact support.");
+    }
+
+    // Generate JWT
+    const token = signToken({ id: partner.id, role });
+
+    // Remove OTP after use
+    await prisma.otpCode.deleteMany({ where: { phone } });
+
+    const { password, ...partnerWithoutPassword } = partner;
+
+    return {
+      message: "Login successful",
+      token,
+      partner: partnerWithoutPassword,
+    };
   }
-
-  // Generate JWT
-  const token = jwt.sign({ id: user.id, role }, JWT_SECRET, {
-    expiresIn: "7d",
-  });
-
-  // Remove OTP after use
-  await prisma.otpCode.deleteMany({ where: { phone } });
-
-  return {
-    message: "Login successful",
-    token,
-    user,
-  };
 };
 
 /* ============================================
@@ -186,28 +214,6 @@ export const registerAdmin = async (data: {
     ADMIN LOGIN
 ============================================ */
 export const loginAdmin = async (email: string, password: string) => {
-  // --- MOCK LOGIN START ---
-  if (email === "flutterdev.babu@gmail.com") {
-    console.log("⚠️ USING MOCK ADMIN LOGIN");
-    const mockId = "mock_admin_id_123";
-    const token = jwt.sign({ id: mockId, role: "ADMIN" }, JWT_SECRET, {
-      expiresIn: "7d",
-    });
-
-    return {
-      message: "Login successful",
-      token,
-      admin: {
-        id: mockId,
-        name: "Demo Admin",
-        email: email,
-        role: "SUPERADMIN",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    };
-  }
-  // --- MOCK LOGIN END ---
   // Find admin by email
   const admin = await prisma.admin.findUnique({
     where: { email },
@@ -221,9 +227,7 @@ export const loginAdmin = async (email: string, password: string) => {
   if (!isPasswordValid) throw new Error("Invalid email or password");
 
   // Generate JWT
-  const token = jwt.sign({ id: admin.id, role: "ADMIN" }, JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  const token = signToken({ id: admin.id, role: "ADMIN" });
 
   // Remove password from response
   const { password: _, ...adminWithoutPassword } = admin;

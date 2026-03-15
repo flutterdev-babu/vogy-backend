@@ -1,9 +1,144 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateRideStatus = exports.getPartnerRides = exports.acceptRide = exports.getAvailableRides = exports.completeRideWithOtp = exports.cancelRide = exports.getRideById = exports.getUserRides = exports.createManualRide = exports.createRide = void 0;
+exports.updateRideStatus = exports.getPartnerRides = exports.acceptRide = exports.getAvailableRides = exports.completeRideWithOtp = exports.cancelRide = exports.getRideById = exports.getUserRides = exports.createManualRide = exports.createRide = exports.estimateFare = exports.validateCouponLogic = void 0;
 const prisma_1 = require("../../config/prisma");
 const socket_service_1 = require("../socket/socket.service");
 const city_service_1 = require("../city/city.service");
+/* ============================================
+    COUPON VALIDATION LOGIC
+============================================ */
+const validateCouponLogic = async (couponCode, cityCodeId, totalFare) => {
+    const coupon = await prisma_1.prisma.agentCoupon.findUnique({
+        where: { couponCode },
+        include: {
+            agent: {
+                include: {
+                    cityCodes: true,
+                },
+            },
+        },
+    });
+    if (!coupon) {
+        throw new Error("Invalid coupon code");
+    }
+    if (!coupon.isActive) {
+        throw new Error("Coupon is not active");
+    }
+    const currentDate = new Date();
+    if (currentDate < coupon.validFrom || currentDate > coupon.validTo) {
+        throw new Error("Coupon has expired or is not yet valid");
+    }
+    if (totalFare < coupon.minBookingAmount) {
+        throw new Error(`Minimum booking amount for this coupon is ${coupon.minBookingAmount}`);
+    }
+    // Check if city matches (Primary or Legacy)
+    const isPrimaryCity = coupon.agent.cityCodeId === cityCodeId;
+    const isLegacyCity = coupon.agent.cityCodes.some((c) => c.id === cityCodeId);
+    if (!isPrimaryCity && !isLegacyCity) {
+        throw new Error("Coupon is not valid for this city");
+    }
+    // Calculate discount
+    let discountAmount = (totalFare * coupon.discountValue) / 100;
+    if (coupon.maxDiscountAmount > 0 && discountAmount > coupon.maxDiscountAmount) {
+        discountAmount = coupon.maxDiscountAmount;
+    }
+    return {
+        couponId: coupon.id,
+        discountAmount,
+        couponCode: coupon.couponCode,
+    };
+};
+exports.validateCouponLogic = validateCouponLogic;
+/* ============================================
+    FARE ESTIMATION (No ride created)
+    Returns ALL active vehicle types with prices
+============================================ */
+const estimateFare = async (data) => {
+    // Validate city code
+    const cityCodeEntry = await prisma_1.prisma.cityCode.findUnique({
+        where: { id: data.cityCodeId },
+    });
+    if (!cityCodeEntry) {
+        throw new Error("Invalid city code ID");
+    }
+    // Get ALL active vehicle types
+    const vehicleTypes = await prisma_1.prisma.vehicleType.findMany({
+        where: { isActive: true },
+        orderBy: { pricePerKm: "asc" },
+    });
+    if (vehicleTypes.length === 0) {
+        throw new Error("No active vehicle types found");
+    }
+    // Get active pricing config
+    const pricingConfig = await prisma_1.prisma.pricingConfig.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+    });
+    if (!pricingConfig) {
+        throw new Error("Pricing configuration not found");
+    }
+    const globalBaseFare = pricingConfig.baseFare || 20;
+    // Validate coupon if provided (once, reuse for all vehicles)
+    let couponInfo = null;
+    if (data.couponCode) {
+        const coupon = await prisma_1.prisma.agentCoupon.findUnique({
+            where: { couponCode: data.couponCode },
+            include: { agent: { include: { cityCodes: true } } },
+        });
+        if (coupon && coupon.isActive) {
+            const now = new Date();
+            const isDateValid = now >= coupon.validFrom && now <= coupon.validTo;
+            const isPrimaryCity = coupon.agent.cityCodeId === data.cityCodeId;
+            const isLegacyCity = coupon.agent.cityCodes.some((c) => c.id === data.cityCodeId);
+            if (isDateValid && (isPrimaryCity || isLegacyCity)) {
+                couponInfo = {
+                    discountValue: coupon.discountValue,
+                    maxDiscountAmount: coupon.maxDiscountAmount,
+                    couponCode: coupon.couponCode,
+                };
+            }
+        }
+    }
+    // Build fare for each vehicle type
+    const vehicleOptions = vehicleTypes.map((vt) => {
+        const baseFare = vt.baseFare || globalBaseFare;
+        const estimatedFare = parseFloat((baseFare + vt.pricePerKm * data.distanceKm).toFixed(2));
+        let discountAmount = 0;
+        let finalFare = estimatedFare;
+        if (couponInfo && estimatedFare >= 0) {
+            discountAmount = parseFloat(((estimatedFare * couponInfo.discountValue) / 100).toFixed(2));
+            if (couponInfo.maxDiscountAmount > 0 && discountAmount > couponInfo.maxDiscountAmount) {
+                discountAmount = couponInfo.maxDiscountAmount;
+            }
+            finalFare = parseFloat((estimatedFare - discountAmount).toFixed(2));
+        }
+        return {
+            vehicleTypeId: vt.id,
+            category: vt.category,
+            name: vt.name,
+            displayName: vt.displayName,
+            baseFare,
+            pricePerKm: vt.pricePerKm,
+            estimatedFare,
+            ...(couponInfo && {
+                discountAmount,
+                finalFare,
+            }),
+        };
+    });
+    return {
+        distanceKm: data.distanceKm,
+        vehicleOptions,
+        ...(couponInfo && {
+            couponApplied: {
+                couponCode: couponInfo.couponCode,
+                discountPercentage: couponInfo.discountValue,
+                maxDiscountAmount: couponInfo.maxDiscountAmount,
+            },
+        }),
+    };
+};
+exports.estimateFare = estimateFare;
 /* ============================================
     CREATE RIDE (USER) - Instant Booking
 ============================================ */
@@ -38,9 +173,39 @@ const createRide = async (userId, data) => {
     // TOTAL FARE = baseFare + (pricePerKm × distanceKm)
     const baseFare = pricingConfig.baseFare || 20;
     const perKmPrice = vehicleType.pricePerKm;
-    const totalFare = baseFare + (perKmPrice * data.distanceKm);
+    let totalFare = baseFare + (perKmPrice * data.distanceKm);
+    // NEW: Validate and apply Coupon Code
+    let appliedCouponCode = null;
+    let appliedDiscountAmount = 0;
+    if (data.couponCode) {
+        const couponData = await (0, exports.validateCouponLogic)(data.couponCode, data.cityCodeId, totalFare);
+        appliedCouponCode = couponData.couponCode;
+        appliedDiscountAmount = couponData.discountAmount;
+        totalFare = totalFare - appliedDiscountAmount;
+    }
+    // EXPECTED FARE VALIDATION (Strict Mode)
+    // If the frontend explicitly passed an `expectedFare` (what the user agreed to pay), 
+    // the backend calculation must exactly match it to prevent hidden price jumps.
+    if (data.expectedFare !== undefined) {
+        // allow a 1 rupee buffer for floating point JS rounding
+        if (Math.abs(totalFare - data.expectedFare) > 1) {
+            throw new Error(`Price mismatch. The frontend expected ₹${data.expectedFare}, but the server calculated ₹${totalFare}. Please refresh and try again.`);
+        }
+    }
     const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
     const commission = (totalFare * pricingConfig.appCommission) / 100;
+    // NEW: Handle agentCode if provided
+    let agentId = null;
+    let agentCode = null;
+    if (data.agentCode) {
+        const agent = await prisma_1.prisma.agent.findUnique({
+            where: { agentCode: data.agentCode },
+        });
+        if (agent) {
+            agentId = agent.id;
+            agentCode = agent.agentCode;
+        }
+    }
     // Create ride
     const ride = await prisma_1.prisma.ride.create({
         data: {
@@ -56,12 +221,20 @@ const createRide = async (userId, data) => {
             baseFare: baseFare,
             perKmPrice: perKmPrice,
             totalFare: totalFare,
+            couponCode: appliedCouponCode,
+            discountAmount: appliedDiscountAmount,
             riderEarnings: riderEarnings,
             commission: commission,
-            status: "PENDING",
+            status: "UPCOMING",
             isManualBooking: false,
             cityCodeId: data.cityCodeId,
             customId: customId,
+            agentId: agentId,
+            agentCode: agentCode || data.agentCode || null,
+            rideType: data.rideType || "LOCAL",
+            altMobile: data.altMobile || null,
+            paymentMode: data.paymentMode || "CASH",
+            corporateId: data.corporateId || null,
         },
         include: {
             vehicleType: true,
@@ -117,9 +290,36 @@ const createManualRide = async (userId, data) => {
     // Calculate fare with admin-controlled pricing
     const baseFare = pricingConfig.baseFare || 20;
     const perKmPrice = vehicleType.pricePerKm;
-    const totalFare = baseFare + (perKmPrice * data.distanceKm);
+    let totalFare = baseFare + (perKmPrice * data.distanceKm);
+    // NEW: Validate and apply Coupon Code
+    let appliedCouponCode = null;
+    let appliedDiscountAmount = 0;
+    if (data.couponCode) {
+        const couponData = await (0, exports.validateCouponLogic)(data.couponCode, data.cityCodeId, totalFare);
+        appliedCouponCode = couponData.couponCode;
+        appliedDiscountAmount = couponData.discountAmount;
+        totalFare = totalFare - appliedDiscountAmount;
+    }
+    // EXPECTED FARE VALIDATION (Strict Mode)
+    if (data.expectedFare !== undefined) {
+        if (Math.abs(totalFare - data.expectedFare) > 1) {
+            throw new Error(`Price mismatch. The frontend expected ₹${data.expectedFare}, but the server calculated ₹${totalFare}. Please refresh and try again.`);
+        }
+    }
     const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
     const commission = (totalFare * pricingConfig.appCommission) / 100;
+    // Handle agentCode if provided
+    let agentId = null;
+    let agentCode = null;
+    if (data.agentCode) {
+        const agent = await prisma_1.prisma.agent.findUnique({
+            where: { agentCode: data.agentCode },
+        });
+        if (agent) {
+            agentId = agent.id;
+            agentCode = agent.agentCode;
+        }
+    }
     // Create scheduled ride
     const ride = await prisma_1.prisma.ride.create({
         data: {
@@ -135,6 +335,8 @@ const createManualRide = async (userId, data) => {
             baseFare: baseFare,
             perKmPrice: perKmPrice,
             totalFare: totalFare,
+            couponCode: appliedCouponCode,
+            discountAmount: appliedDiscountAmount,
             riderEarnings: riderEarnings,
             commission: commission,
             status: "SCHEDULED",
@@ -143,6 +345,12 @@ const createManualRide = async (userId, data) => {
             bookingNotes: data.bookingNotes || null,
             cityCodeId: data.cityCodeId,
             customId: customId,
+            agentId: agentId,
+            agentCode: agentCode || data.agentCode || null,
+            rideType: data.rideType || "LOCAL",
+            altMobile: data.altMobile || null,
+            paymentMode: data.paymentMode || "CASH",
+            corporateId: data.corporateId || null,
         },
         include: {
             vehicleType: true,
@@ -167,7 +375,7 @@ const getUserRides = async (userId, status) => {
     const where = { userId };
     if (status === "FUTURE") {
         where.status = {
-            in: ["PENDING", "INITIATED", "SCHEDULED", "ACCEPTED", "ARRIVED"]
+            in: ["UPCOMING", "ASSIGNED", "STARTED", "ARRIVED", "ONGOING", "STOPPED"]
         };
     }
     else if (status) {
@@ -376,7 +584,7 @@ const getAvailableRides = async (partnerLat, partnerLng, vehicleTypeId) => {
     // Get pending rides not yet accepted
     const rides = await prisma_1.prisma.ride.findMany({
         where: {
-            status: "PENDING",
+            status: "UPCOMING",
             ...(vehicleTypeId && { vehicleTypeId: vehicleTypeId }),
             partnerId: null, // Only rides not yet accepted
         },
@@ -428,7 +636,7 @@ const acceptRide = async (rideId, partnerId) => {
     if (!ride) {
         throw new Error("Ride not found");
     }
-    if (ride.status !== "PENDING") {
+    if (ride.status !== "UPCOMING") {
         throw new Error("Ride is not available for acceptance");
     }
     if (ride.partnerId) {
@@ -442,7 +650,7 @@ const acceptRide = async (rideId, partnerId) => {
         data: {
             partnerId: partnerId,
             vehicleId: vehicleId,
-            status: "ACCEPTED",
+            status: "ASSIGNED",
             acceptedAt: new Date(),
         },
         include: {
@@ -520,7 +728,7 @@ exports.getPartnerRides = getPartnerRides;
 /* ============================================
     UPDATE RIDE STATUS (PARTNER)
 ============================================ */
-const updateRideStatus = async (rideId, partnerId, status) => {
+const updateRideStatus = async (rideId, partnerId, status, userOtp, startingKm, endingKm) => {
     const ride = await prisma_1.prisma.ride.findUnique({
         where: { id: rideId },
     });
@@ -531,11 +739,56 @@ const updateRideStatus = async (rideId, partnerId, status) => {
         throw new Error("Unauthorized to update this ride");
     }
     // Validate status transition
-    if (status === "ARRIVED" && ride.status !== "ACCEPTED") {
-        throw new Error("Ride must be accepted before marking as arrived");
+    if (status === "ARRIVED" && ride.status !== "ASSIGNED") {
+        throw new Error("Ride must be assigned before marking as arrived");
     }
     if (status === "STARTED" && ride.status !== "ARRIVED") {
         throw new Error("Ride must be arrived before starting");
+    }
+    if (status === "ONGOING" && ride.status !== "STARTED" && ride.status !== "ARRIVED") {
+        // Some flows might go from ARRIVED -> ONGOING or STARTED -> ONGOING
+        throw new Error("Ride must be started or arrived before making it ongoing");
+    }
+    // OTP Verification for moving to ONGOING status
+    if (status === "ONGOING") {
+        // Get user to verify uniqueOtp
+        if (!ride.userId) {
+            throw new Error("User not found for this ride");
+        }
+        const user = await prisma_1.prisma.user.findUnique({
+            where: { id: ride.userId },
+            select: { uniqueOtp: true }
+        });
+        if (!user) {
+            throw new Error("User record not found");
+        }
+        if (!userOtp) {
+            throw new Error("User unique OTP is required to make the ride ongoing");
+        }
+        if (user.uniqueOtp !== userOtp) {
+            throw new Error("Invalid user OTP");
+        }
+        // Rental validation
+        if (ride.rideType === "RENTAL") {
+            if (startingKm === undefined || startingKm < 0) {
+                throw new Error("Valid starting KM is required to start a rental ride");
+            }
+        }
+    }
+    // Handle completion validation
+    if (status === "COMPLETED") {
+        if (ride.status !== "ONGOING" && ride.status !== "STARTED") {
+            throw new Error("Ride must be ONGOING or STARTED before completing");
+        }
+        // Rental validation
+        if (ride.rideType === "RENTAL") {
+            if (endingKm === undefined || endingKm < 0) {
+                throw new Error("Ending KM is required to complete a rental ride");
+            }
+            if (!ride.startingKm || endingKm <= ride.startingKm) {
+                throw new Error("Ending KM must be greater than starting KM");
+            }
+        }
     }
     const updateData = {
         status: status,
@@ -545,6 +798,37 @@ const updateRideStatus = async (rideId, partnerId, status) => {
     }
     if (status === "STARTED") {
         updateData.startTime = new Date();
+    }
+    if (status === "ONGOING") {
+        // If not already started, set start time
+        if (!ride.startTime) {
+            updateData.startTime = new Date();
+        }
+        if (ride.rideType === "RENTAL" && startingKm !== undefined) {
+            updateData.startingKm = startingKm;
+        }
+    }
+    // Custom completion logic for pricing
+    if (status === "COMPLETED") {
+        updateData.endTime = new Date();
+        if (ride.rideType === "RENTAL" && endingKm !== undefined && ride.startingKm) {
+            updateData.endingKm = endingKm;
+            const totalDistance = endingKm - ride.startingKm;
+            updateData.distanceKm = totalDistance;
+            // Calculate fare for rental ride based on distance and pricing
+            const perKmPrice = ride.perKmPrice || 0;
+            const baseFare = ride.baseFare || 20;
+            const newTotalFare = baseFare + (perKmPrice * totalDistance);
+            const pricingConfig = await prisma_1.prisma.pricingConfig.findFirst({
+                where: { isActive: true },
+                orderBy: { createdAt: "desc" },
+            });
+            const riderPercentage = pricingConfig ? pricingConfig.riderPercentage : 80;
+            const appCommissionStr = pricingConfig ? pricingConfig.appCommission : 20;
+            updateData.totalFare = newTotalFare;
+            updateData.riderEarnings = (newTotalFare * riderPercentage) / 100;
+            updateData.commission = (newTotalFare * appCommissionStr) / 100;
+        }
     }
     const updatedRide = await prisma_1.prisma.ride.update({
         where: { id: rideId },
@@ -585,8 +869,23 @@ const updateRideStatus = async (rideId, partnerId, status) => {
     if (status === "ARRIVED") {
         (0, socket_service_1.emitRideArrived)(updatedRide);
     }
-    else if (status === "STARTED") {
+    else if (status === "STARTED" || status === "ONGOING") {
+        // Emitting ride started handles ONGOING well enough, depending on frontend.
         (0, socket_service_1.emitRideStarted)(updatedRide);
+    }
+    else if (status === "COMPLETED") {
+        // Update partner's total earnings if partner exists
+        if (updatedRide.partnerId && updatedRide.riderEarnings) {
+            await prisma_1.prisma.partner.update({
+                where: { id: updatedRide.partnerId },
+                data: {
+                    totalEarnings: {
+                        increment: updatedRide.riderEarnings,
+                    },
+                },
+            });
+        }
+        (0, socket_service_1.emitRideCompleted)(updatedRide);
     }
     return updatedRide;
 };

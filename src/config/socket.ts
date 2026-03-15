@@ -66,21 +66,47 @@ export const initializeSocket = (server: HttpServer): Server => {
     // Handle partner/rider location updates
     socket.on("location:update", (data: { lat: number; lng: number; rideId?: string }) => {
       if ((socket.userRole === "PARTNER" || socket.userRole === "RIDER") && socket.userId) {
-        // Persist location to database
-        try {
-          const { prisma } = require("../config/prisma");
-          prisma.partner.update({
+        // Fallback to local import to ensure it works
+        const { prisma } = require("../../config/prisma");
+        
+        // Fetch partner details if we don't have them cached in memory (to send to admin map)
+        prisma.partner.findUnique({
+          where: { id: socket.userId },
+          select: {
+            customId: true,
+            name: true,
+            phone: true,
+            vehicle: {
+              select: { vehicleType: { select: { name: true } } }
+            },
+            ownVehicleType: {
+              select: { name: true }
+            }
+          }
+        }).then((partner: any) => {
+          if (partner && io) {
+            // Broadcast enriched location to admin dashboard for real-time map
+            io.to("admin").emit("partner:active_location", {
+              partnerId: socket.userId,
+              customId: partner.customId,
+              name: partner.name,
+              phone: partner.phone,
+              vehicleType: partner.vehicle?.vehicleType?.name || partner.ownVehicleType?.name || "Unknown",
+              lat: data.lat,
+              lng: data.lng,
+              timestamp: new Date().toISOString(),
+            });
+          }
+          
+          // Update partner location in database for API retrieval (fire and forget)
+          return prisma.partner.update({
             where: { id: socket.userId },
             data: {
               currentLat: data.lat,
               currentLng: data.lng,
             },
-          }).catch((err: any) => {
-            // Silently fail - location will be updated on next emission
           });
-        } catch (e) {
-          // prisma import error - ignore
-        }
+        }).catch((err: any) => console.error("Error updating partner location:", err));
 
         // If there's an active ride, send location to the user
         if (data.rideId) {

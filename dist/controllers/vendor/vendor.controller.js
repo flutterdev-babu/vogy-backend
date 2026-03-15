@@ -35,6 +35,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const vendorAuthService = __importStar(require("../../services/auth/vendor.auth.service"));
 const vendorService = __importStar(require("../../services/vendor/vendor.service"));
+const partnerService = __importStar(require("../../services/partner/partner.service"));
+const adminService = __importStar(require("../../services/admin/admin.service"));
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -84,11 +86,16 @@ exports.default = {
     ============================================ */
     async getAllVendors(req, res) {
         try {
-            const { status, agentId, search } = req.query;
+            const { vendorId, type, status, verificationStatus, agentId, search, includeDeleted, cityCodeId } = req.query;
             const vendors = await vendorService.getAllVendors({
-                status: status,
+                vendorId: vendorId,
+                type: type ? type.toUpperCase() : undefined,
+                status: status ? status.toUpperCase() : undefined,
+                verificationStatus: verificationStatus ? verificationStatus.toUpperCase() : undefined,
                 agentId: agentId,
                 search: search,
+                includeDeleted: includeDeleted === "true",
+                cityCodeId: cityCodeId,
             });
             res.json({ success: true, data: vendors });
         }
@@ -108,10 +115,25 @@ exports.default = {
     async updateVendorStatus(req, res) {
         try {
             const { status } = req.body;
+            const adminId = req.user?.id;
             if (!status) {
                 return res.status(400).json({ success: false, message: "Status is required" });
             }
-            const vendor = await vendorService.updateVendorStatus(req.params.id, status);
+            const vendor = await vendorService.updateVendorStatus(req.params.id, status, adminId);
+            res.json({ success: true, data: vendor });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async updateVendorVerification(req, res) {
+        try {
+            const { status } = req.body;
+            const adminId = req.user?.id;
+            if (!status) {
+                return res.status(400).json({ success: false, message: "Verification status is required" });
+            }
+            const vendor = await vendorService.updateVendorVerification(req.params.id, status, adminId);
             res.json({ success: true, data: vendor });
         }
         catch (err) {
@@ -164,11 +186,85 @@ exports.default = {
     },
     async deleteVendor(req, res) {
         try {
-            const result = await vendorService.deleteVendor(req.params.id);
+            const adminId = req.user?.id;
+            const result = await vendorService.deleteVendor(req.params.id, adminId);
             res.json({ success: true, data: result });
         }
         catch (err) {
             res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async getVendorPartners(req, res) {
+        try {
+            const vendorId = req.params.id || req.user.id;
+            const { status, search } = req.query;
+            const partners = await partnerService.getAllPartners({
+                vendorId,
+                status: status,
+                search: search,
+            });
+            res.json({ success: true, data: partners });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async createAttachment(req, res) {
+        try {
+            const { fileType, fileUrl, uploadedBy } = req.body;
+            const adminId = req.user?.id;
+            const attachment = await adminService.createAttachment({
+                referenceType: "VENDOR",
+                referenceId: req.user.id,
+                fileType,
+                fileUrl,
+                uploadedBy: uploadedBy || "VENDOR",
+                adminId
+            });
+            res.status(201).json({ success: true, data: attachment });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    /* ============================================
+        VENDOR DASHBOARD ENDPOINTS
+    ============================================ */
+    async getDashboard(req, res) {
+        try {
+            const dashboard = await vendorService.getVendorDashboard(req.user.id);
+            res.json({ success: true, data: dashboard });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getVendorAttachmentsList(req, res) {
+        try {
+            const attachments = await vendorService.getVendorAttachments(req.user.id);
+            res.json({ success: true, data: attachments });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getVendorRideDetail(req, res) {
+        try {
+            const ride = await vendorService.getVendorRideById(req.user.id, req.params.id);
+            res.json({ success: true, data: ride });
+        }
+        catch (err) {
+            res.status(404).json({ success: false, message: err.message });
+        }
+    },
+    async getVendorEarningsSummary(req, res) {
+        try {
+            const { period } = req.query;
+            const earnings = await vendorService.getVendorEarnings(req.user.id, period);
+            res.json({ success: true, data: earnings });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
         }
     },
 };

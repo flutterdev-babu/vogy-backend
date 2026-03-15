@@ -16,7 +16,6 @@ export const registerVendor = async (data: {
   email?: string;
   password: string;
   address?: string;
-  profileImage?: string;
   agentId?: string;
   cityCodeId?: string;  // For custom ID generation
   // New contact fields
@@ -30,9 +29,6 @@ export const registerVendor = async (data: {
   officeAddress?: string;
   // Banking details
   accountNumber?: string;
-  bankName?: string;
-  ifscCode?: string;
-  accountHolderName?: string;
   type?: "INDIVIDUAL" | "BUSINESS";
 }) => {
   // Validate phone number format (E.164)
@@ -83,7 +79,6 @@ export const registerVendor = async (data: {
       email: data.email || null,
       password: hashedPassword,
       address: data.address || null,
-      profileImage: data.profileImage || null,
       agentId: data.agentId || null,
       cityCodeId: data.cityCodeId || null,
       // New contact fields
@@ -97,9 +92,6 @@ export const registerVendor = async (data: {
       officeAddress: data.officeAddress || null,
       // Banking details
       accountNumber: data.accountNumber || null,
-      bankName: data.bankName || null,
-      ifscCode: data.ifscCode || null,
-      accountHolderName: data.accountHolderName || null,
       type: data.type || "BUSINESS",
     },
     include: {
@@ -250,7 +242,6 @@ export const updateVendorProfile = async (
     companyName?: string;
     email?: string;
     address?: string;
-    profileImage?: string;
   }
 ) => {
   // Check if email is unique if being updated
@@ -271,7 +262,6 @@ export const updateVendorProfile = async (
       ...(data.companyName && { companyName: data.companyName }),
       ...(data.email && { email: data.email }),
       ...(data.address !== undefined && { address: data.address }),
-      ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
     },
     include: {
       agent: {

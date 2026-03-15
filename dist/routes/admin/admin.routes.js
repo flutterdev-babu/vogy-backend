@@ -9,6 +9,7 @@ const admin_controller_1 = __importDefault(require("../../controllers/admin/admi
 const vendor_controller_1 = __importDefault(require("../../controllers/vendor/vendor.controller"));
 const partner_controller_1 = __importDefault(require("../../controllers/partner/partner.controller"));
 const agent_controller_1 = __importDefault(require("../../controllers/agent/agent.controller"));
+const agentCoupon_controller_1 = __importDefault(require("../../controllers/admin/agentCoupon.controller"));
 const corporate_controller_1 = __importDefault(require("../../controllers/corporate/corporate.controller"));
 const vehicle_controller_1 = __importDefault(require("../../controllers/vehicle/vehicle.controller"));
 const billing_controller_1 = __importDefault(require("../../controllers/billing/billing.controller"));
@@ -44,10 +45,14 @@ router.patch("/pricing-config", admin_controller_1.default.updatePricingConfig);
 // ============================================
 // RIDE MANAGEMENT (Legacy)
 // ============================================
+router.post("/rides", admin_controller_1.default.createManualRide);
 router.get("/rides", admin_controller_1.default.getAllRides);
 router.get("/rides/scheduled", admin_controller_1.default.getScheduledRides);
 router.get("/rides/:id", admin_controller_1.default.getRideById);
+router.patch("/rides/:id/status", admin_controller_1.default.updateRideStatus);
+router.get("/rides/:id/otp", admin_controller_1.default.getRideOtp);
 router.post("/rides/:id/assign-rider", admin_controller_1.default.assignRiderToRide);
+router.patch("/rides/:id/payment", admin_controller_1.default.updateRidePaymentStatus);
 // ============================================
 // LEGACY RIDER MANAGEMENT
 // ============================================
@@ -64,19 +69,18 @@ router.patch("/users/:id/unique-otp", admin_controller_1.default.updateUserUniqu
 // ============================================
 // VENDOR MANAGEMENT
 // ============================================
-router.get("/vendors", vendor_controller_1.default.getAllVendors);
-router.get("/vendors/:id", vendor_controller_1.default.getVendorById);
-router.put("/vendors/:id", vendor_controller_1.default.updateVendorByAdmin);
-router.patch("/vendors/:id", vendor_controller_1.default.updateVendorByAdmin);
-router.put("/vendors/:id/status", vendor_controller_1.default.updateVendorStatus);
+router.post("/vendors", admin_controller_1.default.createVendor);
+router.get("/vendors", admin_controller_1.default.getAllVendors);
+router.get("/vendors/:id", admin_controller_1.default.getVendorById);
+router.put("/vendors/:id", admin_controller_1.default.updateVendor);
+router.patch("/vendors/:id", admin_controller_1.default.updateVendor);
 router.patch("/vendors/:id/status", vendor_controller_1.default.updateVendorStatus);
-router.get("/vendors/:id/vehicles", vendor_controller_1.default.getVendorVehicles);
-router.get("/vendors/:id/rides", vendor_controller_1.default.getVendorRides);
-router.get("/vendors/:id/analytics", vendor_controller_1.default.getVendorAnalytics);
+router.patch("/vendors/:id/verify", vendor_controller_1.default.updateVendorVerification);
 router.delete("/vendors/:id", vendor_controller_1.default.deleteVendor);
 // ============================================
 // PARTNER MANAGEMENT
 // ============================================
+router.post("/partners", admin_controller_1.default.createPartner);
 router.get("/partners", partner_controller_1.default.getAllPartners);
 router.get("/partners/available", partner_controller_1.default.getAvailablePartners);
 router.get("/partners/:id", partner_controller_1.default.getPartnerById);
@@ -84,11 +88,28 @@ router.put("/partners/:id", partner_controller_1.default.updatePartnerByAdmin);
 router.patch("/partners/:id", partner_controller_1.default.updatePartnerByAdmin);
 router.put("/partners/:id/status", partner_controller_1.default.updatePartnerStatus);
 router.patch("/partners/:id/status", partner_controller_1.default.updatePartnerStatus);
+router.patch("/partners/:id/verify", partner_controller_1.default.updatePartnerVerification);
 router.post("/partners/:id/assign-vehicle", partner_controller_1.default.assignPartnerToVehicle);
 router.delete("/partners/:id/unassign-vehicle", partner_controller_1.default.unassignPartnerFromVehicle);
 router.get("/partners/:id/rides", partner_controller_1.default.getPartnerRides);
 router.get("/partners/:id/analytics", partner_controller_1.default.getPartnerAnalytics);
 router.delete("/partners/:id", partner_controller_1.default.deletePartner);
+// ============================================
+// ATTACHMENT MANAGEMENT
+// ============================================
+router.post("/attachments", admin_controller_1.default.createAttachment);
+router.get("/attachments", admin_controller_1.default.getAllAttachments);
+router.get("/attachments/:id", admin_controller_1.default.getAttachmentById);
+router.put("/attachments/:id/status", admin_controller_1.default.toggleAttachmentStatus);
+router.post("/attachments/:id/verify", admin_controller_1.default.verifyAttachment);
+router.delete("/attachments/:id", admin_controller_1.default.deleteAttachment);
+// ============================================
+// CITY CODE MANAGEMENT
+// ============================================
+router.get("/city-codes", admin_controller_1.default.getAllCityCodes);
+router.post("/city-codes", admin_controller_1.default.createCityCode);
+router.put("/city-codes/:id", admin_controller_1.default.updateCityCode);
+router.patch("/city-codes/:id", admin_controller_1.default.updateCityCode);
 // ============================================
 // VEHICLE MANAGEMENT
 // ============================================
@@ -98,36 +119,36 @@ router.get("/vehicles/available", vehicle_controller_1.default.getAvailableVehic
 router.get("/vehicles/:id", vehicle_controller_1.default.getVehicleById);
 router.put("/vehicles/:id", vehicle_controller_1.default.updateVehicle);
 router.patch("/vehicles/:id", vehicle_controller_1.default.updateVehicle);
+router.patch("/vehicles/:id/status", vehicle_controller_1.default.updateVehicleStatus);
+router.patch("/vehicles/:id/verify", vehicle_controller_1.default.updateVehicleVerification);
 router.post("/vehicles/:id/assign-vendor", vehicle_controller_1.default.assignVehicleToVendor);
 router.get("/vehicles/:id/rides", vehicle_controller_1.default.getVehicleRides);
 router.delete("/vehicles/:id", vehicle_controller_1.default.deleteVehicle);
 // ============================================
 // AGENT MANAGEMENT
 // ============================================
+router.post("/agents", admin_controller_1.default.createAgent);
 router.get("/agents", agent_controller_1.default.getAllAgents);
 router.get("/agents/:id", agent_controller_1.default.getAgentById);
 router.put("/agents/:id", agent_controller_1.default.updateAgentByAdmin);
 router.patch("/agents/:id", agent_controller_1.default.updateAgentByAdmin);
-router.get("/agents/:id/vendors", agent_controller_1.default.getAgentVendors);
-router.get("/agents/:id/corporates", agent_controller_1.default.getAgentCorporates);
-router.get("/agents/:id/rides", agent_controller_1.default.getAgentRides);
-router.get("/agents/:id/analytics", agent_controller_1.default.getAgentAnalytics);
-router.post("/agents/:id/assign-vendor", agent_controller_1.default.registerVendorUnderAgent);
-router.post("/agents/:id/assign-corporate", agent_controller_1.default.registerCorporateUnderAgent);
 router.delete("/agents/:id", agent_controller_1.default.deleteAgent);
+// ============================================
+// AGENT COUPON MANAGEMENT
+// ============================================
+router.post("/agent-coupons", agentCoupon_controller_1.default.createCoupon);
+router.get("/agent-coupons", agentCoupon_controller_1.default.getAllCoupons);
+router.get("/agent-coupons/:id", agentCoupon_controller_1.default.getCouponById);
+router.put("/agent-coupons/:id", agentCoupon_controller_1.default.updateCoupon);
+router.patch("/agent-coupons/:id/status", agentCoupon_controller_1.default.toggleCouponStatus);
+router.delete("/agent-coupons/:id", agentCoupon_controller_1.default.deleteCoupon);
 // ============================================
 // CORPORATE MANAGEMENT
 // ============================================
-router.get("/corporates", corporate_controller_1.default.getAllCorporates);
-router.get("/corporates/:id", corporate_controller_1.default.getCorporateById);
-router.put("/corporates/:id", corporate_controller_1.default.updateCorporateByAdmin);
-router.patch("/corporates/:id", corporate_controller_1.default.updateCorporateByAdmin);
-router.put("/corporates/:id/status", corporate_controller_1.default.updateCorporateStatus);
-router.patch("/corporates/:id/status", corporate_controller_1.default.updateCorporateStatus);
-router.put("/corporates/:id/credit-limit", corporate_controller_1.default.updateCorporateCreditLimit);
-router.patch("/corporates/:id/credit-limit", corporate_controller_1.default.updateCorporateCreditLimit);
-router.get("/corporates/:id/rides", corporate_controller_1.default.getCorporateRides);
-router.get("/corporates/:id/billing", corporate_controller_1.default.getCorporateBillingHistory);
+router.get("/corporates", admin_controller_1.default.getAllCorporates);
+router.get("/corporates/:id", admin_controller_1.default.getCorporateById);
+router.put("/corporates/:id", admin_controller_1.default.updateCorporate);
+router.patch("/corporates/:id", admin_controller_1.default.updateCorporate);
 router.delete("/corporates/:id", corporate_controller_1.default.deleteCorporate);
 // ============================================
 // BILLING MANAGEMENT
@@ -142,4 +163,12 @@ router.get("/billing/summary/:corporateId", billing_controller_1.default.getBill
 // ============================================
 router.post("/payments", billing_controller_1.default.recordPayment);
 router.get("/payments", billing_controller_1.default.getPaymentHistory);
+// ============================================
+// DASHBOARD & ANALYTICS
+// ============================================
+router.get("/dashboard", admin_controller_1.default.getDashboard);
+router.get("/analytics/revenue", admin_controller_1.default.getRevenueAnalytics);
+router.get("/analytics/rides", admin_controller_1.default.getRideAnalytics);
+router.get("/analytics/entities", admin_controller_1.default.getEntityStatusOverview);
+router.get("/recent-activity", admin_controller_1.default.getRecentActivity);
 exports.default = router;

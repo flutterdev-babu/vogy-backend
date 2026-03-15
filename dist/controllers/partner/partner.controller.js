@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const partnerAuthService = __importStar(require("../../services/auth/partner.auth.service"));
 const partnerService = __importStar(require("../../services/partner/partner.service"));
+const adminService = __importStar(require("../../services/admin/admin.service"));
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -50,11 +51,11 @@ exports.default = {
     },
     async login(req, res) {
         try {
-            const { phone, password } = req.body;
-            if (!phone || !password) {
-                return res.status(400).json({ success: false, message: "Phone and password are required" });
+            const { phone, password, otp } = req.body;
+            if (!phone || (!password && !otp)) {
+                return res.status(400).json({ success: false, message: "Phone and either password or otp are required" });
             }
-            const result = await partnerAuthService.loginPartner(phone, password);
+            const result = await partnerAuthService.loginPartner(phone, password, otp);
             res.json({ success: true, data: result });
         }
         catch (err) {
@@ -110,12 +111,14 @@ exports.default = {
     ============================================ */
     async getAllPartners(req, res) {
         try {
-            const { status, vendorId, isOnline, search } = req.query;
+            const { vendorId, status, verificationStatus, search, includeDeleted, cityCodeId } = req.query;
             const partners = await partnerService.getAllPartners({
-                status: status,
                 vendorId: vendorId,
-                isOnline: isOnline === "true" ? true : isOnline === "false" ? false : undefined,
+                status: status ? status.toUpperCase() : undefined,
+                verificationStatus: verificationStatus ? verificationStatus.toUpperCase() : undefined,
                 search: search,
+                includeDeleted: includeDeleted === "true",
+                cityCodeId: cityCodeId,
             });
             res.json({ success: true, data: partners });
         }
@@ -135,10 +138,25 @@ exports.default = {
     async updatePartnerStatus(req, res) {
         try {
             const { status } = req.body;
+            const adminId = req.user?.id;
             if (!status) {
                 return res.status(400).json({ success: false, message: "Status is required" });
             }
-            const partner = await partnerService.updatePartnerStatus(req.params.id, status);
+            const partner = await partnerService.updatePartnerStatus(req.params.id, status, adminId);
+            res.json({ success: true, data: partner });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async updatePartnerVerification(req, res) {
+        try {
+            const { status } = req.body;
+            const adminId = req.user?.id;
+            if (!status) {
+                return res.status(400).json({ success: false, message: "Verification status is required" });
+            }
+            const partner = await partnerService.updatePartnerVerification(req.params.id, status, adminId);
             res.json({ success: true, data: partner });
         }
         catch (err) {
@@ -213,11 +231,69 @@ exports.default = {
     },
     async deletePartner(req, res) {
         try {
-            const result = await partnerService.deletePartner(req.params.id);
+            const adminId = req.user?.id;
+            const result = await partnerService.deletePartner(req.params.id, adminId);
             res.json({ success: true, data: result });
         }
         catch (err) {
             res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    async createAttachment(req, res) {
+        try {
+            const { fileType, fileUrl, uploadedBy } = req.body;
+            const adminId = req.user?.id;
+            const attachment = await adminService.createAttachment({
+                referenceType: "PARTNER",
+                referenceId: req.user.id,
+                fileType,
+                fileUrl,
+                uploadedBy: uploadedBy || "PARTNER",
+                adminId
+            });
+            res.status(201).json({ success: true, data: attachment });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    /* ============================================
+        PARTNER DASHBOARD ENDPOINTS
+    ============================================ */
+    async getDashboard(req, res) {
+        try {
+            const dashboard = await partnerService.getPartnerDashboard(req.user.id);
+            res.json({ success: true, data: dashboard });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getVehicleInfo(req, res) {
+        try {
+            const vehicleInfo = await partnerService.getPartnerVehicleInfo(req.user.id);
+            res.json({ success: true, data: vehicleInfo });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getPartnerRideDetail(req, res) {
+        try {
+            const ride = await partnerService.getPartnerRideById(req.user.id, req.params.id);
+            res.json({ success: true, data: ride });
+        }
+        catch (err) {
+            res.status(404).json({ success: false, message: err.message });
+        }
+    },
+    async getPartnerEarningsSummary(req, res) {
+        try {
+            const earnings = await partnerService.getPartnerEarnings(req.user.id);
+            res.json({ success: true, data: earnings });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
         }
     },
 };

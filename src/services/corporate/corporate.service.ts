@@ -1,11 +1,11 @@
 import { prisma } from "../../config/prisma";
-import { CorporateStatus, PaymentMode, PaymentStatus } from "@prisma/client";
+import { EntityStatus, PaymentMode, PaymentStatus } from "@prisma/client";
 
 /* ============================================
     GET ALL CORPORATES
 ============================================ */
 export const getAllCorporates = async (filters?: {
-  status?: CorporateStatus;
+  status?: EntityStatus;
   agentId?: string;
   search?: string;
 }) => {
@@ -103,7 +103,7 @@ export const getCorporateById = async (corporateId: string) => {
 /* ============================================
     UPDATE CORPORATE STATUS (Admin)
 ============================================ */
-export const updateCorporateStatus = async (corporateId: string, status: CorporateStatus) => {
+export const updateCorporateStatus = async (corporateId: string, status: EntityStatus) => {
   const corporate = await prisma.corporate.update({
     where: { id: corporateId },
     data: { status },
@@ -160,7 +160,7 @@ export const updateCorporateByAdmin = async (
     contactPerson?: string;
     address?: string;
     gstNumber?: string;
-    status?: CorporateStatus;
+    status?: EntityStatus;
     creditLimit?: number;
     agentId?: string | null;
   }

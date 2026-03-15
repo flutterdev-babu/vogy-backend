@@ -8,7 +8,180 @@ import {
   emitRideCompleted,
   emitRideCancelled,
 } from "../socket/socket.service";
-import { generateEntityCustomId } from "../city/city.service";
+import { generateEntityCustomId, getPricingForCity } from "../city/city.service";
+
+/* ============================================
+    COUPON VALIDATION LOGIC
+============================================ */
+export const validateCouponLogic = async (
+  couponCode: string,
+  cityCodeId: string,
+  totalFare: number
+) => {
+  const coupon = await prisma.agentCoupon.findUnique({
+    where: { couponCode },
+    include: {
+      agent: {
+        include: {
+          cityCodes: true,
+        },
+      },
+    },
+  });
+
+  if (!coupon) {
+    throw new Error("Invalid coupon code");
+  }
+
+  if (!coupon.isActive) {
+    throw new Error("Coupon is not active");
+  }
+
+  const currentDate = new Date();
+  if (currentDate < coupon.validFrom || currentDate > coupon.validTo) {
+    throw new Error("Coupon has expired or is not yet valid");
+  }
+
+  if (totalFare < coupon.minBookingAmount) {
+    throw new Error(`Minimum booking amount for this coupon is ${coupon.minBookingAmount}`);
+  }
+
+  // Check if city matches (Primary or Legacy)
+  const isPrimaryCity = coupon.agent.cityCodeId === cityCodeId;
+  const isLegacyCity = coupon.agent.cityCodes.some((c) => c.id === cityCodeId);
+  
+  if (!isPrimaryCity && !isLegacyCity) {
+    throw new Error("Coupon is not valid for this city");
+  }
+
+  // Calculate discount
+  let discountAmount = (totalFare * coupon.discountValue) / 100;
+  if (coupon.maxDiscountAmount > 0 && discountAmount > coupon.maxDiscountAmount) {
+    discountAmount = coupon.maxDiscountAmount;
+  }
+
+  return {
+    couponId: coupon.id,
+    discountAmount,
+    couponCode: coupon.couponCode,
+  };
+};
+
+/* ============================================
+    FARE ESTIMATION (No ride created)
+    Returns ALL active vehicle types with prices
+============================================ */
+export const estimateFare = async (data: {
+  distanceKm: number;
+  cityCodeId: string;
+  couponCode?: string;
+}) => {
+  // Validate city code
+  const cityCodeEntry = await prisma.cityCode.findUnique({
+    where: { id: data.cityCodeId },
+  });
+  if (!cityCodeEntry) {
+    throw new Error("Invalid city code ID");
+  }
+
+  // Get ALL active vehicle types
+  const vehicleTypes = await prisma.vehicleType.findMany({
+    where: { isActive: true },
+    orderBy: { pricePerKm: "asc" },
+  });
+
+  if (vehicleTypes.length === 0) {
+    throw new Error("No active vehicle types found");
+  }
+
+  // Get active pricing config
+  const pricingConfig = await prisma.pricingConfig.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!pricingConfig) {
+    throw new Error("Pricing configuration not found");
+  }
+
+  const globalBaseFare = pricingConfig.baseFare || 20;
+
+  // Validate coupon if provided (once, reuse for all vehicles)
+  let couponInfo: { discountValue: number; maxDiscountAmount: number; couponCode: string } | null = null;
+  if (data.couponCode) {
+    const coupon = await prisma.agentCoupon.findUnique({
+      where: { couponCode: data.couponCode },
+      include: { agent: { include: { cityCodes: true } } },
+    });
+
+    if (coupon && coupon.isActive) {
+      const now = new Date();
+      const isDateValid = now >= coupon.validFrom && now <= coupon.validTo;
+      
+      const isPrimaryCity = coupon.agent.cityCodeId === data.cityCodeId;
+      const isLegacyCity = coupon.agent.cityCodes.some((c) => c.id === data.cityCodeId);
+
+      if (isDateValid && (isPrimaryCity || isLegacyCity)) {
+        couponInfo = {
+          discountValue: coupon.discountValue,
+          maxDiscountAmount: coupon.maxDiscountAmount,
+          couponCode: coupon.couponCode,
+        };
+      }
+    }
+  }
+
+  // Build fare for each vehicle type
+  const vehicleOptions = await Promise.all(vehicleTypes.map(async (vt) => {
+    // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+    const cityPricing = await getPricingForCity(vt.id, data.cityCodeId);
+    
+    const baseFare = cityPricing.baseFare;
+    const perKmPrice = cityPricing.perKmPrice;
+    
+    // Calculation: baseFare + (perKmPrice * (distanceKm - baseKm))
+    // If distance is less than baseKm, it's just baseFare
+    const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
+    const estimatedFare = parseFloat((baseFare + perKmPrice * billableKm).toFixed(2));
+
+    let discountAmount = 0;
+    let finalFare = estimatedFare;
+
+    if (couponInfo && estimatedFare >= 0) {
+      discountAmount = parseFloat(((estimatedFare * couponInfo.discountValue) / 100).toFixed(2));
+      if (couponInfo.maxDiscountAmount > 0 && discountAmount > couponInfo.maxDiscountAmount) {
+        discountAmount = couponInfo.maxDiscountAmount;
+      }
+      finalFare = parseFloat((estimatedFare - discountAmount).toFixed(2));
+    }
+
+    return {
+      vehicleTypeId: vt.id,
+      category: vt.category,
+      name: vt.name,
+      displayName: vt.displayName,
+      baseFare,
+      pricePerKm: perKmPrice,
+      baseKm: cityPricing.baseKm,
+      estimatedFare,
+      ...(couponInfo && {
+        discountAmount,
+        finalFare,
+      }),
+    };
+  }));
+
+  return {
+    distanceKm: data.distanceKm,
+    vehicleOptions,
+    ...(couponInfo && {
+      couponApplied: {
+        couponCode: couponInfo.couponCode,
+        discountPercentage: couponInfo.discountValue,
+        maxDiscountAmount: couponInfo.maxDiscountAmount,
+      },
+    }),
+  };
+};
 
 /* ============================================
     CREATE RIDE (USER) - Instant Booking
@@ -25,6 +198,13 @@ export const createRide = async (
     dropAddress: string;
     distanceKm: number;
     cityCodeId: string; // NEW: Required for customId generation
+    rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
+    altMobile?: string;
+    paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
+    agentCode?: string;
+    couponCode?: string;
+    expectedFare?: number;
+    corporateId?: string;
   }
 ) => {
   // Get city code for ID generation
@@ -61,11 +241,35 @@ export const createRide = async (
     throw new Error("Pricing configuration not found");
   }
 
-  // Calculate fare with admin-controlled pricing
-  // TOTAL FARE = baseFare + (pricePerKm × distanceKm)
-  const baseFare = pricingConfig.baseFare || 20;
-  const perKmPrice = vehicleType.pricePerKm;
-  const totalFare = baseFare + (perKmPrice * data.distanceKm);
+  // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+  const cityPricing = await getPricingForCity(data.vehicleTypeId, data.cityCodeId);
+
+  const baseFare = cityPricing.baseFare;
+  const perKmPrice = cityPricing.perKmPrice;
+  const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
+  let totalFare = baseFare + (perKmPrice * billableKm);
+
+  // NEW: Validate and apply Coupon Code
+  let appliedCouponCode = null;
+  let appliedDiscountAmount = 0;
+
+  if (data.couponCode) {
+    const couponData = await validateCouponLogic(data.couponCode, data.cityCodeId, totalFare);
+    appliedCouponCode = couponData.couponCode;
+    appliedDiscountAmount = couponData.discountAmount;
+    totalFare = totalFare - appliedDiscountAmount;
+  }
+
+  // EXPECTED FARE VALIDATION (Strict Mode)
+  // If the frontend explicitly passed an `expectedFare` (what the user agreed to pay), 
+  // the backend calculation must exactly match it to prevent hidden price jumps.
+  if (data.expectedFare !== undefined) {
+    // allow a 1 rupee buffer for floating point JS rounding
+    if (Math.abs(totalFare - data.expectedFare) > 1) {
+      throw new Error(`Price mismatch. The frontend expected ₹${data.expectedFare}, but the server calculated ₹${totalFare}. Please refresh and try again.`);
+    }
+  }
+
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
   const commission = (totalFare * pricingConfig.appCommission) / 100;
 
@@ -97,6 +301,8 @@ export const createRide = async (
       baseFare: baseFare,
       perKmPrice: perKmPrice,
       totalFare: totalFare,
+      couponCode: appliedCouponCode,
+      discountAmount: appliedDiscountAmount,
       riderEarnings: riderEarnings,
       commission: commission,
       status: "UPCOMING",
@@ -104,7 +310,11 @@ export const createRide = async (
       cityCodeId: data.cityCodeId,
       customId: customId,
       agentId: agentId,
-      agentCode: agentCode,
+      agentCode: agentCode || (data as any).agentCode || null,
+      rideType: data.rideType || "LOCAL",
+      altMobile: data.altMobile || null,
+      paymentMode: data.paymentMode || "CASH",
+      corporateId: data.corporateId || null,
     },
     include: {
       vehicleType: true,
@@ -141,6 +351,13 @@ export const createManualRide = async (
     scheduledDateTime: Date;
     bookingNotes?: string;
     cityCodeId: string; // NEW: Required for customId generation
+    rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
+    altMobile?: string;
+    paymentMode?: "CASH" | "CREDIT" | "UPI" | "CARD" | "ONLINE";
+    agentCode?: string;
+    couponCode?: string;
+    expectedFare?: number;
+    corporateId?: string;
   }
 ) => {
   // Get city code for ID generation
@@ -183,12 +400,47 @@ export const createManualRide = async (
     throw new Error("Pricing configuration not found");
   }
 
-  // Calculate fare with admin-controlled pricing
-  const baseFare = pricingConfig.baseFare || 20;
-  const perKmPrice = vehicleType.pricePerKm;
-  const totalFare = baseFare + (perKmPrice * data.distanceKm);
+  // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+  const cityPricing = await getPricingForCity(data.vehicleTypeId, data.cityCodeId);
+
+  const baseFare = cityPricing.baseFare;
+  const perKmPrice = cityPricing.perKmPrice;
+  const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
+  let totalFare = baseFare + (perKmPrice * billableKm);
+
+  // NEW: Validate and apply Coupon Code
+  let appliedCouponCode = null;
+  let appliedDiscountAmount = 0;
+
+  if (data.couponCode) {
+    const couponData = await validateCouponLogic(data.couponCode, data.cityCodeId, totalFare);
+    appliedCouponCode = couponData.couponCode;
+    appliedDiscountAmount = couponData.discountAmount;
+    totalFare = totalFare - appliedDiscountAmount;
+  }
+
+  // EXPECTED FARE VALIDATION (Strict Mode)
+  if (data.expectedFare !== undefined) {
+    if (Math.abs(totalFare - data.expectedFare) > 1) {
+      throw new Error(`Price mismatch. The frontend expected ₹${data.expectedFare}, but the server calculated ₹${totalFare}. Please refresh and try again.`);
+    }
+  }
+
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
   const commission = (totalFare * pricingConfig.appCommission) / 100;
+
+  // Handle agentCode if provided
+  let agentId = null;
+  let agentCode = null;
+  if (data.agentCode) {
+    const agent = await prisma.agent.findUnique({
+      where: { agentCode: data.agentCode },
+    });
+    if (agent) {
+      agentId = agent.id;
+      agentCode = agent.agentCode;
+    }
+  }
 
   // Create scheduled ride
   const ride = await prisma.ride.create({
@@ -205,6 +457,8 @@ export const createManualRide = async (
       baseFare: baseFare,
       perKmPrice: perKmPrice,
       totalFare: totalFare,
+      couponCode: appliedCouponCode,
+      discountAmount: appliedDiscountAmount,
       riderEarnings: riderEarnings,
       commission: commission,
       status: "SCHEDULED",
@@ -213,6 +467,12 @@ export const createManualRide = async (
       bookingNotes: data.bookingNotes || null,
       cityCodeId: data.cityCodeId,
       customId: customId,
+      agentId: agentId,
+      agentCode: agentCode || data.agentCode || null,
+      rideType: data.rideType || "LOCAL",
+      altMobile: data.altMobile || null,
+      paymentMode: data.paymentMode || "CASH",
+      corporateId: data.corporateId || null,
     },
     include: {
       vehicleType: true,
@@ -473,7 +733,8 @@ export const completeRideWithOtp = async (
 export const getAvailableRides = async (
   partnerLat: number,
   partnerLng: number,
-  vehicleTypeId?: string
+  vehicleTypeId?: string,
+  cityCodeId?: string
 ) => {
   // Get pending rides not yet accepted
   const rides = await prisma.ride.findMany({
@@ -481,6 +742,12 @@ export const getAvailableRides = async (
       status: "UPCOMING",
       ...(vehicleTypeId && { vehicleTypeId: vehicleTypeId }),
       partnerId: null, // Only rides not yet accepted
+      ...(cityCodeId && {
+        OR: [
+          { cityCodeId: cityCodeId },
+          // Distance check is handled post-fetch, but typically we want to see rides in the same city anyway
+        ],
+      }),
     },
     include: {
       vehicleType: true,
@@ -507,7 +774,13 @@ export const getAvailableRides = async (
       );
       return { ...ride, distanceFromPartner: distance };
     })
-    .filter((ride) => ride.distanceFromPartner <= 10) // Within 10km
+    .filter((ride) => {
+      // Show ALL rides in the same city, OR rides within 10km (in case cityCodeId is missing or ride is near border)
+      if (cityCodeId && ride.cityCodeId === cityCodeId) {
+        return true;
+      }
+      return ride.distanceFromPartner <= 10;
+    })
     .sort((a, b) => a.distanceFromPartner - b.distanceFromPartner); // Closest first
 
   return nearbyRides;
@@ -643,7 +916,10 @@ export const getPartnerRides = async (partnerId: string, status?: string) => {
 export const updateRideStatus = async (
   rideId: string,
   partnerId: string,
-  status: "ARRIVED" | "STARTED" | "COMPLETED" | "CANCELLED"
+  status: "ARRIVED" | "STARTED" | "ONGOING" | "COMPLETED" | "CANCELLED",
+  userOtp?: string,
+  startingKm?: number,
+  endingKm?: number
 ) => {
   const ride = await prisma.ride.findUnique({
     where: { id: rideId },
@@ -670,6 +946,60 @@ export const updateRideStatus = async (
     throw new Error("Ride must be started before completing");
   }
 
+  if (status === "ONGOING" && ride.status !== "STARTED" && ride.status !== "ARRIVED") {
+    // Some flows might go from ARRIVED -> ONGOING or STARTED -> ONGOING
+    throw new Error("Ride must be started or arrived before making it ongoing");
+  }
+
+  // OTP Verification for moving to ONGOING status
+  if (status === "ONGOING") {
+    // Get user to verify uniqueOtp
+    if (!ride.userId) {
+      throw new Error("User not found for this ride");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: ride.userId },
+      select: { uniqueOtp: true }
+    });
+
+    if (!user) {
+      throw new Error("User record not found");
+    }
+
+    if (!userOtp) {
+      throw new Error("User unique OTP is required to make the ride ongoing");
+    }
+
+    if (user.uniqueOtp !== userOtp) {
+      throw new Error("Invalid user OTP");
+    }
+    
+    // Rental validation
+    if (ride.rideType === "RENTAL") {
+      if (startingKm === undefined || startingKm < 0) {
+        throw new Error("Valid starting KM is required to start a rental ride");
+      }
+    }
+  }
+
+  // Handle completion validation
+  if (status === "COMPLETED") {
+    if (ride.status !== "ONGOING" && ride.status !== "STARTED") {
+      throw new Error("Ride must be ONGOING or STARTED before completing");
+    }
+    
+    // Rental validation
+    if (ride.rideType === "RENTAL") {
+      if (endingKm === undefined || endingKm < 0) {
+        throw new Error("Ending KM is required to complete a rental ride");
+      }
+      if (!ride.startingKm || endingKm <= ride.startingKm) {
+        throw new Error("Ending KM must be greater than starting KM");
+      }
+    }
+  }
+
   const updateData: any = {
     status: status,
   };
@@ -680,6 +1010,44 @@ export const updateRideStatus = async (
 
   if (status === "STARTED") {
     updateData.startTime = new Date();
+  }
+  
+  if (status === "ONGOING") {
+    // If not already started, set start time
+    if (!ride.startTime) {
+       updateData.startTime = new Date();
+    }
+    if (ride.rideType === "RENTAL" && startingKm !== undefined) {
+       updateData.startingKm = startingKm;
+    }
+  }
+  
+  // Custom completion logic for pricing
+  if (status === "COMPLETED") {
+    updateData.endTime = new Date();
+    
+    if (ride.rideType === "RENTAL" && endingKm !== undefined && ride.startingKm) {
+      updateData.endingKm = endingKm;
+      const totalDistance = endingKm - ride.startingKm;
+      updateData.distanceKm = totalDistance;
+      
+      // Calculate fare for rental ride based on distance and pricing
+      const perKmPrice = ride.perKmPrice || 0;
+      const baseFare = ride.baseFare || 20;
+      
+      const newTotalFare = baseFare + (perKmPrice * totalDistance);
+      
+      const pricingConfig = await prisma.pricingConfig.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+      });
+      const riderPercentage = pricingConfig ? pricingConfig.riderPercentage : 80;
+      const appCommissionStr = pricingConfig ? pricingConfig.appCommission : 20;
+      
+      updateData.totalFare = newTotalFare;
+      updateData.riderEarnings = (newTotalFare * riderPercentage) / 100;
+      updateData.commission = (newTotalFare * appCommissionStr) / 100;
+    }
   }
 
   if (status === "COMPLETED") {
@@ -725,8 +1093,24 @@ export const updateRideStatus = async (
   // Emit socket event based on status
   if (status === "ARRIVED") {
     emitRideArrived(updatedRide);
-  } else if (status === "STARTED") {
+  } else if (status === "STARTED" || status === "ONGOING") {
+    // Emitting ride started handles ONGOING well enough, depending on frontend.
     emitRideStarted(updatedRide);
+  } else if (status === "COMPLETED") {
+    
+    // Update partner's total earnings if partner exists
+    if (updatedRide.partnerId && updatedRide.riderEarnings) {
+      await prisma.partner.update({
+        where: { id: updatedRide.partnerId },
+        data: {
+          totalEarnings: {
+            increment: updatedRide.riderEarnings,
+          },
+        },
+      });
+    }
+
+    emitRideCompleted(updatedRide);
   }
 
   return updatedRide;

@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createUser = exports.getAllUsers = exports.deleteAgent = exports.updateAgentByAdmin = exports.unassignCorporateFromAgent = exports.unassignVendorFromAgent = exports.registerCorporateUnderAgent = exports.registerVendorUnderAgent = exports.getAgentById = exports.getAllAgents = void 0;
+exports.getAgentRides = exports.createUser = exports.getAllUsers = exports.deleteAgent = exports.updateAgentByAdmin = exports.getAgentByCode = exports.getAgentById = exports.getAllAgents = void 0;
 const prisma_1 = require("../../config/prisma");
+const city_service_1 = require("../city/city.service");
 /* ============================================
     GET ALL AGENTS
 ============================================ */
@@ -19,15 +20,23 @@ const getAllAgents = async (search) => {
         select: {
             id: true,
             customId: true,
+            agentCode: true,
+            cityCodeId: true,
             name: true,
             phone: true,
             email: true,
             profileImage: true,
             _count: {
                 select: {
-                    vendors: true,
-                    corporates: true,
                     rides: true,
+                },
+            },
+            coupons: {
+                select: {
+                    id: true,
+                    couponCode: true,
+                    discountValue: true,
+                    isActive: true,
                 },
             },
             createdAt: true,
@@ -47,44 +56,17 @@ const getAgentById = async (agentId) => {
     const agent = await prisma_1.prisma.agent.findUnique({
         where: { id: agentId },
         include: {
-            vendors: {
-                select: {
-                    id: true,
-                    customId: true,
-                    name: true,
-                    companyName: true,
-                    phone: true,
-                    status: true,
-                    _count: {
-                        select: {
-                            rides: true,
-                            vehicles: true,
-                        },
-                    },
-                },
-            },
-            corporates: {
-                select: {
-                    id: true,
-                    customId: true,
-                    companyName: true,
-                    contactPerson: true,
-                    phone: true,
-                    status: true,
-                    creditLimit: true,
-                    creditBalance: true,
-                    _count: {
-                        select: {
-                            rides: true,
-                        },
-                    },
-                },
-            },
             _count: {
                 select: {
-                    vendors: true,
-                    corporates: true,
                     rides: true,
+                },
+            },
+            coupons: {
+                select: {
+                    id: true,
+                    couponCode: true,
+                    discountValue: true,
+                    isActive: true,
                 },
             },
         },
@@ -97,113 +79,20 @@ const getAgentById = async (agentId) => {
 };
 exports.getAgentById = getAgentById;
 /* ============================================
-    REGISTER VENDOR UNDER AGENT
+    GET AGENT BY CODE
 ============================================ */
-const registerVendorUnderAgent = async (vendorId, agentId) => {
-    // Validate agent
+const getAgentByCode = async (agentCode) => {
     const agent = await prisma_1.prisma.agent.findUnique({
-        where: { id: agentId },
-    });
-    if (!agent)
-        throw new Error("Agent not found");
-    // Validate vendor
-    const vendor = await prisma_1.prisma.vendor.findUnique({
-        where: { id: vendorId },
-    });
-    if (!vendor)
-        throw new Error("Vendor not found");
-    // Update vendor with agent
-    const updatedVendor = await prisma_1.prisma.vendor.update({
-        where: { id: vendorId },
-        data: { agentId },
+        where: { agentCode },
         select: {
             id: true,
+            agentCode: true,
             name: true,
-            companyName: true,
-            phone: true,
-            status: true,
-            customId: true,
-            agent: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                },
-            },
         },
     });
-    return updatedVendor;
+    return agent;
 };
-exports.registerVendorUnderAgent = registerVendorUnderAgent;
-/* ============================================
-    REGISTER CORPORATE UNDER AGENT
-============================================ */
-const registerCorporateUnderAgent = async (corporateId, agentId) => {
-    // Validate agent
-    const agent = await prisma_1.prisma.agent.findUnique({
-        where: { id: agentId },
-    });
-    if (!agent)
-        throw new Error("Agent not found");
-    // Validate corporate
-    const corporate = await prisma_1.prisma.corporate.findUnique({
-        where: { id: corporateId },
-    });
-    if (!corporate)
-        throw new Error("Corporate not found");
-    // Update corporate with agent
-    const updatedCorporate = await prisma_1.prisma.corporate.update({
-        where: { id: corporateId },
-        data: { agentId },
-        select: {
-            id: true,
-            companyName: true,
-            contactPerson: true,
-            phone: true,
-            status: true,
-            customId: true,
-            agent: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                },
-            },
-        },
-    });
-    return updatedCorporate;
-};
-exports.registerCorporateUnderAgent = registerCorporateUnderAgent;
-/* ============================================
-    UNASSIGN FROM AGENT
-============================================ */
-const unassignVendorFromAgent = async (vendorId) => {
-    const vendor = await prisma_1.prisma.vendor.update({
-        where: { id: vendorId },
-        data: { agentId: null },
-        select: {
-            id: true,
-            name: true,
-            companyName: true,
-            agentId: true,
-        },
-    });
-    return vendor;
-};
-exports.unassignVendorFromAgent = unassignVendorFromAgent;
-const unassignCorporateFromAgent = async (corporateId) => {
-    const corporate = await prisma_1.prisma.corporate.update({
-        where: { id: corporateId },
-        data: { agentId: null },
-        select: {
-            id: true,
-            companyName: true,
-            agentId: true,
-        },
-    });
-    return corporate;
-};
-exports.unassignCorporateFromAgent = unassignCorporateFromAgent;
+exports.getAgentByCode = getAgentByCode;
 /* ============================================
     UPDATE AGENT BY ADMIN
 ============================================ */
@@ -219,37 +108,62 @@ const updateAgentByAdmin = async (agentId, data) => {
         if (existingAgent)
             throw new Error("Email already in use by another agent");
     }
-    const agent = await prisma_1.prisma.agent.update({
+    // Check if agentCode is unique
+    if (data.agentCode) {
+        const existingByCode = await prisma_1.prisma.agent.findFirst({
+            where: {
+                agentCode: data.agentCode,
+                NOT: { id: agentId },
+            },
+        });
+        if (existingByCode)
+            throw new Error("Agent code already in use");
+    }
+    // Handle lazy CustomId generation if cityCodeId is provided
+    let newCustomId = undefined;
+    // Fetch current agent state once
+    const currentAgent = await prisma_1.prisma.agent.findUnique({
         where: { id: agentId },
-        data: {
-            ...(data.name && { name: data.name }),
-            ...(data.email !== undefined && { email: data.email }),
-            ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
-        },
+        select: { customId: true, agentCode: true }
     });
-    // Remove password from response
-    const { password, ...agentWithoutPassword } = agent;
-    return agentWithoutPassword;
+    if (data.cityCodeId) {
+        // Only generate if they don't already have one
+        if (currentAgent && !currentAgent.customId) {
+            const cityCode = await prisma_1.prisma.cityCode.findUnique({
+                where: { id: data.cityCodeId },
+                select: { code: true }
+            });
+            if (cityCode) {
+                newCustomId = await (0, city_service_1.generateEntityCustomId)(cityCode.code, "AGENT");
+            }
+            else {
+                throw new Error("Invalid city code ID provided");
+            }
+        }
+    }
+    // If coupon data is provided, handle it within a transaction
+    return await prisma_1.prisma.$transaction(async (tx) => {
+        const agent = await tx.agent.update({
+            where: { id: agentId },
+            data: {
+                ...(data.name && { name: data.name }),
+                ...(data.email !== undefined && { email: data.email }),
+                ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
+                ...(data.agentCode !== undefined && { agentCode: data.agentCode }),
+                ...(data.cityCodeId !== undefined && { cityCodeId: data.cityCodeId }),
+                ...(newCustomId && { customId: newCustomId }),
+            },
+        });
+        // Remove password from response
+        const { password, ...agentWithoutPassword } = agent;
+        return agentWithoutPassword;
+    });
 };
 exports.updateAgentByAdmin = updateAgentByAdmin;
 /* ============================================
     DELETE AGENT
 ============================================ */
 const deleteAgent = async (agentId) => {
-    // Check if agent has vendors
-    const vendorCount = await prisma_1.prisma.vendor.count({
-        where: { agentId },
-    });
-    if (vendorCount > 0) {
-        throw new Error("Cannot delete agent with assigned vendors. Unassign vendors first.");
-    }
-    // Check if agent has corporates
-    const corporateCount = await prisma_1.prisma.corporate.count({
-        where: { agentId },
-    });
-    if (corporateCount > 0) {
-        throw new Error("Cannot delete agent with assigned corporates. Unassign corporates first.");
-    }
     await prisma_1.prisma.agent.delete({
         where: { id: agentId },
     });
@@ -334,3 +248,31 @@ const createUser = async (data) => {
     return user;
 };
 exports.createUser = createUser;
+/* ============================================
+    GET RIDES BY AGENT CODE
+============================================ */
+const getAgentRides = async (agentCode) => {
+    return await prisma_1.prisma.ride.findMany({
+        where: { agentCode },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    phone: true,
+                },
+            },
+            partner: {
+                select: {
+                    id: true,
+                    name: true,
+                    phone: true,
+                },
+            },
+            vehicleType: true,
+            vehicle: true,
+        },
+        orderBy: { createdAt: "desc" },
+    });
+};
+exports.getAgentRides = getAgentRides;

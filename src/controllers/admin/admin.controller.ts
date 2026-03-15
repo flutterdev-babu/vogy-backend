@@ -13,6 +13,8 @@ import {
   updateUserUniqueOtpByAdmin,
   getAllUsers,
   getUserById,
+  createUserByAdmin,
+  updateUserByAdmin,
   getAllPartners,
   getPartnerById,
   getScheduledRides,
@@ -28,16 +30,23 @@ import {
   updateCityCode,
   createAttachment,
   getAllAttachments,
-  toggleAttachmentStatus,
+  getAttachmentById,
+  updateAttachmentStatus,
   deleteAttachment,
   createVendorByAdmin,
   createPartnerByAdmin,
+  createAgentByAdmin,
   createManualRideByAdmin,
   getAdminDashboard,
   getRevenueAnalytics,
   getRideAnalytics,
   getEntityStatusOverview,
   getRecentActivity,
+  updateRideStatusByAdmin,
+  getRideOtpByAdmin,
+  verifyAttachmentByAdmin,
+  updateRidePaymentStatusByAdmin,
+  getActivePartnerLocations, // NEW: added for active partner locations
 } from "../../services/admin/admin.service";
 
 export default {
@@ -87,20 +96,10 @@ export default {
         data: vehicleTypes,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock vehicle types due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Vehicle types retrieved (MOCK)",
-        data: [
-          { id: "vt1", name: "BIKE", displayName: "Bike", pricePerKm: 10, isActive: true },
-          { id: "vt2", name: "AUTO", displayName: "Auto", pricePerKm: 15, isActive: true },
-          { id: "vt3", name: "MACRO", displayName: "Macro", pricePerKm: 20, isActive: true },
-          { id: "vt4", name: "MINI", displayName: "Mini", pricePerKm: 25, isActive: true },
-          { id: "vt5", name: "PRIME", displayName: "Prime", pricePerKm: 30, isActive: true },
-        ],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get vehicle types",
       });
-      // --------------------------
     }
   },
 
@@ -180,14 +179,10 @@ export default {
         data: config,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock pricing config due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Pricing config retrieved (MOCK)",
-        data: { baseFare: 20, riderPercentage: 80, appCommission: 20 },
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get pricing config",
       });
-      // --------------------------
     }
   },
 
@@ -222,6 +217,99 @@ export default {
   },
 
   /* ============================================
+      VEHICLE PRICING GROUPS (NEW)
+  ============================================ */
+
+  createPricingGroup: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { vehicleTypeId, name, baseKm, baseFare, perKmPrice, cityCodeIds } = req.body;
+
+      if (!vehicleTypeId || perKmPrice === undefined || !cityCodeIds) {
+        return res.status(400).json({
+          success: false,
+          message: "vehicleTypeId, perKmPrice, and cityCodeIds are required",
+        });
+      }
+
+      const { createPricingGroup } = require("../../services/city/city.service");
+      const pricingGroup = await createPricingGroup({
+        vehicleTypeId,
+        name,
+        baseKm: baseKm ? parseFloat(baseKm) : 2,
+        baseFare: baseFare ? parseFloat(baseFare) : 50,
+        perKmPrice: parseFloat(perKmPrice),
+        cityCodeIds,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Vehicle pricing group created successfully",
+        data: pricingGroup,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to create pricing group",
+      });
+    }
+  },
+
+  getPricingGroups: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { vehicleTypeId } = req.query;
+      const { getPricingGroups } = require("../../services/city/city.service");
+      const groups = await getPricingGroups(vehicleTypeId as string);
+
+      return res.status(200).json({
+        success: true,
+        data: groups,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get pricing groups",
+      });
+    }
+  },
+
+  updatePricingGroup: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { updatePricingGroup } = require("../../services/city/city.service");
+      const group = await updatePricingGroup(id, req.body);
+
+      return res.status(200).json({
+        success: true,
+        message: "Vehicle pricing group updated successfully",
+        data: group,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to update pricing group",
+      });
+    }
+  },
+
+  deletePricingGroup: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { deletePricingGroup } = require("../../services/city/city.service");
+      const result = await deletePricingGroup(id);
+
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to delete pricing group",
+      });
+    }
+  },
+
+  /* ============================================
       RIDE MANAGEMENT
   ============================================ */
 
@@ -244,13 +332,14 @@ export default {
 
   getAllRides: async (req: AuthedRequest, res: Response) => {
     try {
-      const { status, vehicleType, userId, partnerId } = req.query;
+      const { status, vehicleType, userId, partnerId, search } = req.query;
 
       const rides = await getAllRides({
         status: status as string,
         vehicleType: vehicleType as string,
         userId: userId as string,
         partnerId: partnerId as string,
+        search: search as string,
       });
 
       return res.status(200).json({
@@ -259,18 +348,10 @@ export default {
         data: rides,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock rides due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Rides retrieved (MOCK)",
-        data: [
-          { id: "ride1", status: "COMPLETED", totalFare: 250, commission: 50, createdAt: new Date().toISOString(), user: { name: "Alice" }, vehicleType: { displayName: "Sedan" } },
-          { id: "ride2", status: "PENDING", totalFare: 150, commission: 30, createdAt: new Date().toISOString(), user: { name: "Bob" }, vehicleType: { displayName: "Bike" } },
-          { id: "ride3", status: "COMPLETED", totalFare: 500, commission: 100, createdAt: new Date(Date.now() - 86400000).toISOString(), user: { name: "Charlie" }, vehicleType: { displayName: "SUV" } },
-        ],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get rides",
       });
-      // --------------------------
     }
   },
 
@@ -293,13 +374,78 @@ export default {
     }
   },
 
+  updateRideStatus: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, userOtp, startingKm, endingKm } = req.body;
+      const ride = await updateRideStatusByAdmin(
+        id, 
+        status, 
+        userOtp,
+        startingKm ? parseFloat(startingKm) : undefined,
+        endingKm ? parseFloat(endingKm) : undefined
+      );
+      res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  updateRidePaymentStatus: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { paymentStatus, paymentMode } = req.body;
+      const adminId = req.user?.id;
+
+      if (!paymentStatus || !paymentMode) {
+        return res.status(400).json({
+          success: false,
+          message: "paymentStatus and paymentMode are required",
+        });
+      }
+
+      const ride = await updateRidePaymentStatusByAdmin(id, paymentStatus, paymentMode, adminId);
+      res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  getRideOtp: async (req: AuthedRequest, res: Response) => {
+    try {
+      const otp = await getRideOtpByAdmin(req.params.id);
+      res.json({ success: true, data: { otp } });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
   /* ============================================
       USER MANAGEMENT
   ============================================ */
 
+  createUser: async (req: AuthedRequest, res: Response) => {
+    try {
+      const user = await createUserByAdmin(req.body);
+      res.status(201).json({ success: true, message: "User created successfully", data: user });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  updateUser: async (req: AuthedRequest, res: Response) => {
+    try {
+      const user = await updateUserByAdmin(req.params.id, req.body);
+      res.json({ success: true, message: "User updated successfully", data: user });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
   getAllUsers: async (req: AuthedRequest, res: Response) => {
     try {
-      const users = await getAllUsers();
+      const { search } = req.query;
+      const users = await getAllUsers({ search: search as string });
 
       return res.status(200).json({
         success: true,
@@ -307,17 +453,10 @@ export default {
         data: users,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock users due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Users retrieved (MOCK)",
-        data: [
-          { id: "u1", name: "Alice", phone: "9876543210", email: "alice@example.com" },
-          { id: "u2", name: "Bob", phone: "9876543211", email: "bob@example.com" },
-        ],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get users",
       });
-      // --------------------------
     }
   },
 
@@ -374,7 +513,13 @@ export default {
 
   getAllRiders: async (req: AuthedRequest, res: Response) => {
     try {
-      const partners = await getAllPartners();
+      const { status, verificationStatus, search, isOnline } = req.query;
+      const partners = await getAllPartners({
+        status: status as any,
+        verificationStatus: verificationStatus as any,
+        search: search as string,
+        isOnline: isOnline === "true" ? true : isOnline === "false" ? false : undefined,
+      });
 
       return res.status(200).json({
         success: true,
@@ -382,17 +527,10 @@ export default {
         data: partners,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock riders due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Riders retrieved (MOCK)",
-        data: [
-          { id: "r1", name: "Rider Mike", phone: "8888888888", isOnline: true },
-          { id: "r2", name: "Rider Sarah", phone: "7777777777", isOnline: false },
-        ],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get riders",
       });
-      // --------------------------
     }
   },
 
@@ -415,6 +553,22 @@ export default {
     }
   },
 
+  getActivePartnerLocations: async (req: AuthedRequest, res: Response) => {
+    try {
+      const locations = await getActivePartnerLocations();
+      return res.status(200).json({
+        success: true,
+        message: "Active partner locations retrieved successfully",
+        data: locations,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get active partner locations",
+      });
+    }
+  },
+
   /* ============================================
       SCHEDULED RIDE MANAGEMENT
   ============================================ */
@@ -429,14 +583,10 @@ export default {
         data: rides,
       });
     } catch (error: any) {
-      // --- MOCK DATA FALLBACK ---
-      console.log("Using mock scheduled rides due to error:", error.message);
-      return res.status(200).json({
-        success: true,
-        message: "Scheduled rides retrieved (MOCK)",
-        data: [],
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get scheduled rides",
       });
-      // --------------------------
     }
   },
 
@@ -481,10 +631,24 @@ export default {
     }
   },
 
+  createAgent: async (req: AuthedRequest, res: Response) => {
+    try {
+      const agent = await createAgentByAdmin(req.body);
+      res.status(201).json({ success: true, message: "Agent created successfully", data: agent });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
   getAllVendors: async (req: AuthedRequest, res: Response) => {
     try {
-      const { search } = req.query;
-      const vendors = await getAllVendors(search as string);
+      const { search, status, verificationStatus, includeDeleted } = req.query;
+      const vendors = await getAllVendors({
+        search: search as string,
+        status: status as any,
+        verificationStatus: verificationStatus as any,
+        includeDeleted: includeDeleted === "true"
+      });
       res.json({ success: true, data: vendors });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -502,7 +666,8 @@ export default {
 
   updateVendor: async (req: AuthedRequest, res: Response) => {
     try {
-      const vendor = await updateVendor(req.params.id, req.body);
+      const adminId = req.user?.id;
+      const vendor = await updateVendor(req.params.id, req.body, adminId);
       res.json({ success: true, data: vendor });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -515,8 +680,12 @@ export default {
 
   getAllCorporates: async (req: AuthedRequest, res: Response) => {
     try {
-      const { search } = req.query;
-      const corporates = await getAllCorporates(search as string);
+      const { search, status, agentId } = req.query;
+      const corporates = await getAllCorporates({
+        search: search as string,
+        status: status as any,
+        agentId: agentId as string,
+      });
       res.json({ success: true, data: corporates });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -578,16 +747,35 @@ export default {
 
   createAttachment: async (req: AuthedRequest, res: Response) => {
     try {
-      const attachment = await createAttachment(req.body);
+      const adminId = req.user?.id;
+      const attachment = await createAttachment({
+        ...req.body,
+        adminId,
+      });
       res.status(201).json({ success: true, data: attachment });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
     }
   },
 
+  getAttachmentById: async (req: AuthedRequest, res: Response) => {
+    try {
+      const attachment = await getAttachmentById(req.params.id);
+      res.json({ success: true, data: attachment });
+    } catch (err: any) {
+      res.status(404).json({ success: false, message: err.message });
+    }
+  },
+
   getAllAttachments: async (req: AuthedRequest, res: Response) => {
     try {
-      const attachments = await getAllAttachments();
+      const { vendorId, partnerId, vehicleId, verificationStatus } = req.query;
+      const attachments = await getAllAttachments({
+        vendorId: vendorId as string,
+        partnerId: partnerId as string,
+        vehicleId: vehicleId as string,
+        verificationStatus: verificationStatus as any,
+      });
       res.json({ success: true, data: attachments });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -596,8 +784,26 @@ export default {
 
   toggleAttachmentStatus: async (req: AuthedRequest, res: Response) => {
     try {
-      const { isActive } = req.body;
-      const attachment = await toggleAttachmentStatus(req.params.id, isActive);
+      const { status } = req.body;
+      const adminId = req.user?.id;
+      if (!status) {
+        return res.status(400).json({ success: false, message: "Status is required" });
+      }
+      const attachment = await updateAttachmentStatus(req.params.id, status, adminId);
+      res.json({ success: true, data: attachment });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  verifyAttachment: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { status } = req.body;
+      const adminId = req.user?.id;
+      if (!status) {
+        return res.status(400).json({ success: false, message: "Verification status is required" });
+      }
+      const attachment = await verifyAttachmentByAdmin(req.params.id, status, adminId);
       res.json({ success: true, data: attachment });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
