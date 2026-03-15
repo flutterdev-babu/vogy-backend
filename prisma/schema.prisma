@@ -700,6 +700,51 @@ model VehicleType {
   vehicles    Vehicle[]       @relation("VehicleToType")
   // City pricing for this vehicle type
   pricingGroups VehiclePricingGroup[]
+  // Peak hour charges for this vehicle type
+  peakHourCharges PeakHourCharge[]
+}
+
+model PeakHourCharge {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  name            String?      // e.g., "Morning Peak Bangalore"
+  
+  // Link to vehicle type (Required)
+  vehicleTypeId   String       @db.ObjectId
+  vehicleType     VehicleType  @relation(fields: [vehicleTypeId], references: [id])
+  
+  // Cities covered by this configuration
+  cityCodeIds     String[]     @db.ObjectId
+  
+  // Peak hour slots
+  slots           PeakHourSlot[]
+  
+  // Day-based configuration
+  // If empty, applies to all days. Otherwise, only for specific days.
+  days            DayOfWeek[]
+  
+  isActive        Boolean      @default(true)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+type PeakHourSlot {
+  startTime       String       // e.g., "07:00" (HH:mm format)
+  endTime         String       // e.g., "10:00"
+  
+  // Price adjustment
+  fixedExtra      Float        @default(0) // ₹50 extra
+  percentageExtra Float        @default(0) // 10% more (value = 10)
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
 }
 
 // ============================================
