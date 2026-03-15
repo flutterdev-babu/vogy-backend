@@ -8,6 +8,12 @@ import {
   getUserRideSummary,
   getActiveRide,
   getUserSpendSummary,
+  getSavedPlaces,
+  updateSavedPlaces,
+  getEmergencyContacts,
+  updateEmergencyContacts,
+  getUserReferralCode,
+  applyReferralCode,
 } from "../../services/user/user.service";
 import {
   createRide,
@@ -362,6 +368,87 @@ export default {
       res.json({ success: true, data: spending });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      SAVED PLACES
+  ============================================ */
+  getSavedPlaces: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+      const places = await getSavedPlaces(userId);
+      res.json({ success: true, data: places });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  updateSavedPlaces: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+      const { places } = req.body;
+      if (!Array.isArray(places)) return res.status(400).json({ success: false, message: "places must be an array" });
+      const updated = await updateSavedPlaces(userId, places);
+      res.json({ success: true, data: updated });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      EMERGENCY CONTACTS & SAFETY
+  ============================================ */
+  getEmergencyContacts: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+      const data = await getEmergencyContacts(userId);
+      res.json({ success: true, data });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  updateEmergencyContacts: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+      const { contacts, safetyPrefs } = req.body;
+      if (!Array.isArray(contacts)) return res.status(400).json({ success: false, message: "contacts must be an array" });
+      const data = await updateEmergencyContacts(userId, contacts, safetyPrefs);
+      res.json({ success: true, data });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      REFERRAL SYSTEM
+  ============================================ */
+  getReferralCode: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+      const data = await getUserReferralCode(userId);
+      res.json({ success: true, data });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  applyReferralCode: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+      const { referralCode } = req.body;
+      if (!referralCode) return res.status(400).json({ success: false, message: "Referral code is required" });
+      const result = await applyReferralCode(userId, referralCode);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
     }
   },
 };

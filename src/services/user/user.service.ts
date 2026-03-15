@@ -72,6 +72,7 @@ export const updateUserProfile = async (
       phone: true,
       email: true,
       profileImage: true,
+      uniqueOtp: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -277,4 +278,116 @@ export const getUserSpendSummary = async (userId: string) => {
   };
 };
 
+/* ============================================
+    SAVED PLACES
+============================================ */
+export const getSavedPlaces = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { savedPlaces: true },
+  });
+  if (!user) throw new Error("User not found");
+  return (user.savedPlaces as any[]) || [];
+};
 
+export const updateSavedPlaces = async (userId: string, places: any[]) => {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { savedPlaces: places },
+    select: { savedPlaces: true },
+  });
+  return (user.savedPlaces as any[]) || [];
+};
+
+/* ============================================
+    EMERGENCY CONTACTS
+============================================ */
+export const getEmergencyContacts = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { emergencyContacts: true, safetyPrefs: true },
+  });
+  if (!user) throw new Error("User not found");
+  return {
+    contacts: (user.emergencyContacts as any[]) || [],
+    safetyPrefs: (user.safetyPrefs as any) || {},
+  };
+};
+
+export const updateEmergencyContacts = async (
+  userId: string,
+  contacts: any[],
+  safetyPrefs?: any
+) => {
+  const data: any = { emergencyContacts: contacts };
+  if (safetyPrefs !== undefined) data.safetyPrefs = safetyPrefs;
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data,
+    select: { emergencyContacts: true, safetyPrefs: true },
+  });
+  return {
+    contacts: (user.emergencyContacts as any[]) || [],
+    safetyPrefs: (user.safetyPrefs as any) || {},
+  };
+};
+
+/* ============================================
+    REFERRAL CODE
+============================================ */
+const generateReferralCode = (): string => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "VOGY";
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
+export const getUserReferralCode = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { referralCode: true, name: true },
+  });
+  if (!user) throw new Error("User not found");
+
+  // If no referral code yet, generate one
+  if (!user.referralCode) {
+    let code = generateReferralCode();
+    let attempts = 0;
+    while (attempts < 10) {
+      const exists = await prisma.user.findFirst({ where: { referralCode: code } });
+      if (!exists) break;
+      code = generateReferralCode();
+      attempts++;
+    }
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { referralCode: code },
+      select: { referralCode: true, name: true },
+    });
+    return updated;
+  }
+  return user;
+};
+
+export const applyReferralCode = async (userId: string, referralCode: string) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("User not found");
+  if (user.referredBy) throw new Error("You have already used a referral code");
+
+  // Find referrer
+  const referrer = await prisma.user.findFirst({
+    where: { referralCode: referralCode.toUpperCase() },
+  });
+  if (!referrer) throw new Error("Invalid referral code");
+  if (referrer.id === userId) throw new Error("You cannot refer yourself");
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { referredBy: referralCode.toUpperCase() },
+  });
+
+  return { message: "Referral code applied successfully!" };
+};

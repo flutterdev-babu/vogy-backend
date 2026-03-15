@@ -643,7 +643,7 @@ export const getPartnerRides = async (partnerId: string, status?: string) => {
 export const updateRideStatus = async (
   rideId: string,
   partnerId: string,
-  status: "ARRIVED" | "STARTED"
+  status: "ARRIVED" | "STARTED" | "COMPLETED" | "CANCELLED"
 ) => {
   const ride = await prisma.ride.findUnique({
     where: { id: rideId },
@@ -658,12 +658,16 @@ export const updateRideStatus = async (
   }
 
   // Validate status transition
-  if (status === "ARRIVED" && ride.status !== "ASSIGNED") {
+  if (status === "ARRIVED" && ride.status !== "ASSIGNED" && ride.status !== "ACCEPTED") {
     throw new Error("Ride must be assigned before marking as arrived");
   }
 
   if (status === "STARTED" && ride.status !== "ARRIVED") {
     throw new Error("Ride must be arrived before starting");
+  }
+
+  if (status === "COMPLETED" && ride.status !== "STARTED" && ride.status !== "ONGOING") {
+    throw new Error("Ride must be started before completing");
   }
 
   const updateData: any = {
@@ -676,6 +680,10 @@ export const updateRideStatus = async (
 
   if (status === "STARTED") {
     updateData.startTime = new Date();
+  }
+
+  if (status === "COMPLETED") {
+    updateData.endTime = new Date();
   }
 
   const updatedRide = await prisma.ride.update({

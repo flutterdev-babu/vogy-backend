@@ -33,4 +33,16 @@ router.post("/unique-otp/regenerate", userController.updateUniqueOtp);
 router.put("/unique-otp", userController.updateUniqueOtp);
 router.patch("/unique-otp", userController.updateUniqueOtp);
 
+// Saved Places
+router.get("/saved-places", userController.getSavedPlaces);
+router.put("/saved-places", userController.updateSavedPlaces);
+
+// Emergency Contacts & Safety
+router.get("/emergency-contacts", userController.getEmergencyContacts);
+router.put("/emergency-contacts", userController.updateEmergencyContacts);
+
+// Referral System
+router.get("/referral-code", userController.getReferralCode);
+router.post("/referral/apply", userController.applyReferralCode);
+
 export default router;

@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { AuthedRequest } from "../../middleware/auth.middleware";
+import { prisma } from "../../config/prisma";
 import {
   createRide,
   createManualRide,
@@ -378,12 +379,12 @@ export default {
     }
   },
 
-  // Update ride status (ARRIVED, STARTED)
+  // Update ride status (ARRIVED, STARTED, ONGOING, COMPLETED, CANCELLED)
   updateRideStatus: async (req: AuthedRequest, res: Response) => {
     try {
       const partnerId = req.user?.id;
       const { id } = req.params;
-      const { status } = req.body;
+      const { status, userOtp } = req.body;
 
       if (!partnerId) {
         return res.status(401).json({
@@ -392,14 +393,50 @@ export default {
         });
       }
 
-      if (!status || !["ARRIVED", "STARTED"].includes(status)) {
+      if (!status || !["ARRIVED", "STARTED", "ONGOING", "COMPLETED", "CANCELLED"].includes(status)) {
         return res.status(400).json({
           success: false,
-          message: "Status must be ARRIVED or STARTED",
+          message: "Status must be ARRIVED, STARTED, ONGOING, COMPLETED, or CANCELLED",
         });
       }
 
-      const ride = await updateRideStatus(id, partnerId, status);
+      // OTP validation for starting the ride
+      if (status === "ONGOING" || status === "STARTED") {
+        if (!userOtp) {
+          return res.status(400).json({
+            success: false,
+            message: "OTP is required to start the ride",
+          });
+        }
+
+        // Get the ride to find the user
+        const rideForOtp = await prisma.ride.findUnique({
+          where: { id },
+          include: {
+            user: {
+              select: { uniqueOtp: true },
+            },
+          },
+        });
+
+        if (!rideForOtp) {
+          return res.status(404).json({
+            success: false,
+            message: "Ride not found",
+          });
+        }
+
+        if (!rideForOtp.user || rideForOtp.user.uniqueOtp !== userOtp) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid OTP. Please check with the customer and try again.",
+          });
+        }
+      }
+
+      // Map ONGOING to STARTED for the service
+      const mappedStatus = status === "ONGOING" ? "STARTED" : status;
+      const ride = await updateRideStatus(id, partnerId, mappedStatus);
 
       return res.status(200).json({
         success: true,

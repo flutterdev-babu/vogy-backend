@@ -66,6 +66,22 @@ export const initializeSocket = (server: HttpServer): Server => {
     // Handle partner/rider location updates
     socket.on("location:update", (data: { lat: number; lng: number; rideId?: string }) => {
       if ((socket.userRole === "PARTNER" || socket.userRole === "RIDER") && socket.userId) {
+        // Persist location to database
+        try {
+          const { prisma } = require("../config/prisma");
+          prisma.partner.update({
+            where: { id: socket.userId },
+            data: {
+              currentLat: data.lat,
+              currentLng: data.lng,
+            },
+          }).catch((err: any) => {
+            // Silently fail - location will be updated on next emission
+          });
+        } catch (e) {
+          // prisma import error - ignore
+        }
+
         // If there's an active ride, send location to the user
         if (data.rideId) {
           // Emit to the ride-specific room
@@ -185,6 +201,7 @@ export const emitToAdmins = (event: string, data: any): void => {
 export const emitToOnlineRiders = (event: string, data: any): void => {
   if (io) {
     io.to("online_riders").emit(event, data);
+    io.to("online_partners").emit(event, data);
   }
 };
 
