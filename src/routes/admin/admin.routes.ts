@@ -5,6 +5,7 @@ import vendorController from "../../controllers/vendor/vendor.controller";
 import partnerController from "../../controllers/partner/partner.controller";
 import agentController from "../../controllers/agent/agent.controller";
 import agentCouponController from "../../controllers/admin/agentCoupon.controller";
+import peakHourController from "../../controllers/admin/peakHour.controller";
 import corporateController from "../../controllers/corporate/corporate.controller";
 import vehicleController from "../../controllers/vehicle/vehicle.controller";
 import billingController from "../../controllers/billing/billing.controller";
@@ -53,6 +54,16 @@ router.post("/vehicle-pricing-groups", adminController.createPricingGroup);
 router.get("/vehicle-pricing-groups", adminController.getPricingGroups);
 router.put("/vehicle-pricing-groups/:id", adminController.updatePricingGroup);
 router.delete("/vehicle-pricing-groups/:id", adminController.deletePricingGroup);
+
+// ============================================
+// PEAK HOUR CHARGE MANAGEMENT (NEW)
+// ============================================
+router.post("/peak-hour-charges", peakHourController.createPeakHourCharge);
+router.get("/peak-hour-charges", peakHourController.getAllPeakHourCharges);
+router.get("/peak-hour-charges/:id", peakHourController.getPeakHourChargeById);
+router.put("/peak-hour-charges/:id", peakHourController.updatePeakHourCharge);
+router.patch("/peak-hour-charges/:id", peakHourController.updatePeakHourCharge);
+router.delete("/peak-hour-charges/:id", peakHourController.deletePeakHourCharge);
 
 // ============================================
 // RIDE MANAGEMENT (Legacy)
