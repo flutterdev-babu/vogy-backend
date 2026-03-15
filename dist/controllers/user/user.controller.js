@@ -301,4 +301,94 @@ exports.default = {
             res.status(500).json({ success: false, message: err.message });
         }
     },
+    /* ============================================
+        SAVED PLACES
+    ============================================ */
+    getSavedPlaces: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId)
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            const places = await (0, user_service_1.getSavedPlaces)(userId);
+            res.json({ success: true, data: places });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    updateSavedPlaces: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId)
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            const { places } = req.body;
+            if (!Array.isArray(places))
+                return res.status(400).json({ success: false, message: "places must be an array" });
+            const updated = await (0, user_service_1.updateSavedPlaces)(userId, places);
+            res.json({ success: true, data: updated });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    /* ============================================
+        EMERGENCY CONTACTS & SAFETY
+    ============================================ */
+    getEmergencyContacts: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId)
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            const data = await (0, user_service_1.getEmergencyContacts)(userId);
+            res.json({ success: true, data });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    updateEmergencyContacts: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId)
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            const { contacts, safetyPrefs } = req.body;
+            if (!Array.isArray(contacts))
+                return res.status(400).json({ success: false, message: "contacts must be an array" });
+            const data = await (0, user_service_1.updateEmergencyContacts)(userId, contacts, safetyPrefs);
+            res.json({ success: true, data });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    /* ============================================
+        REFERRAL SYSTEM
+    ============================================ */
+    getReferralCode: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId)
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            const data = await (0, user_service_1.getUserReferralCode)(userId);
+            res.json({ success: true, data });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    applyReferralCode: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId)
+                return res.status(401).json({ success: false, message: "Unauthorized" });
+            const { referralCode } = req.body;
+            if (!referralCode)
+                return res.status(400).json({ success: false, message: "Referral code is required" });
+            const result = await (0, user_service_1.applyReferralCode)(userId, referralCode);
+            res.json({ success: true, ...result });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
 };

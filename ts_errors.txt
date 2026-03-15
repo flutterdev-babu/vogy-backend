@@ -1,0 +1,389 @@
+src/middleware/auth.middleware.ts(37,34): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/middleware/auth.middleware.ts(43,34): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/middleware/auth.middleware.ts(46,34): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/middleware/auth.middleware.ts(49,34): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/middleware/auth.middleware.ts(52,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/routes/ride/public.routes.ts(83,43): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(172,33): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(203,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(243,7): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/admin/admin.service.ts(268,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(292,12): error TS2339: Property 'partnerId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/admin/admin.service.ts(318,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/admin/admin.service.ts(377,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/admin/admin.service.ts(408,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/admin/admin.service.ts(527,23): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(543,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(561,23): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(581,23): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(588,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(601,23): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(612,23): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(625,23): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(631,23): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(647,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(648,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(649,32): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(656,33): error TS2339: Property 'attachment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(669,35): error TS2339: Property 'attachment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(686,23): error TS2339: Property 'attachment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(697,23): error TS2339: Property 'attachment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(704,23): error TS2339: Property 'attachment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(769,36): error TS2339: Property 'cityPricing' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(796,38): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(821,7): error TS2353: Object literal may only specify known properties, and 'cityCodeId' does not exist in type 'Without<RideCreateInput, RideUncheckedCreateInput> & RideUncheckedCreateInput'.
+src/services/admin/admin.service.ts(861,12): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(862,12): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(863,12): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(865,12): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(866,12): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(870,36): error TS2322: Type '"ASSIGNED"' is not assignable to type 'RideStatus'.
+src/services/admin/admin.service.ts(870,70): error TS2322: Type '"ONGOING"' is not assignable to type 'RideStatus'.
+src/services/admin/admin.service.ts(883,12): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(919,5): error TS2322: Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum | RideScalarFieldEnum[]'.
+  Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum[]'.
+    Type '"paymentMode"' is not assignable to type 'RideScalarFieldEnum'.
+src/services/admin/admin.service.ts(956,16): error TS2339: Property 'paymentMode' does not exist on type 'PickEnumerable<RideGroupByOutputType, RideScalarFieldEnum | RideScalarFieldEnum[]> & { ...; }'.
+src/services/admin/admin.service.ts(958,16): error TS18048: 'pm._sum' is possibly 'undefined'.
+src/services/admin/admin.service.ts(959,19): error TS18048: 'pm._sum' is possibly 'undefined'.
+src/services/admin/admin.service.ts(1024,12): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(1028,12): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(1032,12): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(1039,32): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/services/admin/admin.service.ts(1040,34): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/services/admin/admin.service.ts(1041,38): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/services/admin/admin.service.ts(1055,9): error TS2353: Object literal may only specify known properties, and 'customId' does not exist in type 'RideSelect<DefaultArgs>'.
+src/services/admin/admin.service.ts(1063,12): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/admin/admin.service.ts(1075,12): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(50,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(103,32): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(108,33): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/services/agent/agent.ride.service.ts(128,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(152,32): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(157,33): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/services/agent/agent.ride.service.ts(175,33): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(216,32): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(221,33): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/services/agent/agent.ride.service.ts(239,33): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(287,38): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(335,7): error TS2322: Type '"SCHEDULED" | "INITIATED"' is not assignable to type 'RideStatus | undefined'.
+  Type '"INITIATED"' is not assignable to type 'RideStatus | undefined'.
+src/services/agent/agent.ride.service.ts(346,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(357,12): error TS2339: Property 'partnerId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(380,39): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(384,47): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/services/agent/agent.ride.service.ts(386,29): error TS2339: Property 'agentId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(386,58): error TS2339: Property 'vendorId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(386,101): error TS2339: Property 'vendorId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(416,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(429,38): error TS2339: Property 'partnerId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(430,18): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(431,25): error TS2339: Property 'partnerId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(455,39): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(459,47): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/services/agent/agent.ride.service.ts(461,29): error TS2339: Property 'agentId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(461,58): error TS2339: Property 'vendorId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(461,101): error TS2339: Property 'vendorId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(467,12): error TS2339: Property 'partnerId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/agent/agent.ride.service.ts(469,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(472,32): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.ride.service.ts(478,7): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type '(Without<RideUpdateInput, RideUncheckedUpdateInput> & RideUncheckedUpdateInput) | (Without<...> & RideUpdateInput)'.
+src/services/agent/agent.ride.service.ts(486,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/agent/agent.service.ts(17,31): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.service.ts(46,30): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.service.ts(68,30): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.service.ts(93,40): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.service.ts(104,41): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.service.ts(113,30): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.service.ts(132,16): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/agent/agent.service.ts(235,14): error TS2353: Object literal may only specify known properties, and 'agentCode' does not exist in type 'RideWhereInput'.
+src/services/agent/agent.service.ts(244,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(22,38): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(29,40): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(39,30): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(62,30): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(91,30): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(133,40): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(142,30): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(160,32): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(190,35): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(223,14): error TS2353: Object literal may only specify known properties, and 'agentId' does not exist in type 'RideWhereInput'.
+src/services/auth/agent.auth.service.ts(225,7): error TS2353: Object literal may only specify known properties, and 'vendor' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(267,12): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(268,12): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(269,34): error TS2353: Object literal may only specify known properties, and 'agentId' does not exist in type 'RideWhereInput'.
+src/services/auth/agent.auth.service.ts(270,34): error TS2353: Object literal may only specify known properties, and 'agentId' does not exist in type 'RideWhereInput'.
+src/services/auth/agent.auth.service.ts(274,35): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(295,38): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/agent.auth.service.ts(316,14): error TS2353: Object literal may only specify known properties, and 'agentId' does not exist in type 'RideWhereInput'.
+src/services/auth/agent.auth.service.ts(327,19): error TS18048: 'revenueData._sum' is possibly 'undefined'.
+src/services/auth/agent.auth.service.ts(328,33): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/services/auth/agent.auth.service.ts(334,39): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/services/auth/auth.service.ts(63,34): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/auth.service.ts(119,25): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(27,38): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(33,38): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(41,32): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(50,35): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(61,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(102,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(145,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(192,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(222,14): error TS2353: Object literal may only specify known properties, and 'corporateId' does not exist in type 'RideWhereInput'.
+src/services/auth/corporate.auth.service.ts(224,7): error TS2353: Object literal may only specify known properties, and 'vendor' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(268,33): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(282,33): error TS2339: Property 'corporatePayment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(296,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(310,37): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(319,44): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/corporate.auth.service.ts(331,14): error TS2353: Object literal may only specify known properties, and 'corporateId' does not exist in type 'RideWhereInput'.
+src/services/auth/corporate.auth.service.ts(345,20): error TS18048: 'rideStats._sum' is possibly 'undefined'.
+src/services/auth/partner.auth.service.ts(36,38): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(45,40): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(54,35): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(64,33): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(75,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(120,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(176,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(246,42): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(255,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(294,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/partner.auth.service.ts(316,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/vendor.auth.service.ts(42,38): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/vendor.auth.service.ts(49,40): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/vendor.auth.service.ts(57,32): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/vendor.auth.service.ts(66,35): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/vendor.auth.service.ts(77,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/vendor.auth.service.ts(136,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/vendor.auth.service.ts(179,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/vendor.auth.service.ts(258,41): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/auth/vendor.auth.service.ts(267,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(2,10): error TS2305: Module '"@prisma/client"' has no exported member 'PaymentMode'.
+src/services/billing/billing.service.ts(2,23): error TS2305: Module '"@prisma/client"' has no exported member 'PaymentStatus'.
+src/services/billing/billing.service.ts(13,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(22,7): error TS2353: Object literal may only specify known properties, and 'corporateId' does not exist in type 'RideWhereInput'.
+src/services/billing/billing.service.ts(36,23): error TS18048: 'ridesInPeriod._sum' is possibly 'undefined'.
+src/services/billing/billing.service.ts(43,32): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(79,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(86,32): error TS2339: Property 'corporatePayment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(108,16): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(127,44): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(149,18): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(173,33): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(192,49): error TS7006: Parameter 'billing' implicitly has an 'any' type.
+src/services/billing/billing.service.ts(199,6): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/services/billing/billing.service.ts(199,11): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/services/billing/billing.service.ts(234,33): error TS2339: Property 'corporatePayment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(251,40): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/services/billing/billing.service.ts(251,45): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/services/billing/billing.service.ts(264,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(278,37): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(288,41): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(296,37): error TS2339: Property 'corporatePayment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(306,14): error TS2353: Object literal may only specify known properties, and 'corporateId' does not exist in type 'RideWhereInput'.
+src/services/billing/billing.service.ts(328,18): error TS18048: 'rideStats._sum' is possibly 'undefined'.
+src/services/billing/billing.service.ts(358,33): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(376,24): error TS7006: Parameter 'billing' implicitly has an 'any' type.
+src/services/billing/billing.service.ts(386,32): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/billing/billing.service.ts(408,7): error TS2353: Object literal may only specify known properties, and 'corporateId' does not exist in type 'RideWhereInput'.
+src/services/city/city.service.ts(24,26): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(28,26): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(32,26): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(37,26): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(41,26): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(46,16): error TS2353: Object literal may only specify known properties, and 'cityCode' does not exist in type 'RideWhereInput'.
+src/services/city/city.service.ts(73,30): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(80,37): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(91,18): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(98,33): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(123,34): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(142,34): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(174,33): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(180,32): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(196,33): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(216,16): error TS2339: Property 'cityPricing' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(220,16): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(241,33): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(255,32): error TS2339: Property 'cityPricing' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(300,32): error TS2339: Property 'cityPricing' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(331,33): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(337,16): error TS2339: Property 'cityPricing' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/city/city.service.ts(358,33): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(2,10): error TS2305: Module '"@prisma/client"' has no exported member 'CorporateStatus'.
+src/services/corporate/corporate.service.ts(2,27): error TS2305: Module '"@prisma/client"' has no exported member 'PaymentMode'.
+src/services/corporate/corporate.service.ts(2,40): error TS2305: Module '"@prisma/client"' has no exported member 'PaymentStatus'.
+src/services/corporate/corporate.service.ts(31,35): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(75,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(107,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(125,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(134,41): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(170,32): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(179,36): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(188,34): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(239,7): error TS2353: Object literal may only specify known properties, and 'vendor' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/corporate/corporate.service.ts(285,14): error TS2353: Object literal may only specify known properties, and 'corporateId' does not exist in type 'RideWhereInput'.
+src/services/corporate/corporate.service.ts(293,37): error TS2339: Property 'corporateBilling' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/corporate/corporate.service.ts(301,16): error TS2339: Property 'corporate' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/lookup/lookup.service.ts(4,23): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/lookup/lookup.service.ts(17,23): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(2,10): error TS2305: Module '"@prisma/client"' has no exported member 'PartnerStatus'.
+src/services/partner/partner.service.ts(37,33): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(109,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(155,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(185,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(228,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(234,32): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(253,39): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(288,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(325,7): error TS2353: Object literal may only specify known properties, and 'vendor' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/partner/partner.service.ts(376,34): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(377,34): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(378,34): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(383,14): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(391,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(407,24): error TS18048: 'earningsData._sum' is possibly 'undefined'.
+src/services/partner/partner.service.ts(408,18): error TS18048: 'earningsData._sum' is possibly 'undefined'.
+src/services/partner/partner.service.ts(432,33): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(468,14): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(475,16): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(499,34): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(500,34): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(501,34): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(505,36): error TS2322: Type '"ASSIGNED"' is not assignable to type 'RideStatus'.
+src/services/partner/partner.service.ts(505,70): error TS2322: Type '"ONGOING"' is not assignable to type 'RideStatus'.
+src/services/partner/partner.service.ts(509,16): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(512,16): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(516,16): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(519,12): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(568,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/partner/partner.service.ts(630,7): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(633,7): error TS2353: Object literal may only specify known properties, and 'vendor' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/partner/partner.service.ts(671,14): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(678,5): error TS2322: Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum | RideScalarFieldEnum[]'.
+  Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum[]'.
+    Type '"paymentMode"' is not assignable to type 'RideScalarFieldEnum'.
+src/services/partner/partner.service.ts(679,14): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(690,7): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/partner/partner.service.ts(715,17): error TS18048: 'totalEarnings._sum' is possibly 'undefined'.
+src/services/partner/partner.service.ts(716,18): error TS18048: 'totalEarnings._sum' is possibly 'undefined'.
+src/services/partner/partner.service.ts(720,16): error TS2339: Property 'paymentMode' does not exist on type 'PickEnumerable<RideGroupByOutputType, RideScalarFieldEnum | RideScalarFieldEnum[]> & { ...; }'.
+src/services/partner/partner.service.ts(722,17): error TS18048: 'pm._sum' is possibly 'undefined'.
+src/services/payment/payment.service.ts(35,9): error TS2353: Object literal may only specify known properties, and 'razorpayOrderId' does not exist in type '(Without<RideUpdateInput, RideUncheckedUpdateInput> & RideUncheckedUpdateInput) | (Without<...> & RideUpdateInput)'.
+src/services/payment/payment.service.ts(68,16): error TS2353: Object literal may only specify known properties, and 'razorpayOrderId' does not exist in type 'RideWhereInput'.
+src/services/payment/payment.service.ts(78,9): error TS2353: Object literal may only specify known properties, and 'razorpayPaymentId' does not exist in type '(Without<RideUpdateInput, RideUncheckedUpdateInput> & RideUncheckedUpdateInput) | (Without<...> & RideUpdateInput)'.
+src/services/ride/ride.service.ts(31,38): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ride/ride.service.ts(76,32): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ride/ride.service.ts(102,7): error TS2322: Type '"UPCOMING"' is not assignable to type 'RideStatus | undefined'.
+src/services/ride/ride.service.ts(147,38): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ride/ride.service.ts(214,7): error TS2353: Object literal may only specify known properties, and 'cityCodeId' does not exist in type 'Without<RideCreateInput, RideUncheckedCreateInput> & RideUncheckedCreateInput'.
+src/services/ride/ride.service.ts(253,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/ride/ride.service.ts(289,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/ride/ride.service.ts(365,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/ride/ride.service.ts(408,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/ride/ride.service.ts(441,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/ride/ride.service.ts(453,12): error TS2339: Property 'partnerId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/ride/ride.service.ts(454,18): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ride/ride.service.ts(455,25): error TS2339: Property 'partnerId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/ride/ride.service.ts(481,7): error TS2322: Type '"UPCOMING"' is not assignable to type 'EnumRideStatusFilter<"Ride"> | RideStatus | undefined'.
+src/services/ride/ride.service.ts(521,32): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ride/ride.service.ts(545,7): error TS2367: This comparison appears to be unintentional because the types 'RideStatus' and '"UPCOMING"' have no overlap.
+src/services/ride/ride.service.ts(549,12): error TS2339: Property 'partnerId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/ride/ride.service.ts(562,7): error TS2322: Type '"ASSIGNED"' is not assignable to type 'RideStatus | EnumRideStatusFieldUpdateOperationsInput | undefined'.
+src/services/ride/ride.service.ts(575,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/ride/ride.service.ts(611,7): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/services/ride/ride.service.ts(625,7): error TS2353: Object literal may only specify known properties, and 'vehicle' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/ride/ride.service.ts(656,12): error TS2339: Property 'partnerId' does not exist on type '{ id: string; userId: string | null; riderId: string | null; vehicleTypeId: string | null; status: RideStatus; pickupLat: number; pickupLng: number; pickupAddress: string; ... 19 more ...; bookingNotes: string | null; }'.
+src/services/ride/ride.service.ts(661,31): error TS2367: This comparison appears to be unintentional because the types 'RideStatus' and '"ASSIGNED"' have no overlap.
+src/services/ride/ride.service.ts(694,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/user/user.service.ts(171,14): error TS2322: Type '"UPCOMING"' is not assignable to type 'RideStatus'.
+src/services/user/user.service.ts(171,38): error TS2322: Type '"ASSIGNED"' is not assignable to type 'RideStatus'.
+src/services/user/user.service.ts(171,72): error TS2322: Type '"ONGOING"' is not assignable to type 'RideStatus'.
+src/services/user/user.service.ts(175,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/user/user.service.ts(212,5): error TS2322: Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum | RideScalarFieldEnum[]'.
+  Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum[]'.
+    Type '"paymentMode"' is not assignable to type 'RideScalarFieldEnum'.
+src/services/user/user.service.ts(263,16): error TS2339: Property 'paymentMode' does not exist on type 'PickEnumerable<RideGroupByOutputType, RideScalarFieldEnum | RideScalarFieldEnum[]> & { ...; }'.
+src/services/user/user.service.ts(265,15): error TS18048: 'pm._sum' is possibly 'undefined'.
+src/services/vehicle/vehicle.service.ts(24,40): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(42,33): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(53,34): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(61,34): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(69,33): error TS2339: Property 'cityCode' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(79,32): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(124,18): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(180,33): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(236,32): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(311,32): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(364,32): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(372,35): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(385,18): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(392,16): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(408,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(414,32): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(456,33): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(505,14): error TS2353: Object literal may only specify known properties, and 'vehicleId' does not exist in type 'RideWhereInput'.
+src/services/vehicle/vehicle.service.ts(507,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(542,32): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(553,18): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicle.service.ts(561,14): error TS2353: Object literal may only specify known properties, and 'vehicleId' does not exist in type 'RideWhereInput'.
+src/services/vehicle/vehicle.service.ts(568,16): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vehicle/vehicleType.service.ts(28,37): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(2,10): error TS2305: Module '"@prisma/client"' has no exported member 'VendorStatus'.
+src/services/vendor/vendor.service.ts(31,32): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(71,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(124,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(157,32): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(163,31): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(193,33): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(262,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/vendor/vendor.service.ts(313,12): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(314,12): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(319,34): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(320,34): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(321,34): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(322,34): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(327,14): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(336,37): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(346,5): error TS2322: Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum | RideScalarFieldEnum[]'.
+  Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum[]'.
+    Type '"paymentMode"' is not assignable to type 'RideScalarFieldEnum'.
+src/services/vendor/vendor.service.ts(347,14): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(368,14): error TS18048: 'revenueData._sum' is possibly 'undefined'.
+src/services/vendor/vendor.service.ts(369,17): error TS18048: 'revenueData._sum' is possibly 'undefined'.
+src/services/vendor/vendor.service.ts(370,19): error TS18048: 'revenueData._sum' is possibly 'undefined'.
+src/services/vendor/vendor.service.ts(381,37): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(391,14): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(398,16): error TS2339: Property 'vendor' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(424,12): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(425,12): error TS2339: Property 'vehicle' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(426,12): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(427,12): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(428,34): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(429,34): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(430,34): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(434,36): error TS2322: Type '"ASSIGNED"' is not assignable to type 'RideStatus'.
+src/services/vendor/vendor.service.ts(434,70): error TS2322: Type '"ONGOING"' is not assignable to type 'RideStatus'.
+src/services/vendor/vendor.service.ts(438,16): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(441,16): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(448,14): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(474,14): error TS18048: 'todayRevenue._sum' is possibly 'undefined'.
+src/services/vendor/vendor.service.ts(483,23): error TS2339: Property 'attachment' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/vendor/vendor.service.ts(525,7): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(528,7): error TS2353: Object literal may only specify known properties, and 'partner' does not exist in type 'RideInclude<DefaultArgs>'.
+src/services/vendor/vendor.service.ts(568,14): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(575,5): error TS2322: Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum | RideScalarFieldEnum[]'.
+  Type '"paymentMode"[]' is not assignable to type 'RideScalarFieldEnum[]'.
+    Type '"paymentMode"' is not assignable to type 'RideScalarFieldEnum'.
+src/services/vendor/vendor.service.ts(576,14): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(587,7): error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'RideWhereInput'.
+src/services/vendor/vendor.service.ts(613,16): error TS18048: 'totalEarnings._sum' is possibly 'undefined'.
+src/services/vendor/vendor.service.ts(614,24): error TS18048: 'totalEarnings._sum' is possibly 'undefined'.
+src/services/vendor/vendor.service.ts(615,19): error TS18048: 'totalEarnings._sum' is possibly 'undefined'.
+src/services/vendor/vendor.service.ts(619,16): error TS2339: Property 'paymentMode' does not exist on type 'PickEnumerable<RideGroupByOutputType, RideScalarFieldEnum | RideScalarFieldEnum[]> & { ...; }'.
+src/services/vendor/vendor.service.ts(621,15): error TS18048: 'pm._sum' is possibly 'undefined'.
+src/utils/fixCustomIds.ts(25,33): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/utils/fixCustomIds.ts(52,22): error TS2339: Property 'agent' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/utils/migrateRidersToPartners.ts(45,36): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/utils/migrateRidersToPartners.ts(56,34): error TS2339: Property 'partner' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/utils/migrateRidersToPartners.ts(88,24): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type 'RideWhereInput'.
+src/utils/migrateRidersToPartners.ts(89,23): error TS2353: Object literal may only specify known properties, and 'partnerId' does not exist in type '(Without<RideUpdateManyMutationInput, RideUncheckedUpdateManyInput> & RideUncheckedUpdateManyInput) | (Without<...> & RideUpdateManyMutationInput)'.

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateRidePaymentStatusByAdmin = exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createAgentByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.updateAttachmentStatus = exports.getAttachmentById = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
+exports.updateRidePaymentStatusByAdmin = exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createAgentByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.updateAttachmentStatus = exports.getAttachmentById = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.updateUserByAdmin = exports.createUserByAdmin = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getActivePartnerLocations = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
 const prisma_1 = require("../../config/prisma");
 const generateUniqueOtp_1 = require("../../utils/generateUniqueOtp");
 const socket_service_1 = require("../socket/socket.service");
@@ -41,6 +41,18 @@ const ride_service_1 = require("../ride/ride.service");
 const vendorAuthService = __importStar(require("../auth/vendor.auth.service"));
 const partnerAuthService = __importStar(require("../auth/partner.auth.service"));
 const city_service_1 = require("../city/city.service");
+// Haversine formula for distance calculation in kilometers
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in km
+    return d;
+};
 /* ============================================
     VEHICLE TYPE MANAGEMENT
 ============================================ */
@@ -249,6 +261,43 @@ const getPartnerById = async (partnerId) => {
     return partner;
 };
 exports.getPartnerById = getPartnerById;
+const getActivePartnerLocations = async () => {
+    const partners = await prisma_1.prisma.partner.findMany({
+        where: {
+            isOnline: true,
+            currentLat: { not: null },
+            currentLng: { not: null }
+        },
+        select: {
+            id: true,
+            customId: true,
+            name: true,
+            phone: true,
+            currentLat: true,
+            currentLng: true,
+            vehicle: {
+                select: {
+                    vehicleType: {
+                        select: { name: true, displayName: true }
+                    }
+                }
+            },
+            ownVehicleType: {
+                select: { name: true, displayName: true }
+            }
+        }
+    });
+    return partners.map(p => ({
+        id: p.id,
+        customId: p.customId,
+        name: p.name,
+        phone: p.phone,
+        lat: p.currentLat,
+        lng: p.currentLng,
+        vehicleType: p.vehicle?.vehicleType?.name || p.ownVehicleType?.name || "Unknown"
+    }));
+};
+exports.getActivePartnerLocations = getActivePartnerLocations;
 /* ============================================
     SCHEDULED RIDE MANAGEMENT
 ============================================ */
@@ -560,8 +609,17 @@ const updateUserUniqueOtpByAdmin = async (userId) => {
     return updatedUser;
 };
 exports.updateUserUniqueOtpByAdmin = updateUserUniqueOtpByAdmin;
-const getAllUsers = async () => {
+const getAllUsers = async (filters) => {
+    const where = {};
+    if (filters?.search) {
+        where.OR = [
+            { name: { contains: filters.search, mode: "insensitive" } },
+            { phone: { contains: filters.search } },
+            { email: { contains: filters.search, mode: "insensitive" } },
+        ];
+    }
     const users = await prisma_1.prisma.user.findMany({
+        where,
         select: {
             id: true,
             name: true,
@@ -576,6 +634,45 @@ const getAllUsers = async () => {
     return users;
 };
 exports.getAllUsers = getAllUsers;
+const createUserByAdmin = async (data) => {
+    // Check if user already exists
+    const existingUser = await prisma_1.prisma.user.findFirst({
+        where: { phone: data.phone },
+    });
+    if (existingUser) {
+        throw new Error("User with this phone number already exists");
+    }
+    // Generate unique OTP for the user
+    const uniqueOtp = await (0, generateUniqueOtp_1.generateUnique4DigitOtp)();
+    const user = await prisma_1.prisma.user.create({
+        data: {
+            ...data,
+            uniqueOtp,
+        },
+    });
+    return user;
+};
+exports.createUserByAdmin = createUserByAdmin;
+const updateUserByAdmin = async (id, data) => {
+    // If changing phone number, check if it already exists for another user
+    if (data.phone) {
+        const existingUser = await prisma_1.prisma.user.findFirst({
+            where: {
+                phone: data.phone,
+                id: { not: id }
+            },
+        });
+        if (existingUser) {
+            throw new Error("Phone number already associated with another user");
+        }
+    }
+    const user = await prisma_1.prisma.user.update({
+        where: { id },
+        data,
+    });
+    return user;
+};
+exports.updateUserByAdmin = updateUserByAdmin;
 const getUserById = async (userId) => {
     const user = await prisma_1.prisma.user.findUnique({
         where: { id: userId },
@@ -713,13 +810,6 @@ exports.updateCorporate = updateCorporate;
 ============================================ */
 const getAllCityCodes = async () => {
     return await prisma_1.prisma.cityCode.findMany({
-        include: {
-            pricing: {
-                include: {
-                    vehicleType: true,
-                },
-            },
-        },
         orderBy: { cityName: "asc" },
     });
 };
@@ -963,30 +1053,18 @@ const createManualRideByAdmin = async (adminId, data) => {
     if (!vehicleType)
         throw new Error("Vehicle type not found");
     // Check city pricing first
-    const cityPricing = await prisma_1.prisma.cityPricing.findUnique({
-        where: {
-            cityCodeId_vehicleTypeId: {
-                cityCodeId: data.cityCodeId,
-                vehicleTypeId: data.vehicleTypeId,
-            },
-        },
-    });
+    const cityPricing = await (0, city_service_1.getPricingForCity)(data.vehicleTypeId, data.cityCodeId);
     let baseFare, perKmPrice, totalFare;
     if (cityPricing) {
         baseFare = cityPricing.baseFare;
-        perKmPrice = cityPricing.perKmAfterBase;
-        const billableKm = Math.max(0, data.distanceKm - cityPricing.baseKm);
+        perKmPrice = cityPricing.perKmPrice;
+        const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
         totalFare = baseFare + (billableKm * perKmPrice);
     }
     else {
-        // Fallback to global config
-        const pricingConfig = await prisma_1.prisma.pricingConfig.findFirst({
-            where: { isActive: true },
-        });
-        if (!pricingConfig)
-            throw new Error("Pricing configuration not found");
-        baseFare = vehicleType.baseFare || pricingConfig.baseFare;
-        perKmPrice = vehicleType.pricePerKm;
+        // This fallback is now handled inside getPricingForCity, but if it returns defaults:
+        baseFare = cityPricing?.baseFare || 20;
+        perKmPrice = cityPricing?.perKmPrice || 0;
         totalFare = baseFare + (perKmPrice * data.distanceKm);
     }
     // 2b. Validate and Apply Coupon
@@ -1022,6 +1100,48 @@ const createManualRideByAdmin = async (adminId, data) => {
         throw new Error("Invalid city code ID");
     const customId = await (0, city_service_1.generateEntityCustomId)(cityCodeEntry.code, "RIDE");
     // 4. Create Ride
+    let assignedPartnerId = null;
+    let finalStatus = data.isInstant ? "UPCOMING" : "SCHEDULED";
+    let assignedVendorId = null;
+    let assignedVehicleId = null;
+    // 4b. Find Nearest Active Partner if not instant and it's a "Now" booking (scheduledDateTime is null/now)
+    const isNowBooking = !data.scheduledDateTime || new Date(data.scheduledDateTime).getTime() <= new Date().getTime() + 5 * 60000; // Within 5 minutes
+    if (!data.isInstant && isNowBooking) {
+        // Note: We need to match vehicleTypeId either through partner's own vehicle or vendor assigned vehicle.
+        const activePartners = await prisma_1.prisma.partner.findMany({
+            where: {
+                isOnline: true,
+                currentLat: { not: null },
+                currentLng: { not: null },
+                status: "ACTIVE",
+                OR: [
+                    { ownVehicleTypeId: data.vehicleTypeId },
+                    { vehicle: { vehicleTypeId: data.vehicleTypeId } }
+                ]
+            },
+            include: {
+                vehicle: true
+            }
+        });
+        let nearestPartner = null;
+        let minDistance = Infinity;
+        for (const partner of activePartners) {
+            if (partner.currentLat && partner.currentLng) {
+                const dist = calculateDistance(data.pickupLat, data.pickupLng, partner.currentLat, partner.currentLng);
+                // Assuming we only assign if within a reasonable radius, e.g., 10 km
+                if (dist < minDistance && dist <= 10) {
+                    minDistance = dist;
+                    nearestPartner = partner;
+                }
+            }
+        }
+        if (nearestPartner) {
+            assignedPartnerId = nearestPartner.id;
+            finalStatus = "ASSIGNED";
+            assignedVendorId = nearestPartner.vendorId || (nearestPartner.vehicle?.vendorId) || null;
+            assignedVehicleId = nearestPartner.vehicleId || null; // Might be null if own vehicle, handle accordingly based on DB model
+        }
+    }
     const ride = await prisma_1.prisma.ride.create({
         data: {
             userId: user.id,
@@ -1040,9 +1160,9 @@ const createManualRideByAdmin = async (adminId, data) => {
             discountAmount: appliedDiscountAmount,
             riderEarnings,
             commission,
-            status: "SCHEDULED",
-            isManualBooking: true,
-            scheduledDateTime: new Date(data.scheduledDateTime),
+            status: finalStatus,
+            isManualBooking: true, // We can keep this true, but we will emit the right event
+            scheduledDateTime: data.isInstant ? new Date() : new Date(data.scheduledDateTime || new Date()),
             bookingNotes: data.bookingNotes || null,
             cityCodeId: data.cityCodeId,
             customId,
@@ -1053,6 +1173,10 @@ const createManualRideByAdmin = async (adminId, data) => {
             paymentMode: data.paymentMode || "CASH",
             rideType: data.rideType || "LOCAL",
             altMobile: data.altMobile || null,
+            partnerId: assignedPartnerId,
+            vendorId: assignedVendorId,
+            vehicleId: assignedVehicleId,
+            acceptedAt: assignedPartnerId ? new Date() : null,
         },
         include: {
             user: true,
@@ -1060,7 +1184,16 @@ const createManualRideByAdmin = async (adminId, data) => {
         },
     });
     // 5. Notify
-    (0, socket_service_1.emitManualRideCreated)(ride);
+    if (data.isInstant) {
+        // We import emitRideCreated and use it to broadcast to all online partners
+        (0, socket_service_1.emitRideCreated)(ride);
+    }
+    else if (assignedPartnerId) {
+        (0, socket_service_1.emitRiderAssigned)(ride);
+    }
+    else {
+        (0, socket_service_1.emitManualRideCreated)(ride);
+    }
     return ride;
 };
 exports.createManualRideByAdmin = createManualRideByAdmin;

@@ -304,7 +304,12 @@ exports.default = {
                     message: "Partner location (lat, lng) is required",
                 });
             }
-            const rides = await (0, ride_service_1.getAvailableRides)(parseFloat(lat), parseFloat(lng), vehicleTypeId);
+            const { prisma } = require("../../config/prisma");
+            const partner = await prisma.partner.findUnique({
+                where: { id: partnerId },
+                select: { cityCodeId: true }
+            });
+            const rides = await (0, ride_service_1.getAvailableRides)(parseFloat(lat), parseFloat(lng), vehicleTypeId, partner?.cityCodeId || undefined);
             return res.status(200).json({
                 success: true,
                 message: "Available rides retrieved successfully",
@@ -368,7 +373,7 @@ exports.default = {
             });
         }
     },
-    // Update ride status (ARRIVED, STARTED, ONGOING, COMPLETED)
+    // Update ride status (ARRIVED, STARTED, ONGOING, COMPLETED, CANCELLED)
     updateRideStatus: async (req, res) => {
         try {
             const partnerId = req.user?.id;
@@ -380,11 +385,11 @@ exports.default = {
                     message: "Unauthorized",
                 });
             }
-            const validStatuses = ["ARRIVED", "STARTED", "ONGOING", "COMPLETED"];
+            const validStatuses = ["ARRIVED", "STARTED", "ONGOING", "COMPLETED", "CANCELLED"];
             if (!status || !validStatuses.includes(status)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Status must be ARRIVED, STARTED, ONGOING, or COMPLETED",
+                    message: "Status must be ARRIVED, STARTED, ONGOING, COMPLETED, or CANCELLED",
                 });
             }
             const ride = await (0, ride_service_1.updateRideStatus)(id, partnerId, status, userOtp, startingKm ? parseFloat(startingKm) : undefined, endingKm ? parseFloat(endingKm) : undefined);

@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { AuthedRequest } from "../../middleware/auth.middleware";
+import { prisma } from "../../config/prisma";
 import {
   createRide,
   createManualRide,
@@ -472,7 +473,7 @@ export default {
     }
   },
 
-  // Update ride status (ARRIVED, STARTED, ONGOING, COMPLETED)
+  // Update ride status (ARRIVED, STARTED, ONGOING, COMPLETED, CANCELLED)
   updateRideStatus: async (req: AuthedRequest, res: Response) => {
     try {
       const partnerId = req.user?.id;
@@ -486,11 +487,11 @@ export default {
         });
       }
 
-      const validStatuses = ["ARRIVED", "STARTED", "ONGOING", "COMPLETED"];
+      const validStatuses = ["ARRIVED", "STARTED", "ONGOING", "COMPLETED", "CANCELLED"];
       if (!status || !validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
-          message: "Status must be ARRIVED, STARTED, ONGOING, or COMPLETED",
+          message: "Status must be ARRIVED, STARTED, ONGOING, COMPLETED, or CANCELLED",
         });
       }
 

@@ -135,17 +135,22 @@ enum FuelType {
 // ============================================
 
 model User {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  phone        String   @unique
-  email        String?  @unique
-  profileImage String?
-  uniqueOtp    String   @unique // 4-digit unique OTP for ride verification
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  phone             String   @unique
+  email             String?  @unique
+  profileImage      String?
+  uniqueOtp         String   @unique // 4-digit unique OTP for ride verification
+  referralCode      String?  @unique // Unique referral code for this user
+  referredBy        String?  // Referral code of the user who referred this one
+  savedPlaces       Json?    // Array of saved places (home, work, favorites)
+  emergencyContacts Json?    // Array of emergency contacts
+  safetyPrefs       Json?    // Safety preferences (women mode, auto-share, etc.)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // 1 user → many rides
-  rides        Ride[]   @relation("UserRides")
+  rides             Ride[]   @relation("UserRides")
 }
 
 // Rider model removed - Partner is now the unified driver entity

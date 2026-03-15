@@ -1,5 +1,6 @@
 import { Router } from "express";
 import partnerController from "../../controllers/partner/partner.controller";
+import rideController from "../../controllers/ride/ride.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
 
 const router = Router();
@@ -40,9 +41,15 @@ router.patch("/online-status", partnerController.toggleOnlineStatus);
 // Vehicle info
 router.get("/vehicle", partnerController.getVehicleInfo);
 
-// Rides
+// Rides - available must come before :id to avoid conflict
+router.get("/rides/available", partnerController.getAvailableRides);
 router.get("/rides", partnerController.getPartnerRides);
 router.get("/rides/:id", partnerController.getPartnerRideDetail);
+
+// Ride actions (accept, status update)
+router.post("/rides/:id/accept", rideController.acceptRide);
+router.patch("/rides/:id/status", rideController.updateRideStatus);
+router.put("/rides/:id/status", rideController.updateRideStatus);
 
 // Earnings
 router.get("/earnings", partnerController.getPartnerEarningsSummary);
@@ -54,3 +61,4 @@ router.get("/analytics", partnerController.getPartnerAnalytics);
 router.post("/attachments", partnerController.createAttachment);
 
 export default router;
+

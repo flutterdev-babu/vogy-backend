@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const partnerAuthService = __importStar(require("../../services/auth/partner.auth.service"));
 const partnerService = __importStar(require("../../services/partner/partner.service"));
 const adminService = __importStar(require("../../services/admin/admin.service"));
+const rideService = __importStar(require("../../services/ride/ride.service"));
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -291,6 +292,19 @@ exports.default = {
         try {
             const earnings = await partnerService.getPartnerEarnings(req.user.id);
             res.json({ success: true, data: earnings });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getAvailableRides(req, res) {
+        try {
+            const { lat, lng, vehicleTypeId } = req.query;
+            if (!lat || !lng) {
+                return res.status(400).json({ success: false, message: "lat and lng are required" });
+            }
+            const rides = await rideService.getAvailableRides(Number(lat), Number(lng), vehicleTypeId);
+            res.json({ success: true, data: { rides: rides } });
         }
         catch (err) {
             res.status(500).json({ success: false, message: err.message });

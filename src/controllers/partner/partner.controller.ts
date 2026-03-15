@@ -3,6 +3,7 @@ import { AuthedRequest } from "../../middleware/auth.middleware";
 import * as partnerAuthService from "../../services/auth/partner.auth.service";
 import * as partnerService from "../../services/partner/partner.service";
 import * as adminService from "../../services/admin/admin.service";
+import * as rideService from "../../services/ride/ride.service";
 import { prisma } from "../../config/prisma";
 
 export default {
@@ -264,6 +265,23 @@ export default {
     try {
       const earnings = await partnerService.getPartnerEarnings(req.user.id);
       res.json({ success: true, data: earnings });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async getAvailableRides(req: AuthedRequest, res: Response) {
+    try {
+      const { lat, lng, vehicleTypeId } = req.query;
+      if (!lat || !lng) {
+        return res.status(400).json({ success: false, message: "lat and lng are required" });
+      }
+      const rides = await rideService.getAvailableRides(
+        Number(lat),
+        Number(lng),
+        vehicleTypeId as string
+      );
+      res.json({ success: true, data: { rides: rides } });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
