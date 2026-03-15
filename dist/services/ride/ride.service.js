@@ -100,9 +100,15 @@ const estimateFare = async (data) => {
         }
     }
     // Build fare for each vehicle type
-    const vehicleOptions = vehicleTypes.map((vt) => {
-        const baseFare = vt.baseFare || globalBaseFare;
-        const estimatedFare = parseFloat((baseFare + vt.pricePerKm * data.distanceKm).toFixed(2));
+    const vehicleOptions = await Promise.all(vehicleTypes.map(async (vt) => {
+        // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+        const cityPricing = await (0, city_service_1.getPricingForCity)(vt.id, data.cityCodeId);
+        const baseFare = cityPricing.baseFare;
+        const perKmPrice = cityPricing.perKmPrice;
+        // Calculation: baseFare + (perKmPrice * (distanceKm - baseKm))
+        // If distance is less than baseKm, it's just baseFare
+        const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
+        const estimatedFare = parseFloat((baseFare + perKmPrice * billableKm).toFixed(2));
         let discountAmount = 0;
         let finalFare = estimatedFare;
         if (couponInfo && estimatedFare >= 0) {
@@ -118,14 +124,15 @@ const estimateFare = async (data) => {
             name: vt.name,
             displayName: vt.displayName,
             baseFare,
-            pricePerKm: vt.pricePerKm,
+            pricePerKm: perKmPrice,
+            baseKm: cityPricing.baseKm,
             estimatedFare,
             ...(couponInfo && {
                 discountAmount,
                 finalFare,
             }),
         };
-    });
+    }));
     return {
         distanceKm: data.distanceKm,
         vehicleOptions,
@@ -169,11 +176,12 @@ const createRide = async (userId, data) => {
     if (!pricingConfig) {
         throw new Error("Pricing configuration not found");
     }
-    // Calculate fare with admin-controlled pricing
-    // TOTAL FARE = baseFare + (pricePerKm × distanceKm)
-    const baseFare = pricingConfig.baseFare || 20;
-    const perKmPrice = vehicleType.pricePerKm;
-    let totalFare = baseFare + (perKmPrice * data.distanceKm);
+    // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+    const cityPricing = await (0, city_service_1.getPricingForCity)(data.vehicleTypeId, data.cityCodeId);
+    const baseFare = cityPricing.baseFare;
+    const perKmPrice = cityPricing.perKmPrice;
+    const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
+    let totalFare = baseFare + (perKmPrice * billableKm);
     // NEW: Validate and apply Coupon Code
     let appliedCouponCode = null;
     let appliedDiscountAmount = 0;
@@ -287,10 +295,12 @@ const createManualRide = async (userId, data) => {
     if (!pricingConfig) {
         throw new Error("Pricing configuration not found");
     }
-    // Calculate fare with admin-controlled pricing
-    const baseFare = pricingConfig.baseFare || 20;
-    const perKmPrice = vehicleType.pricePerKm;
-    let totalFare = baseFare + (perKmPrice * data.distanceKm);
+    // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+    const cityPricing = await (0, city_service_1.getPricingForCity)(data.vehicleTypeId, data.cityCodeId);
+    const baseFare = cityPricing.baseFare;
+    const perKmPrice = cityPricing.perKmPrice;
+    const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
+    let totalFare = baseFare + (perKmPrice * billableKm);
     // NEW: Validate and apply Coupon Code
     let appliedCouponCode = null;
     let appliedDiscountAmount = 0;
@@ -580,13 +590,19 @@ exports.completeRideWithOtp = completeRideWithOtp;
 /* ============================================
     GET AVAILABLE RIDES FOR PARTNER
 ============================================ */
-const getAvailableRides = async (partnerLat, partnerLng, vehicleTypeId) => {
+const getAvailableRides = async (partnerLat, partnerLng, vehicleTypeId, cityCodeId) => {
     // Get pending rides not yet accepted
     const rides = await prisma_1.prisma.ride.findMany({
         where: {
             status: "UPCOMING",
             ...(vehicleTypeId && { vehicleTypeId: vehicleTypeId }),
             partnerId: null, // Only rides not yet accepted
+            ...(cityCodeId && {
+                OR: [
+                    { cityCodeId: cityCodeId },
+                    // Distance check is handled post-fetch, but typically we want to see rides in the same city anyway
+                ],
+            }),
         },
         include: {
             vehicleType: true,
@@ -607,7 +623,13 @@ const getAvailableRides = async (partnerLat, partnerLng, vehicleTypeId) => {
         const distance = calculateDistance(partnerLat, partnerLng, ride.pickupLat, ride.pickupLng);
         return { ...ride, distanceFromPartner: distance };
     })
-        .filter((ride) => ride.distanceFromPartner <= 10) // Within 10km
+        .filter((ride) => {
+        // Show ALL rides in the same city, OR rides within 10km (in case cityCodeId is missing or ride is near border)
+        if (cityCodeId && ride.cityCodeId === cityCodeId) {
+            return true;
+        }
+        return ride.distanceFromPartner <= 10;
+    })
         .sort((a, b) => a.distanceFromPartner - b.distanceFromPartner); // Closest first
     return nearbyRides;
 };
@@ -739,11 +761,14 @@ const updateRideStatus = async (rideId, partnerId, status, userOtp, startingKm, 
         throw new Error("Unauthorized to update this ride");
     }
     // Validate status transition
-    if (status === "ARRIVED" && ride.status !== "ASSIGNED") {
+    if (status === "ARRIVED" && ride.status !== "ASSIGNED" && ride.status !== "ACCEPTED") {
         throw new Error("Ride must be assigned before marking as arrived");
     }
     if (status === "STARTED" && ride.status !== "ARRIVED") {
         throw new Error("Ride must be arrived before starting");
+    }
+    if (status === "COMPLETED" && ride.status !== "STARTED" && ride.status !== "ONGOING") {
+        throw new Error("Ride must be started before completing");
     }
     if (status === "ONGOING" && ride.status !== "STARTED" && ride.status !== "ARRIVED") {
         // Some flows might go from ARRIVED -> ONGOING or STARTED -> ONGOING
@@ -829,6 +854,9 @@ const updateRideStatus = async (rideId, partnerId, status, userOtp, startingKm, 
             updateData.riderEarnings = (newTotalFare * riderPercentage) / 100;
             updateData.commission = (newTotalFare * appCommissionStr) / 100;
         }
+    }
+    if (status === "COMPLETED") {
+        updateData.endTime = new Date();
     }
     const updatedRide = await prisma_1.prisma.ride.update({
         where: { id: rideId },

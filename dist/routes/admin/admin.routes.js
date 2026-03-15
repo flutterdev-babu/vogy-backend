@@ -43,6 +43,13 @@ router.get("/pricing-config", admin_controller_1.default.getPricingConfig);
 router.put("/pricing-config", admin_controller_1.default.updatePricingConfig);
 router.patch("/pricing-config", admin_controller_1.default.updatePricingConfig);
 // ============================================
+// VEHICLE PRICING GROUPS (NEW)
+// ============================================
+router.post("/vehicle-pricing-groups", admin_controller_1.default.createPricingGroup);
+router.get("/vehicle-pricing-groups", admin_controller_1.default.getPricingGroups);
+router.put("/vehicle-pricing-groups/:id", admin_controller_1.default.updatePricingGroup);
+router.delete("/vehicle-pricing-groups/:id", admin_controller_1.default.deletePricingGroup);
+// ============================================
 // RIDE MANAGEMENT (Legacy)
 // ============================================
 router.post("/rides", admin_controller_1.default.createManualRide);
@@ -61,8 +68,11 @@ router.get("/riders/:id", admin_controller_1.default.getRiderById);
 // ============================================
 // USER MANAGEMENT
 // ============================================
+router.post("/users", admin_controller_1.default.createUser);
 router.get("/users", admin_controller_1.default.getAllUsers);
 router.get("/users/:id", admin_controller_1.default.getUserById);
+router.put("/users/:id", admin_controller_1.default.updateUser);
+router.patch("/users/:id", admin_controller_1.default.updateUser);
 router.post("/users/:id/regenerate-otp", admin_controller_1.default.updateUserUniqueOtp);
 router.put("/users/:id/unique-otp", admin_controller_1.default.updateUserUniqueOtp);
 router.patch("/users/:id/unique-otp", admin_controller_1.default.updateUserUniqueOtp);
@@ -82,6 +92,7 @@ router.delete("/vendors/:id", vendor_controller_1.default.deleteVendor);
 // ============================================
 router.post("/partners", admin_controller_1.default.createPartner);
 router.get("/partners", partner_controller_1.default.getAllPartners);
+router.get("/partners/active-locations", admin_controller_1.default.getActivePartnerLocations);
 router.get("/partners/available", partner_controller_1.default.getAvailablePartners);
 router.get("/partners/:id", partner_controller_1.default.getPartnerById);
 router.put("/partners/:id", partner_controller_1.default.updatePartnerByAdmin);

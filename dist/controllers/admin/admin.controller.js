@@ -153,6 +153,92 @@ exports.default = {
         }
     },
     /* ============================================
+        VEHICLE PRICING GROUPS (NEW)
+    ============================================ */
+    createPricingGroup: async (req, res) => {
+        try {
+            const { vehicleTypeId, name, baseKm, baseFare, perKmPrice, cityCodeIds } = req.body;
+            if (!vehicleTypeId || perKmPrice === undefined || !cityCodeIds) {
+                return res.status(400).json({
+                    success: false,
+                    message: "vehicleTypeId, perKmPrice, and cityCodeIds are required",
+                });
+            }
+            const { createPricingGroup } = require("../../services/city/city.service");
+            const pricingGroup = await createPricingGroup({
+                vehicleTypeId,
+                name,
+                baseKm: baseKm ? parseFloat(baseKm) : 2,
+                baseFare: baseFare ? parseFloat(baseFare) : 50,
+                perKmPrice: parseFloat(perKmPrice),
+                cityCodeIds,
+            });
+            return res.status(201).json({
+                success: true,
+                message: "Vehicle pricing group created successfully",
+                data: pricingGroup,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to create pricing group",
+            });
+        }
+    },
+    getPricingGroups: async (req, res) => {
+        try {
+            const { vehicleTypeId } = req.query;
+            const { getPricingGroups } = require("../../services/city/city.service");
+            const groups = await getPricingGroups(vehicleTypeId);
+            return res.status(200).json({
+                success: true,
+                data: groups,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to get pricing groups",
+            });
+        }
+    },
+    updatePricingGroup: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { updatePricingGroup } = require("../../services/city/city.service");
+            const group = await updatePricingGroup(id, req.body);
+            return res.status(200).json({
+                success: true,
+                message: "Vehicle pricing group updated successfully",
+                data: group,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to update pricing group",
+            });
+        }
+    },
+    deletePricingGroup: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { deletePricingGroup } = require("../../services/city/city.service");
+            const result = await deletePricingGroup(id);
+            return res.status(200).json({
+                success: true,
+                message: result.message,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to delete pricing group",
+            });
+        }
+    },
+    /* ============================================
         RIDE MANAGEMENT
     ============================================ */
     createManualRide: async (req, res) => {
@@ -253,9 +339,28 @@ exports.default = {
     /* ============================================
         USER MANAGEMENT
     ============================================ */
+    createUser: async (req, res) => {
+        try {
+            const user = await (0, admin_service_1.createUserByAdmin)(req.body);
+            res.status(201).json({ success: true, message: "User created successfully", data: user });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    updateUser: async (req, res) => {
+        try {
+            const user = await (0, admin_service_1.updateUserByAdmin)(req.params.id, req.body);
+            res.json({ success: true, message: "User updated successfully", data: user });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
     getAllUsers: async (req, res) => {
         try {
-            const users = await (0, admin_service_1.getAllUsers)();
+            const { search } = req.query;
+            const users = await (0, admin_service_1.getAllUsers)({ search: search });
             return res.status(200).json({
                 success: true,
                 message: "Users retrieved successfully",
@@ -351,6 +456,22 @@ exports.default = {
             return res.status(400).json({
                 success: false,
                 message: error.message || "Failed to get rider",
+            });
+        }
+    },
+    getActivePartnerLocations: async (req, res) => {
+        try {
+            const locations = await (0, admin_service_1.getActivePartnerLocations)();
+            return res.status(200).json({
+                success: true,
+                message: "Active partner locations retrieved successfully",
+                data: locations,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to get active partner locations",
             });
         }
     },

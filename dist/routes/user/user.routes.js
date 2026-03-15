@@ -28,4 +28,13 @@ router.get("/unique-otp", user_controller_1.default.getUniqueOtp);
 router.post("/unique-otp/regenerate", user_controller_1.default.updateUniqueOtp);
 router.put("/unique-otp", user_controller_1.default.updateUniqueOtp);
 router.patch("/unique-otp", user_controller_1.default.updateUniqueOtp);
+// Saved Places
+router.get("/saved-places", user_controller_1.default.getSavedPlaces);
+router.put("/saved-places", user_controller_1.default.updateSavedPlaces);
+// Emergency Contacts & Safety
+router.get("/emergency-contacts", user_controller_1.default.getEmergencyContacts);
+router.put("/emergency-contacts", user_controller_1.default.updateEmergencyContacts);
+// Referral System
+router.get("/referral-code", user_controller_1.default.getReferralCode);
+router.post("/referral/apply", user_controller_1.default.applyReferralCode);
 exports.default = router;
