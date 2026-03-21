@@ -41,6 +41,7 @@ const ride_service_1 = require("../ride/ride.service");
 const vendorAuthService = __importStar(require("../auth/vendor.auth.service"));
 const partnerAuthService = __importStar(require("../auth/partner.auth.service"));
 const city_service_1 = require("../city/city.service");
+const auditLog_service_1 = require("../audit/auditLog.service");
 // Haversine formula for distance calculation in kilometers
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radius of the earth in km
@@ -78,6 +79,14 @@ const createVehicleType = async (data) => {
             baseFare: data.baseFare ?? null,
         },
     });
+    // Audit log
+    (0, auditLog_service_1.createAuditLog)({
+        action: "CREATE",
+        module: "VEHICLE_TYPE",
+        entityId: vehicleType.id,
+        description: `Created vehicle type: ${vehicleType.displayName} (${vehicleType.name})`,
+        newData: vehicleType,
+    });
     return vehicleType;
 };
 exports.createVehicleType = createVehicleType;
@@ -114,6 +123,15 @@ const updateVehicleType = async (id, data) => {
             ...(data.isActive !== undefined && { isActive: data.isActive }),
         },
     });
+    // Audit log
+    (0, auditLog_service_1.createAuditLog)({
+        action: "UPDATE",
+        module: "VEHICLE_TYPE",
+        entityId: id,
+        description: `Updated vehicle type: ${vehicleType.displayName}`,
+        oldData: vehicleType,
+        newData: updated,
+    });
     return updated;
 };
 exports.updateVehicleType = updateVehicleType;
@@ -126,6 +144,14 @@ const deleteVehicleType = async (id) => {
     }
     await prisma_1.prisma.vehicleType.delete({
         where: { id },
+    });
+    // Audit log
+    (0, auditLog_service_1.createAuditLog)({
+        action: "DELETE",
+        module: "VEHICLE_TYPE",
+        entityId: id,
+        description: `Deleted vehicle type: ${vehicleType.displayName} (${vehicleType.name})`,
+        oldData: vehicleType,
     });
     return { message: "Vehicle type deleted successfully" };
 };
@@ -168,6 +194,14 @@ const updatePricingConfig = async (data) => {
             appCommission: data.appCommission,
             isActive: true,
         },
+    });
+    // Audit log
+    (0, auditLog_service_1.createAuditLog)({
+        action: "UPDATE",
+        module: "PRICING",
+        entityId: config.id,
+        description: `Updated pricing config: Rider ${data.riderPercentage}%, Commission ${data.appCommission}%`,
+        newData: config,
     });
     return config;
 };
@@ -554,6 +588,14 @@ const updateRideStatusByAdmin = async (rideId, status, userOtp, startingKm, endi
             partner: true,
         }
     });
+    // Audit log
+    (0, auditLog_service_1.createAuditLog)({
+        action: "STATUS_CHANGE",
+        module: "RIDE",
+        entityId: rideId,
+        description: `Admin updated ride status to ${status}`,
+        newData: { status, startingKm, endingKm },
+    });
     return ride;
 };
 exports.updateRideStatusByAdmin = updateRideStatusByAdmin;
@@ -571,12 +613,23 @@ exports.getRideOtpByAdmin = getRideOtpByAdmin;
     ATTACHMENT VERIFICATION
 ============================================ */
 const verifyAttachmentByAdmin = async (attachmentId, verificationStatus, adminId) => {
+    const oldAttachment = await prisma_1.prisma.attachment.findUnique({ where: { id: attachmentId } });
     const attachment = await prisma_1.prisma.attachment.update({
         where: { id: attachmentId },
         data: {
             verificationStatus,
             ...(adminId && { updatedByAdminId: adminId })
         },
+    });
+    // Audit log
+    (0, auditLog_service_1.createAuditLog)({
+        userId: adminId,
+        action: "STATUS_CHANGE",
+        module: "ATTACHMENT",
+        entityId: attachmentId,
+        description: `Attachment verification changed to ${verificationStatus}`,
+        oldData: oldAttachment ? { verificationStatus: oldAttachment.verificationStatus } : null,
+        newData: { verificationStatus },
     });
     return attachment;
 };

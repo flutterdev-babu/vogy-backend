@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPartnerEarnings = exports.getPartnerRideById = exports.getPartnerVehicleInfo = exports.getPartnerDashboard = exports.deletePartner = exports.getAvailablePartners = exports.getPartnerAnalytics = exports.getPartnerRides = exports.unassignPartnerFromVehicle = exports.assignPartnerToVehicle = exports.updatePartnerByAdmin = exports.updatePartnerVerification = exports.updatePartnerStatus = exports.getPartnerById = exports.getAllPartners = void 0;
 const prisma_1 = require("../../config/prisma");
+const auditLog_service_1 = require("../audit/auditLog.service");
 /* ============================================
     GET ALL PARTNERS
 ============================================ */
@@ -151,6 +152,7 @@ exports.getPartnerById = getPartnerById;
     UPDATE PARTNER STATUS (Admin)
 ============================================ */
 const updatePartnerStatus = async (partnerId, status, adminId) => {
+    const oldPartner = await prisma_1.prisma.partner.findUnique({ where: { id: partnerId }, select: { status: true, name: true } });
     const partner = await prisma_1.prisma.partner.update({
         where: { id: partnerId },
         data: {
@@ -166,6 +168,15 @@ const updatePartnerStatus = async (partnerId, status, adminId) => {
             updatedAt: true,
         },
     });
+    (0, auditLog_service_1.createAuditLog)({
+        userId: adminId,
+        action: "STATUS_CHANGE",
+        module: "PARTNER",
+        entityId: partnerId,
+        description: `Partner ${oldPartner?.name || partnerId} status changed from ${oldPartner?.status} to ${status}`,
+        oldData: { status: oldPartner?.status },
+        newData: { status },
+    });
     return partner;
 };
 exports.updatePartnerStatus = updatePartnerStatus;
@@ -173,6 +184,7 @@ exports.updatePartnerStatus = updatePartnerStatus;
     UPDATE PARTNER VERIFICATION (Admin)
 ============================================ */
 const updatePartnerVerification = async (partnerId, verificationStatus, adminId) => {
+    const oldPartner = await prisma_1.prisma.partner.findUnique({ where: { id: partnerId }, select: { verificationStatus: true, name: true } });
     const partner = await prisma_1.prisma.partner.update({
         where: { id: partnerId },
         data: {
@@ -186,6 +198,15 @@ const updatePartnerVerification = async (partnerId, verificationStatus, adminId)
             verificationStatus: true,
             updatedAt: true,
         },
+    });
+    (0, auditLog_service_1.createAuditLog)({
+        userId: adminId,
+        action: "STATUS_CHANGE",
+        module: "PARTNER",
+        entityId: partnerId,
+        description: `Partner ${oldPartner?.name || partnerId} verification changed from ${oldPartner?.verificationStatus} to ${verificationStatus}`,
+        oldData: { verificationStatus: oldPartner?.verificationStatus },
+        newData: { verificationStatus },
     });
     return partner;
 };
@@ -470,6 +491,7 @@ exports.getAvailablePartners = getAvailablePartners;
     DELETE PARTNER
 ============================================ */
 const deletePartner = async (partnerId, adminId) => {
+    const oldPartner = await prisma_1.prisma.partner.findUnique({ where: { id: partnerId }, select: { name: true, phone: true, status: true } });
     // Soft delete
     await prisma_1.prisma.partner.update({
         where: { id: partnerId },
@@ -478,6 +500,14 @@ const deletePartner = async (partnerId, adminId) => {
             status: "BANNED",
             ...(adminId && { updatedByAdminId: adminId })
         },
+    });
+    (0, auditLog_service_1.createAuditLog)({
+        userId: adminId,
+        action: "DELETE",
+        module: "PARTNER",
+        entityId: partnerId,
+        description: `Partner ${oldPartner?.name || partnerId} (${oldPartner?.phone}) soft-deleted`,
+        oldData: oldPartner,
     });
     return { message: "Partner soft-deleted successfully" };
 };

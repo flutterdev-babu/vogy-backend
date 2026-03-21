@@ -4,6 +4,7 @@ exports.updateRideStatus = exports.getPartnerRides = exports.acceptRide = export
 const prisma_1 = require("../../config/prisma");
 const socket_service_1 = require("../socket/socket.service");
 const city_service_1 = require("../city/city.service");
+const peakHour_service_1 = require("../admin/peakHour.service");
 /* ============================================
     COUPON VALIDATION LOGIC
 ============================================ */
@@ -108,7 +109,13 @@ const estimateFare = async (data) => {
         // Calculation: baseFare + (perKmPrice * (distanceKm - baseKm))
         // If distance is less than baseKm, it's just baseFare
         const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
-        const estimatedFare = parseFloat((baseFare + perKmPrice * billableKm).toFixed(2));
+        let estimatedFare = parseFloat((baseFare + perKmPrice * billableKm).toFixed(2));
+        // NEW: Apply Peak Hour Adjustment
+        const peakAdjustment = await (0, peakHour_service_1.getPeakHourAdjustment)(data.cityCodeId, vt.id, new Date());
+        if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
+            const percentageAmount = (estimatedFare * peakAdjustment.percentageExtra) / 100;
+            estimatedFare = parseFloat((estimatedFare + peakAdjustment.fixedExtra + percentageAmount).toFixed(2));
+        }
         let discountAmount = 0;
         let finalFare = estimatedFare;
         if (couponInfo && estimatedFare >= 0) {
@@ -182,6 +189,12 @@ const createRide = async (userId, data) => {
     const perKmPrice = cityPricing.perKmPrice;
     const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
     let totalFare = baseFare + (perKmPrice * billableKm);
+    // NEW: Apply Peak Hour Adjustment
+    const peakAdjustment = await (0, peakHour_service_1.getPeakHourAdjustment)(data.cityCodeId, data.vehicleTypeId, new Date());
+    if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
+        const percentageAmount = (totalFare * peakAdjustment.percentageExtra) / 100;
+        totalFare = parseFloat((totalFare + peakAdjustment.fixedExtra + percentageAmount).toFixed(2));
+    }
     // NEW: Validate and apply Coupon Code
     let appliedCouponCode = null;
     let appliedDiscountAmount = 0;
@@ -301,6 +314,12 @@ const createManualRide = async (userId, data) => {
     const perKmPrice = cityPricing.perKmPrice;
     const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
     let totalFare = baseFare + (perKmPrice * billableKm);
+    // NEW: Apply Peak Hour Adjustment (using scheduled time)
+    const peakAdjustment = await (0, peakHour_service_1.getPeakHourAdjustment)(data.cityCodeId, data.vehicleTypeId, scheduledDate);
+    if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
+        const percentageAmount = (totalFare * peakAdjustment.percentageExtra) / 100;
+        totalFare = parseFloat((totalFare + peakAdjustment.fixedExtra + percentageAmount).toFixed(2));
+    }
     // NEW: Validate and apply Coupon Code
     let appliedCouponCode = null;
     let appliedDiscountAmount = 0;

@@ -10,9 +10,11 @@ const vendor_controller_1 = __importDefault(require("../../controllers/vendor/ve
 const partner_controller_1 = __importDefault(require("../../controllers/partner/partner.controller"));
 const agent_controller_1 = __importDefault(require("../../controllers/agent/agent.controller"));
 const agentCoupon_controller_1 = __importDefault(require("../../controllers/admin/agentCoupon.controller"));
+const peakHour_controller_1 = __importDefault(require("../../controllers/admin/peakHour.controller"));
 const corporate_controller_1 = __importDefault(require("../../controllers/corporate/corporate.controller"));
 const vehicle_controller_1 = __importDefault(require("../../controllers/vehicle/vehicle.controller"));
 const billing_controller_1 = __importDefault(require("../../controllers/billing/billing.controller"));
+const auditLog_controller_1 = __importDefault(require("../../controllers/audit/auditLog.controller"));
 const auth_middleware_1 = require("../../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 /* ===============================
@@ -27,6 +29,11 @@ router.post("/auth/login", auth_controller_1.default.loginAdmin);
 ================================ */
 // All management routes require authentication and ADMIN role
 router.use((0, auth_middleware_1.authMiddleware)(["ADMIN"]));
+// ============================================
+// AUDIT LOG MANAGEMENT
+// ============================================
+router.get("/audit-logs", auditLog_controller_1.default.getAuditLogs);
+router.get("/audit-logs/:id", auditLog_controller_1.default.getAuditLogById);
 // ============================================
 // VEHICLE TYPE MANAGEMENT
 // ============================================
@@ -49,6 +56,15 @@ router.post("/vehicle-pricing-groups", admin_controller_1.default.createPricingG
 router.get("/vehicle-pricing-groups", admin_controller_1.default.getPricingGroups);
 router.put("/vehicle-pricing-groups/:id", admin_controller_1.default.updatePricingGroup);
 router.delete("/vehicle-pricing-groups/:id", admin_controller_1.default.deletePricingGroup);
+// ============================================
+// PEAK HOUR CHARGE MANAGEMENT (NEW)
+// ============================================
+router.post("/peak-hour-charges", peakHour_controller_1.default.createPeakHourCharge);
+router.get("/peak-hour-charges", peakHour_controller_1.default.getAllPeakHourCharges);
+router.get("/peak-hour-charges/:id", peakHour_controller_1.default.getPeakHourChargeById);
+router.put("/peak-hour-charges/:id", peakHour_controller_1.default.updatePeakHourCharge);
+router.patch("/peak-hour-charges/:id", peakHour_controller_1.default.updatePeakHourCharge);
+router.delete("/peak-hour-charges/:id", peakHour_controller_1.default.deletePeakHourCharge);
 // ============================================
 // RIDE MANAGEMENT (Legacy)
 // ============================================

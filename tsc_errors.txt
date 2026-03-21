@@ -1,0 +1,2 @@
+src/controllers/admin/admin.controller.ts(739,99): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'CorporateSelect<DefaultArgs>'.
+src/controllers/admin/admin.controller.ts(741,206): error TS2339: Property 'name' does not exist on type '{ id: string; customId: string | null; companyName: string; contactPerson: string; phone: string; email: string; password: string; address: string | null; state: string | null; area: string | null; ... 34 more ...; updatedAt: Date; }'.
