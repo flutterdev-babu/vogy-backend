@@ -5,6 +5,7 @@ import * as vendorService from "../../services/vendor/vendor.service";
 import * as partnerService from "../../services/partner/partner.service";
 import * as adminService from "../../services/admin/admin.service";
 import { prisma } from "../../config/prisma";
+import { createAuditLog, getRequestContext } from "../../services/audit/auditLog.service";
 
 export default {
   /* ============================================
@@ -90,7 +91,9 @@ export default {
       if (!status) {
         return res.status(400).json({ success: false, message: "Status is required" });
       }
+      const oldVendor = await prisma.vendor.findUnique({ where: { id: req.params.id }, select: { status: true, companyName: true } });
       const vendor = await vendorService.updateVendorStatus(req.params.id, status, adminId);
+      createAuditLog({ userId: adminId, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "VENDOR", entityId: req.params.id, description: `Vendor status changed to ${status}`, oldData: oldVendor, newData: { status }, ...getRequestContext(req) });
       res.json({ success: true, data: vendor });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -104,7 +107,9 @@ export default {
       if (!status) {
         return res.status(400).json({ success: false, message: "Verification status is required" });
       }
+      const oldVendor = await prisma.vendor.findUnique({ where: { id: req.params.id }, select: { verificationStatus: true, companyName: true } });
       const vendor = await vendorService.updateVendorVerification(req.params.id, status, adminId);
+      createAuditLog({ userId: adminId, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "VENDOR", entityId: req.params.id, description: `Vendor verification changed to ${status}`, oldData: oldVendor, newData: { verificationStatus: status }, ...getRequestContext(req) });
       res.json({ success: true, data: vendor });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -113,7 +118,9 @@ export default {
 
   async updateVendorByAdmin(req: AuthedRequest, res: Response) {
     try {
+      const oldVendor = await prisma.vendor.findUnique({ where: { id: req.params.id }, select: { companyName: true, phone: true, email: true, status: true, verificationStatus: true } });
       const vendor = await vendorService.updateVendorByAdmin(req.params.id, req.body);
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "VENDOR", entityId: req.params.id, description: `Updated vendor details`, oldData: oldVendor, newData: req.body, ...getRequestContext(req) });
       res.json({ success: true, data: vendor });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -159,6 +166,7 @@ export default {
     try {
       const adminId = req.user?.id;
       const result = await vendorService.deleteVendor(req.params.id, adminId);
+      createAuditLog({ userId: adminId, userName: req.user?.name, userRole: req.user?.role, action: "DELETE", module: "VENDOR", entityId: req.params.id, description: `Deleted a vendor`, ...getRequestContext(req) });
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });

@@ -1,6 +1,8 @@
 import { Response } from "express";
 import { AuthedRequest } from "../../middleware/auth.middleware";
 import * as vehicleService from "../../services/vehicle/vehicle.service";
+import { prisma } from "../../config/prisma";
+import { createAuditLog, getRequestContext } from "../../services/audit/auditLog.service";
 
 export default {
   /* ============================================
@@ -10,6 +12,7 @@ export default {
   async createVehicle(req: AuthedRequest, res: Response) {
     try {
       const vehicle = await vehicleService.createVehicle(req.body);
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "VEHICLE", entityId: vehicle.id, description: `Created vehicle: ${req.body.registrationNumber || vehicle.id}`, newData: vehicle, ...getRequestContext(req) });
       res.status(201).json({ success: true, data: vehicle });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -47,10 +50,12 @@ export default {
   async updateVehicle(req: AuthedRequest, res: Response) {
     try {
       const adminId = req.user?.id;
+      const oldVehicle = await prisma.vehicle.findUnique({ where: { id: req.params.id }, select: { registrationNumber: true, vehicleModel: true, status: true, verificationStatus: true } });
       const vehicle = await vehicleService.updateVehicle(req.params.id, {
         ...req.body,
         updatedByAdminId: adminId
       });
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "VEHICLE", entityId: req.params.id, description: `Updated vehicle details`, oldData: oldVehicle, newData: req.body, ...getRequestContext(req) });
       res.json({ success: true, data: vehicle });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -64,7 +69,9 @@ export default {
       if (!status) {
         return res.status(400).json({ success: false, message: "Status is required" });
       }
+      const oldVehicle = await prisma.vehicle.findUnique({ where: { id: req.params.id }, select: { status: true, registrationNumber: true } });
       const vehicle = await vehicleService.updateVehicleStatus(req.params.id, status, adminId);
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "VEHICLE", entityId: req.params.id, description: `Vehicle status changed to ${status}`, oldData: oldVehicle, newData: { status }, ...getRequestContext(req) });
       res.json({ success: true, data: vehicle });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -78,7 +85,9 @@ export default {
       if (!status) {
         return res.status(400).json({ success: false, message: "Verification status is required" });
       }
+      const oldVehicle = await prisma.vehicle.findUnique({ where: { id: req.params.id }, select: { verificationStatus: true, registrationNumber: true } });
       const vehicle = await vehicleService.updateVehicleVerification(req.params.id, status, adminId);
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "VEHICLE", entityId: req.params.id, description: `Vehicle verification changed to ${status}`, oldData: oldVehicle, newData: { verificationStatus: status }, ...getRequestContext(req) });
       res.json({ success: true, data: vehicle });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -92,6 +101,7 @@ export default {
         return res.status(400).json({ success: false, message: "vendorId is required" });
       }
       const vehicle = await vehicleService.assignVehicleToVendor(req.params.id, vendorId);
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "ASSIGNMENT", module: "VEHICLE", entityId: req.params.id, description: `Assigned vehicle to vendor`, newData: { vendorId }, ...getRequestContext(req) });
       res.json({ success: true, data: vehicle });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -121,6 +131,7 @@ export default {
     try {
       const adminId = req.user?.id;
       const result = await vehicleService.deleteVehicle(req.params.id, adminId);
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "DELETE", module: "VEHICLE", entityId: req.params.id, description: `Deleted a vehicle`, ...getRequestContext(req) });
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });

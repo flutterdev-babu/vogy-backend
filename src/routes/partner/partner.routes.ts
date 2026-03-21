@@ -1,6 +1,7 @@
 import { Router } from "express";
 import partnerController from "../../controllers/partner/partner.controller";
 import rideController from "../../controllers/ride/ride.controller";
+import ticketController from "../../controllers/cc/ticket.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
 
 const router = Router();
@@ -59,6 +60,12 @@ router.get("/analytics", partnerController.getPartnerAnalytics);
 
 // Attachments
 router.post("/attachments", partnerController.createAttachment);
+
+// Support Tickets
+router.post("/support-tickets", ticketController.createCustomerTicket);
+router.get("/support-tickets", ticketController.getMyTickets);
+router.get("/support-tickets/:id", ticketController.getCustomerTicketById);
+router.post("/support-tickets/:id/messages", ticketController.addCustomerMessage);
 
 export default router;
 

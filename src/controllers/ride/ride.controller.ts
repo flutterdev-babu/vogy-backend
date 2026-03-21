@@ -15,6 +15,7 @@ import {
   validateCouponLogic,
   estimateFare,
 } from "../../services/ride/ride.service";
+import { createAuditLog, getRequestContext } from "../../services/audit/auditLog.service";
 
 export default {
   /* ============================================
@@ -89,6 +90,8 @@ export default {
         couponCode,
         expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
       });
+
+      createAuditLog({ userId, userName: req.user?.name, userRole: "USER", action: "CREATE", module: "RIDE", entityId: ride.id, description: `User created ride from ${pickupAddress} to ${dropAddress}`, ...getRequestContext(req) });
 
       return res.status(201).json({
         success: true,
@@ -318,6 +321,8 @@ export default {
 
       const ride = await cancelRide(id, userId);
 
+      createAuditLog({ userId, userName: req.user?.name, userRole: "USER", action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `User cancelled ride`, newData: { status: "CANCELLED" }, ...getRequestContext(req) });
+
       return res.status(200).json({
         success: true,
         message: "Ride cancelled successfully",
@@ -432,6 +437,8 @@ export default {
 
       const ride = await acceptRide(id, partnerId);
 
+      createAuditLog({ userId: partnerId, userName: req.user?.name, userRole: "PARTNER", action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Partner accepted ride`, newData: { status: "ACCEPTED", partnerId }, ...getRequestContext(req) });
+
       return res.status(200).json({
         success: true,
         message: "Ride accepted successfully",
@@ -503,6 +510,8 @@ export default {
         startingKm ? parseFloat(startingKm) : undefined,
         endingKm ? parseFloat(endingKm) : undefined
       );
+
+      createAuditLog({ userId: partnerId, userName: req.user?.name, userRole: "PARTNER", action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Partner updated ride to ${status}`, newData: { status }, ...getRequestContext(req) });
 
       return res.status(200).json({
         success: true,

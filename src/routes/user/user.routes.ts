@@ -1,5 +1,6 @@
 import { Router } from "express";
 import userController from "../../controllers/user/user.controller";
+import ticketController from "../../controllers/cc/ticket.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
 
 const router = Router();
@@ -44,5 +45,11 @@ router.put("/emergency-contacts", userController.updateEmergencyContacts);
 // Referral System
 router.get("/referral-code", userController.getReferralCode);
 router.post("/referral/apply", userController.applyReferralCode);
+
+// Support Tickets
+router.post("/support-tickets", ticketController.createCustomerTicket);
+router.get("/support-tickets", ticketController.getMyTickets);
+router.get("/support-tickets/:id", ticketController.getCustomerTicketById);
+router.post("/support-tickets/:id/messages", ticketController.addCustomerMessage);
 
 export default router;

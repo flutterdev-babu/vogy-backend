@@ -60,10 +60,36 @@ export const authMiddleware = (allowedRoles: string[] = []) => {
         return res.status(403).json({ success: false, message: "Forbidden" });
       }
 
-      req.user = { id: payload.id, role, account };
+      req.user = { id: payload.id, role, name: (account as any).name || (account as any).companyName || (account as any).contactPerson, account };
       next();
     } catch (err: any) {
       return res.status(401).json({ success: false, message: err.message || "Unauthorized" });
+    }
+  };
+};
+
+export const permissionMiddleware = (requiredPermission: string) => {
+  return async (req: AuthedRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user || req.user.role !== "ADMIN") {
+        return res.status(403).json({ success: false, message: "Forbidden: Admin access required" });
+      }
+
+      const admin = req.user.account;
+      
+      // SUPERADMIN has all permissions
+      if (admin.role === "SUPERADMIN") {
+        return next();
+      }
+
+      // Check for specific permission
+      if (admin.permissions && admin.permissions.includes(requiredPermission)) {
+        return next();
+      }
+
+      return res.status(403).json({ success: false, message: `Forbidden: Missing required permission: ${requiredPermission}` });
+    } catch (err: any) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
     }
   };
 };
