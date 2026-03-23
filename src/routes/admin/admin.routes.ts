@@ -246,4 +246,84 @@ router.get("/recent-activity", adminController.getRecentActivity);
 router.get("/analytics/cancellations", adminController.getCancellationAnalytics);
 router.get("/audit-timeline", adminController.getAuditTimeline);
 
+// ============================================
+// SETTLEMENT MANAGEMENT
+// ============================================
+router.get("/settlements/stats", permissionMiddleware("billing"), async (req, res) => {
+  try {
+    const { getSettlementStats } = require("../../services/admin/settlement.service");
+    const stats = await getSettlementStats();
+    res.json({ success: true, data: stats });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get("/settlements/partners", permissionMiddleware("billing"), async (req, res) => {
+  try {
+    const { getPartnerSettlements } = require("../../services/admin/settlement.service");
+    const data = await getPartnerSettlements();
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get("/settlements/vendors", permissionMiddleware("billing"), async (req, res) => {
+  try {
+    const { getVendorSettlements } = require("../../services/admin/settlement.service");
+    const data = await getVendorSettlements();
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================
+// FRAUD DETECTION
+// ============================================
+router.get("/fraud-alerts", permissionMiddleware("rides"), async (req, res) => {
+  try {
+    const { getFraudAlerts } = require("../../services/admin/fraud.service");
+    const data = await getFraudAlerts();
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================
+// BROADCAST NOTIFICATIONS
+// ============================================
+router.get("/broadcast/history", permissionMiddleware("config"), async (req, res) => {
+  try {
+    const { getBroadcastHistory } = require("../../services/admin/broadcast.service");
+    const data = await getBroadcastHistory();
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post("/broadcast/send", permissionMiddleware("config"), async (req: any, res) => {
+  try {
+    const { sendBroadcastNotification } = require("../../services/admin/broadcast.service");
+    const { title, body, imageUrl, targetAudience } = req.body;
+    if (!title || !body || !targetAudience) {
+      return res.status(400).json({ success: false, message: "title, body, and targetAudience are required" });
+    }
+    const result = await sendBroadcastNotification({
+      title,
+      body,
+      imageUrl,
+      targetAudience,
+      sentBy: req.user?.id,
+      sentByName: req.user?.name,
+    });
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 export default router;
