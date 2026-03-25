@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const partner_controller_1 = __importDefault(require("../../controllers/partner/partner.controller"));
 const ride_controller_1 = __importDefault(require("../../controllers/ride/ride.controller"));
+const ticket_controller_1 = __importDefault(require("../../controllers/cc/ticket.controller"));
 const auth_middleware_1 = require("../../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 /* ===============================
@@ -48,4 +49,9 @@ router.get("/earnings", partner_controller_1.default.getPartnerEarningsSummary);
 router.get("/analytics", partner_controller_1.default.getPartnerAnalytics);
 // Attachments
 router.post("/attachments", partner_controller_1.default.createAttachment);
+// Support Tickets
+router.post("/support-tickets", ticket_controller_1.default.createCustomerTicket);
+router.get("/support-tickets", ticket_controller_1.default.getMyTickets);
+router.get("/support-tickets/:id", ticket_controller_1.default.getCustomerTicketById);
+router.post("/support-tickets/:id/messages", ticket_controller_1.default.addCustomerMessage);
 exports.default = router;

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateRidePaymentStatusByAdmin = exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createAgentByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.updateAttachmentStatus = exports.getAttachmentById = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.updateUserByAdmin = exports.createUserByAdmin = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getActivePartnerLocations = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
+exports.getAuditTimeline = exports.getCancellationAnalytics = exports.updateRidePaymentStatusByAdmin = exports.getRecentActivity = exports.getEntityStatusOverview = exports.getRideAnalytics = exports.getRevenueAnalytics = exports.getAdminDashboard = exports.createManualRideByAdmin = exports.createAgentByAdmin = exports.createPartnerByAdmin = exports.createVendorByAdmin = exports.deleteAttachment = exports.updateAttachmentStatus = exports.getAttachmentById = exports.getAllAttachments = exports.createAttachment = exports.updateCityCode = exports.createCityCode = exports.getAllCityCodes = exports.updateCorporate = exports.getCorporateById = exports.getAllCorporates = exports.updateVendor = exports.getVendorById = exports.getAllVendors = exports.getUserById = exports.updateUserByAdmin = exports.createUserByAdmin = exports.getAllUsers = exports.updateUserUniqueOtpByAdmin = exports.verifyAttachmentByAdmin = exports.getRideOtpByAdmin = exports.updateRideStatusByAdmin = exports.getRideById = exports.getAllRides = exports.assignPartnerToRide = exports.getScheduledRides = exports.getActivePartnerLocations = exports.getPartnerById = exports.getAllPartners = exports.updatePricingConfig = exports.getPricingConfig = exports.deleteVehicleType = exports.updateVehicleType = exports.getVehicleTypeById = exports.getAllVehicleTypes = exports.createVehicleType = void 0;
 const prisma_1 = require("../../config/prisma");
 const generateUniqueOtp_1 = require("../../utils/generateUniqueOtp");
 const socket_service_1 = require("../socket/socket.service");
@@ -41,7 +41,6 @@ const ride_service_1 = require("../ride/ride.service");
 const vendorAuthService = __importStar(require("../auth/vendor.auth.service"));
 const partnerAuthService = __importStar(require("../auth/partner.auth.service"));
 const city_service_1 = require("../city/city.service");
-const auditLog_service_1 = require("../audit/auditLog.service");
 // Haversine formula for distance calculation in kilometers
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radius of the earth in km
@@ -79,14 +78,6 @@ const createVehicleType = async (data) => {
             baseFare: data.baseFare ?? null,
         },
     });
-    // Audit log
-    (0, auditLog_service_1.createAuditLog)({
-        action: "CREATE",
-        module: "VEHICLE_TYPE",
-        entityId: vehicleType.id,
-        description: `Created vehicle type: ${vehicleType.displayName} (${vehicleType.name})`,
-        newData: vehicleType,
-    });
     return vehicleType;
 };
 exports.createVehicleType = createVehicleType;
@@ -123,15 +114,6 @@ const updateVehicleType = async (id, data) => {
             ...(data.isActive !== undefined && { isActive: data.isActive }),
         },
     });
-    // Audit log
-    (0, auditLog_service_1.createAuditLog)({
-        action: "UPDATE",
-        module: "VEHICLE_TYPE",
-        entityId: id,
-        description: `Updated vehicle type: ${vehicleType.displayName}`,
-        oldData: vehicleType,
-        newData: updated,
-    });
     return updated;
 };
 exports.updateVehicleType = updateVehicleType;
@@ -144,14 +126,6 @@ const deleteVehicleType = async (id) => {
     }
     await prisma_1.prisma.vehicleType.delete({
         where: { id },
-    });
-    // Audit log
-    (0, auditLog_service_1.createAuditLog)({
-        action: "DELETE",
-        module: "VEHICLE_TYPE",
-        entityId: id,
-        description: `Deleted vehicle type: ${vehicleType.displayName} (${vehicleType.name})`,
-        oldData: vehicleType,
     });
     return { message: "Vehicle type deleted successfully" };
 };
@@ -194,14 +168,6 @@ const updatePricingConfig = async (data) => {
             appCommission: data.appCommission,
             isActive: true,
         },
-    });
-    // Audit log
-    (0, auditLog_service_1.createAuditLog)({
-        action: "UPDATE",
-        module: "PRICING",
-        entityId: config.id,
-        description: `Updated pricing config: Rider ${data.riderPercentage}%, Commission ${data.appCommission}%`,
-        newData: config,
     });
     return config;
 };
@@ -588,14 +554,6 @@ const updateRideStatusByAdmin = async (rideId, status, userOtp, startingKm, endi
             partner: true,
         }
     });
-    // Audit log
-    (0, auditLog_service_1.createAuditLog)({
-        action: "STATUS_CHANGE",
-        module: "RIDE",
-        entityId: rideId,
-        description: `Admin updated ride status to ${status}`,
-        newData: { status, startingKm, endingKm },
-    });
     return ride;
 };
 exports.updateRideStatusByAdmin = updateRideStatusByAdmin;
@@ -620,16 +578,6 @@ const verifyAttachmentByAdmin = async (attachmentId, verificationStatus, adminId
             verificationStatus,
             ...(adminId && { updatedByAdminId: adminId })
         },
-    });
-    // Audit log
-    (0, auditLog_service_1.createAuditLog)({
-        userId: adminId,
-        action: "STATUS_CHANGE",
-        module: "ATTACHMENT",
-        entityId: attachmentId,
-        description: `Attachment verification changed to ${verificationStatus}`,
-        oldData: oldAttachment ? { verificationStatus: oldAttachment.verificationStatus } : null,
-        newData: { verificationStatus },
     });
     return attachment;
 };
@@ -1507,3 +1455,52 @@ const updateRidePaymentStatusByAdmin = async (rideId, paymentStatus, paymentMode
     return ride;
 };
 exports.updateRidePaymentStatusByAdmin = updateRidePaymentStatusByAdmin;
+/* ============================================
+    ADMIN ANALYTICS (EXPORTS FOR DASHBOARD)
+============================================ */
+const getCancellationAnalytics = async () => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const cancelledRides = await prisma_1.prisma.ride.findMany({
+        where: {
+            status: "CANCELLED",
+            createdAt: { gte: sevenDaysAgo },
+        },
+        select: {
+            createdAt: true,
+            rideType: true,
+        },
+        orderBy: { createdAt: "asc" },
+    });
+    const analytics = {};
+    cancelledRides.forEach((ride) => {
+        const dateKey = ride.createdAt.toISOString().split("T")[0];
+        if (!analytics[dateKey]) {
+            analytics[dateKey] = { count: 0, byType: {} };
+        }
+        analytics[dateKey].count += 1;
+        const type = ride.rideType || "UNKNOWN";
+        analytics[dateKey].byType[type] = (analytics[dateKey].byType[type] || 0) + 1;
+    });
+    return Object.entries(analytics).map(([date, data]) => ({
+        date,
+        ...data,
+    }));
+};
+exports.getCancellationAnalytics = getCancellationAnalytics;
+const getAuditTimeline = async (limit = 10) => {
+    return await prisma_1.prisma.auditLog.findMany({
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        select: {
+            id: true,
+            userName: true,
+            userRole: true,
+            action: true,
+            module: true,
+            description: true,
+            createdAt: true,
+        },
+    });
+};
+exports.getAuditTimeline = getAuditTimeline;

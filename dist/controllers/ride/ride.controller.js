@@ -1,6 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const prisma_1 = require("../../config/prisma");
 const ride_service_1 = require("../../services/ride/ride.service");
+const auditLog_service_1 = require("../../services/audit/auditLog.service");
+const generateUniqueOtp_1 = require("../../utils/generateUniqueOtp");
 exports.default = {
     /* ============================================
         USER RIDE CONTROLLERS
@@ -51,6 +54,7 @@ exports.default = {
                 couponCode,
                 expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
             });
+            (0, auditLog_service_1.createAuditLog)({ userId, userName: req.user?.name, userRole: "USER", action: "CREATE", module: "RIDE", entityId: ride.id, description: `User created ride from ${pickupAddress} to ${dropAddress}`, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(201).json({
                 success: true,
                 message: "Ride created successfully",
@@ -65,15 +69,42 @@ exports.default = {
         }
     },
     // Create a manual/scheduled ride request
-    createManualRide: async (req, res) => {
+    handleManualBooking: async (req, res) => {
         try {
-            const userId = req.user?.id;
+            console.log("🚀 Entering handleManualBooking controller");
+            let userId = req.user?.id;
             if (!userId) {
                 return res.status(401).json({
                     success: false,
                     message: "Unauthorized",
                 });
             }
+            // If the caller is an ADMIN (or Agent/Vendor), they are booking on behalf of a user
+            if (req.user?.role === "ADMIN" || req.user?.role === "AGENT" || req.user?.role === "PARTNER" || req.user?.role === "VENDOR") {
+                const { userPhone, userName, email } = req.body;
+                if (!userPhone || !userName) {
+                    return res.status(400).json({ success: false, message: "userPhone and userName are required for manual bookings" });
+                }
+                console.log(`👤 Booking on behalf of user: ${userPhone} (${userName})`);
+                let user = await prisma_1.prisma.user.findUnique({ where: { phone: userPhone } });
+                if (!user) {
+                    console.log("🆕 User not found, creating new user...");
+                    const uniqueOtp = await (0, generateUniqueOtp_1.generateUnique4DigitOtp)();
+                    user = await prisma_1.prisma.user.create({
+                        data: { phone: userPhone, name: userName, email: email || null, uniqueOtp }
+                    });
+                    console.log(`✅ New user created: ${user.id}`);
+                }
+                else if (!user.name || user.name === "User") {
+                    console.log("📝 Updating existing user name...");
+                    user = await prisma_1.prisma.user.update({
+                        where: { id: user.id },
+                        data: { name: userName, ...(email ? { email } : {}) }
+                    });
+                }
+                userId = user.id;
+            }
+            console.log(`📍 Calling createManualRide service for userId: ${userId}`);
             const { vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, scheduledDateTime, bookingNotes, cityCodeId, // NEW
             rideType, altMobile, paymentMode, corporateId, agentCode, couponCode, expectedFare, } = req.body;
             // Validate required fields
@@ -113,6 +144,7 @@ exports.default = {
                 couponCode,
                 expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
             });
+            console.log(`✨ Ride created successfully: ${ride.id}`);
             return res.status(201).json({
                 success: true,
                 message: "Scheduled ride booked successfully",
@@ -239,6 +271,7 @@ exports.default = {
                 });
             }
             const ride = await (0, ride_service_1.cancelRide)(id, userId);
+            (0, auditLog_service_1.createAuditLog)({ userId, userName: req.user?.name, userRole: "USER", action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `User cancelled ride`, newData: { status: "CANCELLED" }, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(200).json({
                 success: true,
                 message: "Ride cancelled successfully",
@@ -335,6 +368,7 @@ exports.default = {
                 });
             }
             const ride = await (0, ride_service_1.acceptRide)(id, partnerId);
+            (0, auditLog_service_1.createAuditLog)({ userId: partnerId, userName: req.user?.name, userRole: "PARTNER", action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Partner accepted ride`, newData: { status: "ACCEPTED", partnerId }, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(200).json({
                 success: true,
                 message: "Ride accepted successfully",
@@ -393,6 +427,7 @@ exports.default = {
                 });
             }
             const ride = await (0, ride_service_1.updateRideStatus)(id, partnerId, status, userOtp, startingKm ? parseFloat(startingKm) : undefined, endingKm ? parseFloat(endingKm) : undefined);
+            (0, auditLog_service_1.createAuditLog)({ userId: partnerId, userName: req.user?.name, userRole: "PARTNER", action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Partner updated ride to ${status}`, newData: { status }, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(200).json({
                 success: true,
                 message: "Ride status updated successfully",

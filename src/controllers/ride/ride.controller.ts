@@ -16,6 +16,7 @@ import {
   estimateFare,
 } from "../../services/ride/ride.service";
 import { createAuditLog, getRequestContext } from "../../services/audit/auditLog.service";
+import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
 
 export default {
   /* ============================================
@@ -109,7 +110,8 @@ export default {
   // Create a manual/scheduled ride request
   createManualRide: async (req: AuthedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      console.log("🚀 Entering createManualRide controller");
+      let userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
@@ -117,6 +119,35 @@ export default {
           message: "Unauthorized",
         });
       }
+
+      // If the caller is an ADMIN (or Agent/Vendor), they are booking on behalf of a user
+      if (req.user?.role === "ADMIN" || req.user?.role === "AGENT" || req.user?.role === "PARTNER" || req.user?.role === "VENDOR") {
+        const { userPhone, userName, email } = req.body;
+        if (!userPhone || !userName) {
+          return res.status(400).json({ success: false, message: "userPhone and userName are required for manual bookings" });
+        }
+        
+        console.log(`👤 Booking on behalf of user: ${userPhone} (${userName})`);
+        let user = await prisma.user.findUnique({ where: { phone: userPhone } });
+        if (!user) {
+          console.log("🆕 User not found, creating new user...");
+          const uniqueOtp = await generateUnique4DigitOtp();
+          user = await prisma.user.create({
+            data: { phone: userPhone, name: userName, email: email || null, uniqueOtp }
+          });
+          console.log(`✅ New user created: ${user.id}`);
+        } else if (!user.name || user.name === "User") {
+          console.log("📝 Updating existing user name...");
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { name: userName, ...(email ? { email } : {}) }
+          });
+        }
+        userId = user.id;
+      }
+
+      console.log(`📍 Calling createManualRide service for userId: ${userId}`);
+
 
       const {
         vehicleTypeId,
@@ -180,6 +211,7 @@ export default {
         expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
       });
 
+      console.log(`✨ Ride created successfully: ${ride.id}`);
       return res.status(201).json({
         success: true,
         message: "Scheduled ride booked successfully",

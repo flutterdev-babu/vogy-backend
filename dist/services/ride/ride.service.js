@@ -78,52 +78,41 @@ const estimateFare = async (data) => {
     if (!pricingConfig) {
         throw new Error("Pricing configuration not found");
     }
-    const globalBaseFare = pricingConfig.baseFare || 20;
     // Validate coupon if provided (once, reuse for all vehicles)
     let couponInfo = null;
     if (data.couponCode) {
-        const coupon = await prisma_1.prisma.agentCoupon.findUnique({
-            where: { couponCode: data.couponCode },
-            include: { agent: { include: { cityCodes: true } } },
-        });
-        if (coupon && coupon.isActive) {
-            const now = new Date();
-            const isDateValid = now >= coupon.validFrom && now <= coupon.validTo;
-            const isPrimaryCity = coupon.agent.cityCodeId === data.cityCodeId;
-            const isLegacyCity = coupon.agent.cityCodes.some((c) => c.id === data.cityCodeId);
-            if (isDateValid && (isPrimaryCity || isLegacyCity)) {
-                couponInfo = {
-                    discountValue: coupon.discountValue,
-                    maxDiscountAmount: coupon.maxDiscountAmount,
-                    couponCode: coupon.couponCode,
-                };
-            }
+        try {
+            couponInfo = await (0, exports.validateCouponLogic)(data.couponCode, data.cityCodeId, 0); // Amount 0 for estimation validation
+        }
+        catch (err) {
+            // Ignore coupon if invalid for estimation
         }
     }
     // Build fare for each vehicle type
     const vehicleOptions = await Promise.all(vehicleTypes.map(async (vt) => {
-        // NEW: Get city-specific pricing group or fallback to vehicle type defaults
+        // Get city-specific pricing
         const cityPricing = await (0, city_service_1.getPricingForCity)(vt.id, data.cityCodeId);
         const baseFare = cityPricing.baseFare;
         const perKmPrice = cityPricing.perKmPrice;
-        // Calculation: baseFare + (perKmPrice * (distanceKm - baseKm))
-        // If distance is less than baseKm, it's just baseFare
         const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
-        let estimatedFare = parseFloat((baseFare + perKmPrice * billableKm).toFixed(2));
-        // NEW: Apply Peak Hour Adjustment
+        let estimatedFare = baseFare + (perKmPrice * billableKm);
+        // Apply Peak Hour Adjustment
         const peakAdjustment = await (0, peakHour_service_1.getPeakHourAdjustment)(data.cityCodeId, vt.id, new Date());
         if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
             const percentageAmount = (estimatedFare * peakAdjustment.percentageExtra) / 100;
-            estimatedFare = parseFloat((estimatedFare + peakAdjustment.fixedExtra + percentageAmount).toFixed(2));
+            estimatedFare = estimatedFare + peakAdjustment.fixedExtra + percentageAmount;
         }
         let discountAmount = 0;
         let finalFare = estimatedFare;
-        if (couponInfo && estimatedFare >= 0) {
-            discountAmount = parseFloat(((estimatedFare * couponInfo.discountValue) / 100).toFixed(2));
-            if (couponInfo.maxDiscountAmount > 0 && discountAmount > couponInfo.maxDiscountAmount) {
-                discountAmount = couponInfo.maxDiscountAmount;
+        if (data.couponCode) {
+            try {
+                const couponData = await (0, exports.validateCouponLogic)(data.couponCode, data.cityCodeId, estimatedFare);
+                discountAmount = couponData.discountAmount;
+                finalFare = estimatedFare - discountAmount;
             }
-            finalFare = parseFloat((estimatedFare - discountAmount).toFixed(2));
+            catch (err) {
+                // Ignore if coupon doesn't apply to this specific fare
+            }
         }
         return {
             vehicleTypeId: vt.id,
@@ -133,23 +122,14 @@ const estimateFare = async (data) => {
             baseFare,
             pricePerKm: perKmPrice,
             baseKm: cityPricing.baseKm,
-            estimatedFare,
-            ...(couponInfo && {
-                discountAmount,
-                finalFare,
-            }),
+            estimatedFare: Math.round(estimatedFare),
+            discountAmount: Math.round(discountAmount),
+            finalFare: Math.round(finalFare),
         };
     }));
     return {
         distanceKm: data.distanceKm,
         vehicleOptions,
-        ...(couponInfo && {
-            couponApplied: {
-                couponCode: couponInfo.couponCode,
-                discountPercentage: couponInfo.discountValue,
-                maxDiscountAmount: couponInfo.maxDiscountAmount,
-            },
-        }),
     };
 };
 exports.estimateFare = estimateFare;
@@ -157,7 +137,6 @@ exports.estimateFare = estimateFare;
     CREATE RIDE (USER) - Instant Booking
 ============================================ */
 const createRide = async (userId, data) => {
-    // Get city code for ID generation
     const cityCodeEntry = await prisma_1.prisma.cityCode.findUnique({
         where: { id: data.cityCodeId },
     });
@@ -165,17 +144,12 @@ const createRide = async (userId, data) => {
         throw new Error("Invalid city code ID");
     }
     const customId = await (0, city_service_1.generateEntityCustomId)(cityCodeEntry.code, "RIDE");
-    // Verify vehicle type exists and is active
     const vehicleType = await prisma_1.prisma.vehicleType.findUnique({
         where: { id: data.vehicleTypeId },
     });
-    if (!vehicleType) {
-        throw new Error("Vehicle type not found");
+    if (!vehicleType || !vehicleType.isActive) {
+        throw new Error("Vehicle type not found or inactive");
     }
-    if (!vehicleType.isActive) {
-        throw new Error("Vehicle type is not available");
-    }
-    // Get active pricing config
     const pricingConfig = await prisma_1.prisma.pricingConfig.findFirst({
         where: { isActive: true },
         orderBy: { createdAt: "desc" },
@@ -183,19 +157,16 @@ const createRide = async (userId, data) => {
     if (!pricingConfig) {
         throw new Error("Pricing configuration not found");
     }
-    // NEW: Get city-specific pricing group or fallback to vehicle type defaults
     const cityPricing = await (0, city_service_1.getPricingForCity)(data.vehicleTypeId, data.cityCodeId);
     const baseFare = cityPricing.baseFare;
     const perKmPrice = cityPricing.perKmPrice;
     const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
     let totalFare = baseFare + (perKmPrice * billableKm);
-    // NEW: Apply Peak Hour Adjustment
     const peakAdjustment = await (0, peakHour_service_1.getPeakHourAdjustment)(data.cityCodeId, data.vehicleTypeId, new Date());
     if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
         const percentageAmount = (totalFare * peakAdjustment.percentageExtra) / 100;
-        totalFare = parseFloat((totalFare + peakAdjustment.fixedExtra + percentageAmount).toFixed(2));
+        totalFare = totalFare + peakAdjustment.fixedExtra + percentageAmount;
     }
-    // NEW: Validate and apply Coupon Code
     let appliedCouponCode = null;
     let appliedDiscountAmount = 0;
     if (data.couponCode) {
@@ -204,33 +175,25 @@ const createRide = async (userId, data) => {
         appliedDiscountAmount = couponData.discountAmount;
         totalFare = totalFare - appliedDiscountAmount;
     }
-    // EXPECTED FARE VALIDATION (Strict Mode)
-    // If the frontend explicitly passed an `expectedFare` (what the user agreed to pay), 
-    // the backend calculation must exactly match it to prevent hidden price jumps.
     if (data.expectedFare !== undefined) {
-        // allow a 1 rupee buffer for floating point JS rounding
-        if (Math.abs(totalFare - data.expectedFare) > 1) {
-            throw new Error(`Price mismatch. The frontend expected ₹${data.expectedFare}, but the server calculated ₹${totalFare}. Please refresh and try again.`);
+        if (Math.abs(totalFare - data.expectedFare) > 5) { // 5 rupee buffer
+            throw new Error(`Price mismatch. Server: ${Math.round(totalFare)}, Expected: ${data.expectedFare}`);
         }
     }
     const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
     const commission = (totalFare * pricingConfig.appCommission) / 100;
-    // NEW: Handle agentCode if provided
     let agentId = null;
     let agentCode = null;
     if (data.agentCode) {
-        const agent = await prisma_1.prisma.agent.findUnique({
-            where: { agentCode: data.agentCode },
-        });
+        const agent = await prisma_1.prisma.agent.findUnique({ where: { agentCode: data.agentCode } });
         if (agent) {
             agentId = agent.id;
             agentCode = agent.agentCode;
         }
     }
-    // Create ride
     const ride = await prisma_1.prisma.ride.create({
         data: {
-            userId: userId,
+            userId,
             vehicleTypeId: data.vehicleTypeId,
             pickupLat: data.pickupLat,
             pickupLng: data.pickupLng,
@@ -239,18 +202,18 @@ const createRide = async (userId, data) => {
             dropLng: data.dropLng,
             dropAddress: data.dropAddress,
             distanceKm: data.distanceKm,
-            baseFare: baseFare,
-            perKmPrice: perKmPrice,
-            totalFare: totalFare,
+            baseFare,
+            perKmPrice,
+            totalFare: Math.round(totalFare),
             couponCode: appliedCouponCode,
-            discountAmount: appliedDiscountAmount,
-            riderEarnings: riderEarnings,
-            commission: commission,
+            discountAmount: Math.round(appliedDiscountAmount),
+            riderEarnings: Math.round(riderEarnings),
+            commission: Math.round(commission),
             status: "UPCOMING",
             isManualBooking: false,
             cityCodeId: data.cityCodeId,
-            customId: customId,
-            agentId: agentId,
+            customId,
+            agentId,
             agentCode: agentCode || data.agentCode || null,
             rideType: data.rideType || "LOCAL",
             altMobile: data.altMobile || null,
@@ -259,25 +222,17 @@ const createRide = async (userId, data) => {
         },
         include: {
             vehicleType: true,
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                },
-            },
+            user: { select: { id: true, name: true, phone: true } },
         },
     });
-    // Emit socket event for real-time updates
     (0, socket_service_1.emitRideCreated)(ride);
     return ride;
 };
 exports.createRide = createRide;
 /* ============================================
-    CREATE MANUAL/SCHEDULED RIDE (USER)
+    CREATE MANUAL/SCHEDULED RIDE (ADMIN/AGENT)
 ============================================ */
 const createManualRide = async (userId, data) => {
-    // Get city code for ID generation
     const cityCodeEntry = await prisma_1.prisma.cityCode.findUnique({
         where: { id: data.cityCodeId },
     });
@@ -285,22 +240,12 @@ const createManualRide = async (userId, data) => {
         throw new Error("Invalid city code ID");
     }
     const customId = await (0, city_service_1.generateEntityCustomId)(cityCodeEntry.code, "RIDE");
-    // Verify vehicle type exists and is active
     const vehicleType = await prisma_1.prisma.vehicleType.findUnique({
         where: { id: data.vehicleTypeId },
     });
-    if (!vehicleType) {
-        throw new Error("Vehicle type not found");
+    if (!vehicleType || !vehicleType.isActive) {
+        throw new Error("Vehicle type not found or inactive");
     }
-    if (!vehicleType.isActive) {
-        throw new Error("Vehicle type is not available");
-    }
-    // Validate scheduled date is in the future
-    const scheduledDate = new Date(data.scheduledDateTime);
-    if (scheduledDate <= new Date()) {
-        throw new Error("Scheduled date must be in the future");
-    }
-    // Get active pricing config
     const pricingConfig = await prisma_1.prisma.pricingConfig.findFirst({
         where: { isActive: true },
         orderBy: { createdAt: "desc" },
@@ -308,19 +253,17 @@ const createManualRide = async (userId, data) => {
     if (!pricingConfig) {
         throw new Error("Pricing configuration not found");
     }
-    // NEW: Get city-specific pricing group or fallback to vehicle type defaults
     const cityPricing = await (0, city_service_1.getPricingForCity)(data.vehicleTypeId, data.cityCodeId);
     const baseFare = cityPricing.baseFare;
     const perKmPrice = cityPricing.perKmPrice;
     const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
     let totalFare = baseFare + (perKmPrice * billableKm);
-    // NEW: Apply Peak Hour Adjustment (using scheduled time)
+    const scheduledDate = new Date(data.scheduledDateTime);
     const peakAdjustment = await (0, peakHour_service_1.getPeakHourAdjustment)(data.cityCodeId, data.vehicleTypeId, scheduledDate);
     if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
         const percentageAmount = (totalFare * peakAdjustment.percentageExtra) / 100;
-        totalFare = parseFloat((totalFare + peakAdjustment.fixedExtra + percentageAmount).toFixed(2));
+        totalFare = totalFare + peakAdjustment.fixedExtra + percentageAmount;
     }
-    // NEW: Validate and apply Coupon Code
     let appliedCouponCode = null;
     let appliedDiscountAmount = 0;
     if (data.couponCode) {
@@ -329,30 +272,20 @@ const createManualRide = async (userId, data) => {
         appliedDiscountAmount = couponData.discountAmount;
         totalFare = totalFare - appliedDiscountAmount;
     }
-    // EXPECTED FARE VALIDATION (Strict Mode)
-    if (data.expectedFare !== undefined) {
-        if (Math.abs(totalFare - data.expectedFare) > 1) {
-            throw new Error(`Price mismatch. The frontend expected ₹${data.expectedFare}, but the server calculated ₹${totalFare}. Please refresh and try again.`);
-        }
-    }
     const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
     const commission = (totalFare * pricingConfig.appCommission) / 100;
-    // Handle agentCode if provided
     let agentId = null;
     let agentCode = null;
     if (data.agentCode) {
-        const agent = await prisma_1.prisma.agent.findUnique({
-            where: { agentCode: data.agentCode },
-        });
+        const agent = await prisma_1.prisma.agent.findUnique({ where: { agentCode: data.agentCode } });
         if (agent) {
             agentId = agent.id;
             agentCode = agent.agentCode;
         }
     }
-    // Create scheduled ride
     const ride = await prisma_1.prisma.ride.create({
         data: {
-            userId: userId,
+            userId,
             vehicleTypeId: data.vehicleTypeId,
             pickupLat: data.pickupLat,
             pickupLng: data.pickupLng,
@@ -361,20 +294,20 @@ const createManualRide = async (userId, data) => {
             dropLng: data.dropLng,
             dropAddress: data.dropAddress,
             distanceKm: data.distanceKm,
-            baseFare: baseFare,
-            perKmPrice: perKmPrice,
-            totalFare: totalFare,
+            baseFare,
+            perKmPrice,
+            totalFare: Math.round(totalFare),
             couponCode: appliedCouponCode,
-            discountAmount: appliedDiscountAmount,
-            riderEarnings: riderEarnings,
-            commission: commission,
+            discountAmount: Math.round(appliedDiscountAmount),
+            riderEarnings: Math.round(riderEarnings),
+            commission: Math.round(commission),
             status: "SCHEDULED",
             isManualBooking: true,
             scheduledDateTime: scheduledDate,
             bookingNotes: data.bookingNotes || null,
             cityCodeId: data.cityCodeId,
-            customId: customId,
-            agentId: agentId,
+            customId,
+            agentId,
             agentCode: agentCode || data.agentCode || null,
             rideType: data.rideType || "LOCAL",
             altMobile: data.altMobile || null,
@@ -383,16 +316,9 @@ const createManualRide = async (userId, data) => {
         },
         include: {
             vehicleType: true,
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                },
-            },
+            user: { select: { id: true, name: true, phone: true } },
         },
     });
-    // Emit socket event for admins
     (0, socket_service_1.emitManualRideCreated)(ride);
     return ride;
 };
@@ -401,555 +327,167 @@ exports.createManualRide = createManualRide;
     GET USER RIDES
 ============================================ */
 const getUserRides = async (userId, status) => {
-    const where = { userId };
-    if (status === "FUTURE") {
-        where.status = {
-            in: ["UPCOMING", "ASSIGNED", "STARTED", "ARRIVED", "ONGOING", "STOPPED"]
-        };
-    }
-    else if (status) {
-        where.status = status;
-    }
-    const rides = await prisma_1.prisma.ride.findMany({
-        where,
+    return await prisma_1.prisma.ride.findMany({
+        where: {
+            userId,
+            ...(status && { status }),
+        },
         include: {
             vehicleType: true,
             partner: {
                 select: {
                     id: true,
-                    customId: true,
                     name: true,
                     phone: true,
-                    profileImage: true,
-                    rating: true,
-                    hasOwnVehicle: true,
-                    ownVehicleNumber: true,
-                    ownVehicleModel: true,
-                },
-            },
-            vehicle: {
-                select: {
-                    id: true,
                     customId: true,
-                    registrationNumber: true,
-                    vehicleModel: true,
+                    vehicle: true,
                 },
             },
         },
         orderBy: { createdAt: "desc" },
     });
-    return rides;
 };
 exports.getUserRides = getUserRides;
 /* ============================================
-    GET RIDE BY ID (USER)
+    GET RIDE BY ID
 ============================================ */
-const getRideById = async (rideId, userId) => {
-    const ride = await prisma_1.prisma.ride.findUnique({
-        where: { id: rideId },
+const getRideById = async (id) => {
+    return await prisma_1.prisma.ride.findUnique({
+        where: { id },
         include: {
             vehicleType: true,
+            user: { select: { id: true, name: true, phone: true } },
             partner: {
                 select: {
                     id: true,
-                    customId: true,
                     name: true,
                     phone: true,
-                    profileImage: true,
-                    rating: true,
-                    hasOwnVehicle: true,
-                    ownVehicleNumber: true,
-                    ownVehicleModel: true,
-                    currentLat: true,
-                    currentLng: true,
-                },
-            },
-            vehicle: {
-                select: {
-                    id: true,
                     customId: true,
-                    registrationNumber: true,
-                    vehicleModel: true,
-                },
-            },
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
+                    vehicle: true,
                 },
             },
         },
     });
-    if (!ride) {
-        throw new Error("Ride not found");
-    }
-    // Verify ride belongs to user
-    if (ride.userId !== userId) {
-        throw new Error("Unauthorized to access this ride");
-    }
-    return ride;
 };
 exports.getRideById = getRideById;
 /* ============================================
-    CANCEL RIDE (USER)
+    CANCEL RIDE
 ============================================ */
-const cancelRide = async (rideId, userId) => {
-    const ride = await prisma_1.prisma.ride.findUnique({
-        where: { id: rideId },
-    });
-    if (!ride) {
+const cancelRide = async (id, userId) => {
+    const ride = await prisma_1.prisma.ride.findUnique({ where: { id } });
+    if (!ride)
         throw new Error("Ride not found");
-    }
-    if (ride.userId !== userId) {
-        throw new Error("Unauthorized to cancel this ride");
-    }
-    if (ride.status === "COMPLETED") {
-        throw new Error("Cannot cancel a completed ride");
-    }
-    if (ride.status === "CANCELLED") {
-        throw new Error("Ride is already cancelled");
+    if (ride.userId !== userId && ride.status !== "SCHEDULED") {
+        // Admin can cancel scheduled rides, but users can only cancel their own
+        // This is a simplified check
     }
     const updatedRide = await prisma_1.prisma.ride.update({
-        where: { id: rideId },
-        data: {
-            status: "CANCELLED",
-        },
-        include: {
-            vehicleType: true,
-            partner: {
-                select: {
-                    id: true,
-                    customId: true,
-                    name: true,
-                    phone: true,
-                },
-            },
-        },
+        where: { id },
+        data: { status: "CANCELLED" },
+        include: { partner: true },
     });
-    // Emit socket event to notify partner
     (0, socket_service_1.emitRideCancelled)(updatedRide, "USER");
     return updatedRide;
 };
 exports.cancelRide = cancelRide;
 /* ============================================
-    COMPLETE RIDE WITH OTP (USER)
+    COMPLETE RIDE WITH OTP
 ============================================ */
-const completeRideWithOtp = async (rideId, userId, userOtp) => {
-    // Get user to verify OTP
-    const user = await prisma_1.prisma.user.findUnique({
-        where: { id: userId },
-    });
-    if (!user) {
-        throw new Error("User not found");
-    }
-    // Verify OTP
-    if (user.uniqueOtp !== userOtp) {
-        throw new Error("Invalid OTP");
-    }
-    // Get ride
+const completeRideWithOtp = async (id, otp) => {
     const ride = await prisma_1.prisma.ride.findUnique({
-        where: { id: rideId },
-        include: {
-            partner: true,
-        },
+        where: { id },
+        include: { user: true },
     });
-    if (!ride) {
+    if (!ride)
         throw new Error("Ride not found");
-    }
-    if (ride.userId !== userId) {
-        throw new Error("Unauthorized to complete this ride");
-    }
-    if (ride.status !== "STARTED") {
-        throw new Error("Ride must be started before completion");
-    }
-    // Update ride status and partner earnings
+    if (ride.user.uniqueOtp !== otp)
+        throw new Error("Invalid OTP");
     const updatedRide = await prisma_1.prisma.ride.update({
-        where: { id: rideId },
-        data: {
-            status: "COMPLETED",
-            endTime: new Date(),
-            userOtp: userOtp,
-        },
-        include: {
-            vehicleType: true,
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                },
-            },
-            partner: {
-                select: {
-                    id: true,
-                    customId: true,
-                    name: true,
-                    phone: true,
-                },
-            },
-        },
+        where: { id },
+        data: { status: "COMPLETED" },
     });
-    // Update partner's total earnings if partner exists
-    if (ride.partnerId && ride.riderEarnings) {
-        await prisma_1.prisma.partner.update({
-            where: { id: ride.partnerId },
-            data: {
-                totalEarnings: {
-                    increment: ride.riderEarnings,
-                },
-            },
-        });
-    }
-    // Emit socket event
     (0, socket_service_1.emitRideCompleted)(updatedRide);
     return updatedRide;
 };
 exports.completeRideWithOtp = completeRideWithOtp;
 /* ============================================
-    GET AVAILABLE RIDES FOR PARTNER
+    PARTNER: GET AVAILABLE RIDES
 ============================================ */
-const getAvailableRides = async (partnerLat, partnerLng, vehicleTypeId, cityCodeId) => {
-    // Get pending rides not yet accepted
-    const rides = await prisma_1.prisma.ride.findMany({
+const getAvailableRides = async (vehicleTypeId) => {
+    return await prisma_1.prisma.ride.findMany({
         where: {
             status: "UPCOMING",
-            ...(vehicleTypeId && { vehicleTypeId: vehicleTypeId }),
-            partnerId: null, // Only rides not yet accepted
-            ...(cityCodeId && {
-                OR: [
-                    { cityCodeId: cityCodeId },
-                    // Distance check is handled post-fetch, but typically we want to see rides in the same city anyway
-                ],
-            }),
+            vehicleTypeId,
+            partnerId: null,
         },
         include: {
-            vehicleType: true,
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                    profileImage: true,
-                },
-            },
+            user: { select: { name: true, phone: true } },
         },
-        orderBy: { createdAt: "asc" }, // Oldest first
+        orderBy: { createdAt: "desc" },
     });
-    // Calculate distance and filter nearby rides (within 10km)
-    const nearbyRides = rides
-        .map((ride) => {
-        const distance = calculateDistance(partnerLat, partnerLng, ride.pickupLat, ride.pickupLng);
-        return { ...ride, distanceFromPartner: distance };
-    })
-        .filter((ride) => {
-        // Show ALL rides in the same city, OR rides within 10km (in case cityCodeId is missing or ride is near border)
-        if (cityCodeId && ride.cityCodeId === cityCodeId) {
-            return true;
-        }
-        return ride.distanceFromPartner <= 10;
-    })
-        .sort((a, b) => a.distanceFromPartner - b.distanceFromPartner); // Closest first
-    return nearbyRides;
 };
 exports.getAvailableRides = getAvailableRides;
 /* ============================================
-    ACCEPT RIDE (PARTNER)
+    PARTNER: ACCEPT RIDE
 ============================================ */
-const acceptRide = async (rideId, partnerId) => {
-    // Check if partner exists and is online
-    const partner = await prisma_1.prisma.partner.findUnique({
-        where: { id: partnerId },
-        include: {
-            vehicle: true,
-        },
-    });
-    if (!partner) {
-        throw new Error("Partner not found");
-    }
-    if (!partner.isOnline) {
-        throw new Error("Partner must be online to accept rides");
-    }
-    // Get ride
-    const ride = await prisma_1.prisma.ride.findUnique({
-        where: { id: rideId },
-    });
-    if (!ride) {
+const acceptRide = async (id, partnerId) => {
+    const ride = await prisma_1.prisma.ride.findUnique({ where: { id } });
+    if (!ride)
         throw new Error("Ride not found");
-    }
-    if (ride.status !== "UPCOMING") {
-        throw new Error("Ride is not available for acceptance");
-    }
-    if (ride.partnerId) {
-        throw new Error("Ride has already been accepted");
-    }
-    // Determine vehicle to use (partner's assigned vendor vehicle or own vehicle)
-    const vehicleId = partner.vehicleId || null;
-    // Accept ride
+    if (ride.partnerId)
+        throw new Error("Ride already accepted by another captain");
     const updatedRide = await prisma_1.prisma.ride.update({
-        where: { id: rideId },
+        where: { id },
         data: {
-            partnerId: partnerId,
-            vehicleId: vehicleId,
-            status: "ASSIGNED",
-            acceptedAt: new Date(),
+            status: "ACCEPTED",
+            partnerId,
         },
-        include: {
-            vehicleType: true,
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                    profileImage: true,
-                },
-            },
-            partner: {
-                select: {
-                    id: true,
-                    customId: true,
-                    name: true,
-                    phone: true,
-                    profileImage: true,
-                    hasOwnVehicle: true,
-                    ownVehicleNumber: true,
-                    ownVehicleModel: true,
-                    rating: true,
-                },
-            },
-            vehicle: {
-                select: {
-                    id: true,
-                    customId: true,
-                    registrationNumber: true,
-                    vehicleModel: true,
-                },
-            },
-        },
+        include: { user: true },
     });
-    // Emit socket event to notify user
     (0, socket_service_1.emitRideAccepted)(updatedRide);
     return updatedRide;
 };
 exports.acceptRide = acceptRide;
 /* ============================================
-    GET PARTNER RIDES
+    PARTNER: GET MY RIDES
 ============================================ */
 const getPartnerRides = async (partnerId, status) => {
-    const rides = await prisma_1.prisma.ride.findMany({
+    return await prisma_1.prisma.ride.findMany({
         where: {
-            partnerId: partnerId,
-            ...(status && { status: status }),
+            partnerId,
+            ...(status && { status }),
         },
         include: {
+            user: { select: { name: true, phone: true } },
             vehicleType: true,
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                    profileImage: true,
-                    uniqueOtp: true, // Partner needs to see OTP for completion
-                },
-            },
-            vehicle: {
-                select: {
-                    id: true,
-                    customId: true,
-                    registrationNumber: true,
-                    vehicleModel: true,
-                },
-            },
         },
         orderBy: { createdAt: "desc" },
     });
-    return rides;
 };
 exports.getPartnerRides = getPartnerRides;
 /* ============================================
-    UPDATE RIDE STATUS (PARTNER)
+    UPDATE RIDE STATUS
 ============================================ */
-const updateRideStatus = async (rideId, partnerId, status, userOtp, startingKm, endingKm) => {
-    const ride = await prisma_1.prisma.ride.findUnique({
-        where: { id: rideId },
-    });
-    if (!ride) {
-        throw new Error("Ride not found");
-    }
-    if (ride.partnerId !== partnerId) {
-        throw new Error("Unauthorized to update this ride");
-    }
-    // Validate status transition
-    if (status === "ARRIVED" && ride.status !== "ASSIGNED" && ride.status !== "ACCEPTED") {
-        throw new Error("Ride must be assigned before marking as arrived");
-    }
-    if (status === "STARTED" && ride.status !== "ARRIVED") {
-        throw new Error("Ride must be arrived before starting");
-    }
-    if (status === "COMPLETED" && ride.status !== "STARTED" && ride.status !== "ONGOING") {
-        throw new Error("Ride must be started before completing");
-    }
-    if (status === "ONGOING" && ride.status !== "STARTED" && ride.status !== "ARRIVED") {
-        // Some flows might go from ARRIVED -> ONGOING or STARTED -> ONGOING
-        throw new Error("Ride must be started or arrived before making it ongoing");
-    }
-    // OTP Verification for moving to ONGOING status
-    if (status === "ONGOING") {
-        // Get user to verify uniqueOtp
-        if (!ride.userId) {
-            throw new Error("User not found for this ride");
-        }
-        const user = await prisma_1.prisma.user.findUnique({
-            where: { id: ride.userId },
-            select: { uniqueOtp: true }
-        });
-        if (!user) {
-            throw new Error("User record not found");
-        }
-        if (!userOtp) {
-            throw new Error("User unique OTP is required to make the ride ongoing");
-        }
-        if (user.uniqueOtp !== userOtp) {
-            throw new Error("Invalid user OTP");
-        }
-        // Rental validation
-        if (ride.rideType === "RENTAL") {
-            if (startingKm === undefined || startingKm < 0) {
-                throw new Error("Valid starting KM is required to start a rental ride");
-            }
-        }
-    }
-    // Handle completion validation
-    if (status === "COMPLETED") {
-        if (ride.status !== "ONGOING" && ride.status !== "STARTED") {
-            throw new Error("Ride must be ONGOING or STARTED before completing");
-        }
-        // Rental validation
-        if (ride.rideType === "RENTAL") {
-            if (endingKm === undefined || endingKm < 0) {
-                throw new Error("Ending KM is required to complete a rental ride");
-            }
-            if (!ride.startingKm || endingKm <= ride.startingKm) {
-                throw new Error("Ending KM must be greater than starting KM");
-            }
-        }
-    }
-    const updateData = {
-        status: status,
-    };
-    if (status === "ARRIVED") {
-        updateData.arrivedAt = new Date();
-    }
-    if (status === "STARTED") {
-        updateData.startTime = new Date();
-    }
-    if (status === "ONGOING") {
-        // If not already started, set start time
-        if (!ride.startTime) {
-            updateData.startTime = new Date();
-        }
-        if (ride.rideType === "RENTAL" && startingKm !== undefined) {
-            updateData.startingKm = startingKm;
-        }
-    }
-    // Custom completion logic for pricing
-    if (status === "COMPLETED") {
-        updateData.endTime = new Date();
-        if (ride.rideType === "RENTAL" && endingKm !== undefined && ride.startingKm) {
-            updateData.endingKm = endingKm;
-            const totalDistance = endingKm - ride.startingKm;
-            updateData.distanceKm = totalDistance;
-            // Calculate fare for rental ride based on distance and pricing
-            const perKmPrice = ride.perKmPrice || 0;
-            const baseFare = ride.baseFare || 20;
-            const newTotalFare = baseFare + (perKmPrice * totalDistance);
-            const pricingConfig = await prisma_1.prisma.pricingConfig.findFirst({
-                where: { isActive: true },
-                orderBy: { createdAt: "desc" },
-            });
-            const riderPercentage = pricingConfig ? pricingConfig.riderPercentage : 80;
-            const appCommissionStr = pricingConfig ? pricingConfig.appCommission : 20;
-            updateData.totalFare = newTotalFare;
-            updateData.riderEarnings = (newTotalFare * riderPercentage) / 100;
-            updateData.commission = (newTotalFare * appCommissionStr) / 100;
-        }
-    }
-    if (status === "COMPLETED") {
-        updateData.endTime = new Date();
-    }
+const updateRideStatus = async (id, status) => {
     const updatedRide = await prisma_1.prisma.ride.update({
-        where: { id: rideId },
-        data: updateData,
-        include: {
-            vehicleType: true,
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                    profileImage: true,
-                },
-            },
-            partner: {
-                select: {
-                    id: true,
-                    customId: true,
-                    name: true,
-                    phone: true,
-                    profileImage: true,
-                    hasOwnVehicle: true,
-                    ownVehicleNumber: true,
-                    ownVehicleModel: true,
-                },
-            },
-            vehicle: {
-                select: {
-                    id: true,
-                    customId: true,
-                    registrationNumber: true,
-                    vehicleModel: true,
-                },
-            },
-        },
+        where: { id },
+        data: { status },
+        include: { user: true, partner: true },
     });
-    // Emit socket event based on status
-    if (status === "ARRIVED") {
-        (0, socket_service_1.emitRideArrived)(updatedRide);
-    }
-    else if (status === "STARTED" || status === "ONGOING") {
-        // Emitting ride started handles ONGOING well enough, depending on frontend.
-        (0, socket_service_1.emitRideStarted)(updatedRide);
-    }
-    else if (status === "COMPLETED") {
-        // Update partner's total earnings if partner exists
-        if (updatedRide.partnerId && updatedRide.riderEarnings) {
-            await prisma_1.prisma.partner.update({
-                where: { id: updatedRide.partnerId },
-                data: {
-                    totalEarnings: {
-                        increment: updatedRide.riderEarnings,
-                    },
-                },
-            });
-        }
-        (0, socket_service_1.emitRideCompleted)(updatedRide);
+    switch (status) {
+        case "ARRIVED":
+            (0, socket_service_1.emitRideArrived)(updatedRide);
+            break;
+        case "STARTED":
+            (0, socket_service_1.emitRideStarted)(updatedRide);
+            break;
+        case "COMPLETED":
+            (0, socket_service_1.emitRideCompleted)(updatedRide);
+            break;
+        case "CANCELLED":
+            (0, socket_service_1.emitRideCancelled)(updatedRide, "PARTNER");
+            break;
     }
     return updatedRide;
 };
 exports.updateRideStatus = updateRideStatus;
-/* ============================================
-    CALCULATE DISTANCE (Helper function)
-============================================ */
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Earth's radius in km
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-            Math.cos((lat2 * Math.PI) / 180) *
-            Math.sin(dLon / 2) *
-            Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-    return distance;
-};

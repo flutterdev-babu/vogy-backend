@@ -1,7 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAuditLogById = exports.getAuditLogs = exports.createAuditLog = void 0;
+exports.getAuditLogById = exports.getAuditLogs = exports.createAuditLog = exports.getRequestContext = void 0;
 const prisma_1 = require("../../config/prisma");
+/* ============================================
+    HELPER: Extract request context
+============================================ */
+const getRequestContext = (req) => ({
+    ipAddress: undefined,
+    userAgent: undefined,
+});
+exports.getRequestContext = getRequestContext;
 /* ============================================
     CREATE AUDIT LOG (Fire-and-forget)
 ============================================ */
@@ -69,6 +77,19 @@ const getAuditLogs = async (filters) => {
             orderBy: { createdAt: "desc" },
             skip,
             take: limit,
+            select: {
+                id: true,
+                userId: true,
+                userName: true,
+                userRole: true,
+                action: true,
+                module: true,
+                entityId: true,
+                description: true,
+                oldData: true,
+                newData: true,
+                createdAt: true,
+            },
         }),
         prisma_1.prisma.auditLog.count({ where }),
     ]);
@@ -89,6 +110,19 @@ exports.getAuditLogs = getAuditLogs;
 const getAuditLogById = async (id) => {
     const log = await prisma_1.prisma.auditLog.findUnique({
         where: { id },
+        select: {
+            id: true,
+            userId: true,
+            userName: true,
+            userRole: true,
+            action: true,
+            module: true,
+            entityId: true,
+            description: true,
+            oldData: true,
+            newData: true,
+            createdAt: true,
+        },
     });
     if (!log) {
         throw new Error("Audit log not found");

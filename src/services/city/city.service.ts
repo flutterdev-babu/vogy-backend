@@ -60,7 +60,9 @@ const generateCustomId = async (
   
   // Format: AC + prefix + cityCode + serial (no hyphen)
   // e.g., ACVBLR01, ACPBLR01, ACABLR01, ACCBLR01, ACRBLR0001, ACAABLR01
-  return `AC${prefix}${cityCode}${serialNumber}`;
+  const customId = `AC${prefix}${cityCode}${serialNumber}`;
+  console.log(`🆔 Generated unique ID for ${entityType}: ${customId}`);
+  return customId;
 };
 
 
