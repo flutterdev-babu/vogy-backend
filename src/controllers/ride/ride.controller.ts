@@ -678,4 +678,76 @@ export default {
       });
     }
   },
+
+  // Public booking from landing page
+  publicBook: async (req: any, res: Response) => {
+    try {
+      const { 
+        userName, 
+        userPhone, 
+        pickupAddress, 
+        dropAddress, 
+        pickupLat, 
+        pickupLng, 
+        dropLat, 
+        dropLng, 
+        distanceKm, 
+        scheduledDateTime, 
+        rideType, 
+        vehicleTypeId, 
+        cityCodeId,
+        passengers
+      } = req.body;
+
+      if (!userPhone || !userName || !pickupAddress || !vehicleTypeId || !cityCodeId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Required fields missing (name, phone, pickup, vehicle type, city)" 
+        });
+      }
+
+      // 1. Find or create user
+      let user = await prisma.user.findUnique({ where: { phone: userPhone } });
+      if (!user) {
+        const uniqueOtp = await generateUnique4DigitOtp();
+        user = await prisma.user.create({
+          data: { phone: userPhone, name: userName, uniqueOtp }
+        });
+      } else if (!user.name || user.name === "User") {
+        // Update name if it was a placeholder
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { name: userName }
+        });
+      }
+
+      // 2. Create ride via service
+      const ride = await createManualRide(user.id, {
+        vehicleTypeId,
+        pickupLat: parseFloat(pickupLat) || 0,
+        pickupLng: parseFloat(pickupLng) || 0,
+        pickupAddress,
+        dropLat: parseFloat(dropLat) || 0,
+        dropLng: parseFloat(dropLng) || 0,
+        dropAddress: dropAddress || "Not specified",
+        distanceKm: parseFloat(distanceKm) || 0,
+        scheduledDateTime: new Date(scheduledDateTime),
+        rideType: rideType || "LOCAL",
+        bookingNotes: `Public Booking. Passengers: ${passengers || 'Not specified'}`,
+        cityCodeId,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Ride booked successfully",
+        data: ride,
+      });
+    } catch (error: any) {
+      console.error("Public Booking Error:", error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to book ride",
+      });
+    }
+  },
 };
