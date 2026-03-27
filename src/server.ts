@@ -26,6 +26,7 @@ import cityRoutes from "./routes/public/city.routes";
 import vehicleTypeRoutes from "./routes/public/vehicleType.routes";
 import lookupRoutes from "./routes/public/lookup.routes";
 import paymentRoutes from "./routes/payment/payment.routes";
+import enquiryRoutes from "./routes/public/enquiry.routes";
 
 import { initializeSocket } from "./config/socket";
 
@@ -97,6 +98,8 @@ app.use("/api/lookup", lookupRoutes);
 // Payment routes
 app.use("/api/payment", paymentRoutes);
 
+// Enquiry routes
+app.use("/api/enquiry", enquiryRoutes);
 // Health check
 app.get("/", (req: Request, res: Response) => {
   res.send("API is running...");

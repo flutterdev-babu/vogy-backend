@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../../config/prisma";
+import rideController from "../../controllers/ride/ride.controller";
 
 const router = Router();
 
@@ -221,6 +222,9 @@ router.get("/pricing", async (req, res) => {
     });
   }
 });
+
+// Create a public ride booking (landing page)
+router.post("/book", rideController.publicBook);
 
 export default router;
 

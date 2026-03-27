@@ -11,4 +11,7 @@ const router = Router();
 // Validate a coupon before ride booking (Public)
 router.post("/validate-coupon", rideController.validateCoupon);
 
+// Create a manual/scheduled ride request
+router.post("/create-manual", authMiddleware(), rideController.createManualRide);
+
 export default router;

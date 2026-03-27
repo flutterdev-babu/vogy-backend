@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const auth_service_1 = require("../../services/auth/auth.service");
+const auditLog_service_1 = require("../../services/audit/auditLog.service");
 exports.default = {
     /* ============================================
         REGISTER USER
@@ -84,6 +85,7 @@ exports.default = {
                 });
             }
             const admin = await (0, auth_service_1.registerAdmin)({ name, email, password, role });
+            (0, auditLog_service_1.createAuditLog)({ userId: admin.id, userName: name, userRole: role || "SUBADMIN", action: "CREATE", module: "ADMIN", entityId: admin.id, description: `Admin registered: ${name} (${email})`, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(201).json({
                 success: true,
                 message: "Admin registered successfully",
@@ -107,6 +109,7 @@ exports.default = {
                 });
             }
             const response = await (0, auth_service_1.loginAdmin)(email, password);
+            (0, auditLog_service_1.createAuditLog)({ userId: response.admin?.id, userName: response.admin?.name, userRole: response.admin?.role, action: "LOGIN", module: "ADMIN", description: `Admin logged in: ${email}`, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(200).json({
                 success: true,
                 message: "Login successful",

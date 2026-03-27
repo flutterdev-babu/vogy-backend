@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.authMiddleware = void 0;
+exports.permissionMiddleware = exports.authMiddleware = void 0;
 const jwt_1 = require("../utils/jwt");
 const prisma_1 = require("../config/prisma");
 const authMiddleware = (allowedRoles = []) => {
@@ -54,7 +54,7 @@ const authMiddleware = (allowedRoles = []) => {
             if (allowedRoles.length && !allowedRoles.includes(role)) {
                 return res.status(403).json({ success: false, message: "Forbidden" });
             }
-            req.user = { id: payload.id, role, account };
+            req.user = { id: payload.id, role, name: account.name || account.companyName || account.contactPerson, account };
             next();
         }
         catch (err) {
@@ -63,3 +63,26 @@ const authMiddleware = (allowedRoles = []) => {
     };
 };
 exports.authMiddleware = authMiddleware;
+const permissionMiddleware = (requiredPermission) => {
+    return async (req, res, next) => {
+        try {
+            if (!req.user || req.user.role !== "ADMIN") {
+                return res.status(403).json({ success: false, message: "Forbidden: Admin access required" });
+            }
+            const admin = req.user.account;
+            // SUPERADMIN has all permissions
+            if (admin.role === "SUPERADMIN") {
+                return next();
+            }
+            // Check for specific permission
+            if (admin.permissions && admin.permissions.includes(requiredPermission)) {
+                return next();
+            }
+            return res.status(403).json({ success: false, message: `Forbidden: Missing required permission: ${requiredPermission}` });
+        }
+        catch (err) {
+            return res.status(403).json({ success: false, message: "Forbidden" });
+        }
+    };
+};
+exports.permissionMiddleware = permissionMiddleware;

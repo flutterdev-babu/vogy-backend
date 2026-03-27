@@ -614,8 +614,10 @@ export const updateRideStatusByAdmin = async (
       partner: true,
     }
   });
+
   return ride;
 };
+
 
 export const getRideOtpByAdmin = async (rideId: string) => {
   const ride = await prisma.ride.findUnique({
@@ -631,6 +633,8 @@ export const getRideOtpByAdmin = async (rideId: string) => {
 ============================================ */
 
 export const verifyAttachmentByAdmin = async (attachmentId: string, verificationStatus: VerificationStatus, adminId?: string) => {
+  const oldAttachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
+
   const attachment = await prisma.attachment.update({
     where: { id: attachmentId },
     data: { 
@@ -1644,4 +1648,57 @@ export const updateRidePaymentStatusByAdmin = async (
     }
   });
   return ride;
+};
+
+/* ============================================
+    ADMIN ANALYTICS (EXPORTS FOR DASHBOARD)
+============================================ */
+
+export const getCancellationAnalytics = async () => {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const cancelledRides = await prisma.ride.findMany({
+    where: {
+      status: "CANCELLED",
+      createdAt: { gte: sevenDaysAgo },
+    },
+    select: {
+      createdAt: true,
+      rideType: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const analytics: Record<string, { count: number; byType: Record<string, number> }> = {};
+  cancelledRides.forEach((ride) => {
+    const dateKey = ride.createdAt.toISOString().split("T")[0];
+    if (!analytics[dateKey]) {
+      analytics[dateKey] = { count: 0, byType: {} };
+    }
+    analytics[dateKey].count += 1;
+    const type = ride.rideType || "UNKNOWN";
+    analytics[dateKey].byType[type] = (analytics[dateKey].byType[type] || 0) + 1;
+  });
+
+  return Object.entries(analytics).map(([date, data]) => ({
+    date,
+    ...data,
+  }));
+};
+
+export const getAuditTimeline = async (limit: number = 10) => {
+  return await prisma.auditLog.findMany({
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      userName: true,
+      userRole: true,
+      action: true,
+      module: true,
+      description: true,
+      createdAt: true,
+    },
+  });
 };

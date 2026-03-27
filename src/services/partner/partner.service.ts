@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma";
 import { EntityStatus, VerificationStatus, Gender } from "@prisma/client";
 import { generateEntityCustomId } from "../city/city.service";
+import { createAuditLog } from "../audit/auditLog.service";
 
 /* ============================================
     GET ALL PARTNERS
@@ -168,6 +169,8 @@ export const getPartnerById = async (partnerId: string) => {
     UPDATE PARTNER STATUS (Admin)
 ============================================ */
 export const updatePartnerStatus = async (partnerId: string, status: EntityStatus, adminId?: string) => {
+  const oldPartner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { status: true, name: true } });
+
   const partner = await prisma.partner.update({
     where: { id: partnerId },
     data: { 
@@ -184,6 +187,16 @@ export const updatePartnerStatus = async (partnerId: string, status: EntityStatu
     },
   });
 
+  createAuditLog({
+    userId: adminId,
+    action: "STATUS_CHANGE",
+    module: "PARTNER",
+    entityId: partnerId,
+    description: `Partner ${oldPartner?.name || partnerId} status changed from ${oldPartner?.status} to ${status}`,
+    oldData: { status: oldPartner?.status },
+    newData: { status },
+  });
+
   return partner;
 };
 
@@ -191,6 +204,8 @@ export const updatePartnerStatus = async (partnerId: string, status: EntityStatu
     UPDATE PARTNER VERIFICATION (Admin)
 ============================================ */
 export const updatePartnerVerification = async (partnerId: string, verificationStatus: VerificationStatus, adminId?: string) => {
+  const oldPartner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { verificationStatus: true, name: true } });
+
   const partner = await prisma.partner.update({
     where: { id: partnerId },
     data: { 
@@ -204,6 +219,16 @@ export const updatePartnerVerification = async (partnerId: string, verificationS
       verificationStatus: true,
       updatedAt: true,
     },
+  });
+
+  createAuditLog({
+    userId: adminId,
+    action: "STATUS_CHANGE",
+    module: "PARTNER",
+    entityId: partnerId,
+    description: `Partner ${oldPartner?.name || partnerId} verification changed from ${oldPartner?.verificationStatus} to ${verificationStatus}`,
+    oldData: { verificationStatus: oldPartner?.verificationStatus },
+    newData: { verificationStatus },
   });
 
   return partner;
@@ -543,6 +568,8 @@ export const getAvailablePartners = async (vehicleTypeId?: string) => {
     DELETE PARTNER
 ============================================ */
 export const deletePartner = async (partnerId: string, adminId?: string) => {
+  const oldPartner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { name: true, phone: true, status: true } });
+
   // Soft delete
   await prisma.partner.update({
     where: { id: partnerId },
@@ -551,6 +578,15 @@ export const deletePartner = async (partnerId: string, adminId?: string) => {
       status: "BANNED", 
       ...(adminId && { updatedByAdminId: adminId })
     },
+  });
+
+  createAuditLog({
+    userId: adminId,
+    action: "DELETE",
+    module: "PARTNER",
+    entityId: partnerId,
+    description: `Partner ${oldPartner?.name || partnerId} (${oldPartner?.phone}) soft-deleted`,
+    oldData: oldPartner,
   });
 
   return { message: "Partner soft-deleted successfully" };

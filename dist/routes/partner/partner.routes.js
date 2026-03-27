@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const partner_controller_1 = __importDefault(require("../../controllers/partner/partner.controller"));
+const ride_controller_1 = __importDefault(require("../../controllers/ride/ride.controller"));
+const ticket_controller_1 = __importDefault(require("../../controllers/cc/ticket.controller"));
 const auth_middleware_1 = require("../../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 /* ===============================
@@ -33,13 +35,23 @@ router.put("/online-status", partner_controller_1.default.toggleOnlineStatus);
 router.patch("/online-status", partner_controller_1.default.toggleOnlineStatus);
 // Vehicle info
 router.get("/vehicle", partner_controller_1.default.getVehicleInfo);
-// Rides
+// Rides - available must come before :id to avoid conflict
+router.get("/rides/available", partner_controller_1.default.getAvailableRides);
 router.get("/rides", partner_controller_1.default.getPartnerRides);
 router.get("/rides/:id", partner_controller_1.default.getPartnerRideDetail);
+// Ride actions (accept, status update)
+router.post("/rides/:id/accept", ride_controller_1.default.acceptRide);
+router.patch("/rides/:id/status", ride_controller_1.default.updateRideStatus);
+router.put("/rides/:id/status", ride_controller_1.default.updateRideStatus);
 // Earnings
 router.get("/earnings", partner_controller_1.default.getPartnerEarningsSummary);
 // Analytics
 router.get("/analytics", partner_controller_1.default.getPartnerAnalytics);
 // Attachments
 router.post("/attachments", partner_controller_1.default.createAttachment);
+// Support Tickets
+router.post("/support-tickets", ticket_controller_1.default.createCustomerTicket);
+router.get("/support-tickets", ticket_controller_1.default.getMyTickets);
+router.get("/support-tickets/:id", ticket_controller_1.default.getCustomerTicketById);
+router.post("/support-tickets/:id/messages", ticket_controller_1.default.addCustomerMessage);
 exports.default = router;

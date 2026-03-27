@@ -939,7 +939,7 @@ export const getPartnerRides = async (partnerId: string, status?: string) => {
 export const updateRideStatus = async (
   rideId: string,
   partnerId: string,
-  status: "ARRIVED" | "STARTED" | "ONGOING" | "COMPLETED",
+  status: "ARRIVED" | "STARTED" | "ONGOING" | "COMPLETED" | "CANCELLED",
   userOtp?: string,
   startingKm?: number,
   endingKm?: number
@@ -957,12 +957,16 @@ export const updateRideStatus = async (
   }
 
   // Validate status transition
-  if (status === "ARRIVED" && ride.status !== "ASSIGNED") {
+  if (status === "ARRIVED" && ride.status !== "ASSIGNED" && ride.status !== "ACCEPTED") {
     throw new Error("Ride must be assigned before marking as arrived");
   }
 
   if (status === "STARTED" && ride.status !== "ARRIVED") {
     throw new Error("Ride must be arrived before starting");
+  }
+
+  if (status === "COMPLETED" && ride.status !== "STARTED" && ride.status !== "ONGOING") {
+    throw new Error("Ride must be started before completing");
   }
 
   if (status === "ONGOING" && ride.status !== "STARTED" && ride.status !== "ARRIVED") {
@@ -1067,6 +1071,10 @@ export const updateRideStatus = async (
       updateData.riderEarnings = (newTotalFare * riderPercentage) / 100;
       updateData.commission = (newTotalFare * appCommissionStr) / 100;
     }
+  }
+
+  if (status === "COMPLETED") {
+    updateData.endTime = new Date();
   }
 
   const updatedRide = await prisma.ride.update({

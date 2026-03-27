@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const auditLog_service_1 = require("../../services/audit/auditLog.service");
+const prisma_1 = require("../../config/prisma");
 const admin_service_1 = require("../../services/admin/admin.service");
 exports.default = {
     /* ============================================
@@ -21,6 +23,7 @@ exports.default = {
                 pricePerKm: parseFloat(pricePerKm),
                 baseFare: baseFare ? parseFloat(baseFare) : undefined,
             });
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "VEHICLE_TYPE", entityId: vehicleType.id, description: `Created vehicle type: ${displayName}`, newData: vehicleType, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(201).json({
                 success: true,
                 message: "Vehicle type created successfully",
@@ -71,12 +74,14 @@ exports.default = {
         try {
             const { id } = req.params;
             const { displayName, pricePerKm, baseFare, isActive } = req.body;
+            const oldVehicleType = await (0, admin_service_1.getVehicleTypeById)(id);
             const vehicleType = await (0, admin_service_1.updateVehicleType)(id, {
                 displayName,
                 pricePerKm: pricePerKm !== undefined ? parseFloat(pricePerKm) : undefined,
                 baseFare: baseFare !== undefined ? parseFloat(baseFare) : undefined,
                 isActive,
             });
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "VEHICLE_TYPE", entityId: id, description: `Updated vehicle type: ${vehicleType.displayName}`, oldData: oldVehicleType, newData: req.body, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(200).json({
                 success: true,
                 message: "Vehicle type updated successfully",
@@ -94,6 +99,7 @@ exports.default = {
         try {
             const { id } = req.params;
             await (0, admin_service_1.deleteVehicleType)(id);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "DELETE", module: "VEHICLE_TYPE", entityId: id, description: `Deleted a vehicle type`, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(200).json({
                 success: true,
                 message: "Vehicle type deleted successfully",
@@ -134,11 +140,13 @@ exports.default = {
                     message: "Rider percentage and app commission are required",
                 });
             }
+            const oldConfig = await (0, admin_service_1.getPricingConfig)();
             const config = await (0, admin_service_1.updatePricingConfig)({
                 baseFare: baseFare ? parseFloat(baseFare) : undefined,
                 riderPercentage: parseFloat(riderPercentage),
                 appCommission: parseFloat(appCommission),
             });
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "PRICING", entityId: config.id, description: `Updated pricing: Rider ${riderPercentage}%, Commission ${appCommission}%`, oldData: oldConfig, newData: config, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(200).json({
                 success: true,
                 message: "Pricing config updated successfully",
@@ -153,12 +161,102 @@ exports.default = {
         }
     },
     /* ============================================
+        VEHICLE PRICING GROUPS (NEW)
+    ============================================ */
+    createPricingGroup: async (req, res) => {
+        try {
+            const { vehicleTypeId, name, baseKm, baseFare, perKmPrice, cityCodeIds } = req.body;
+            if (!vehicleTypeId || perKmPrice === undefined || !cityCodeIds) {
+                return res.status(400).json({
+                    success: false,
+                    message: "vehicleTypeId, perKmPrice, and cityCodeIds are required",
+                });
+            }
+            const { createPricingGroup } = require("../../services/city/city.service");
+            const pricingGroup = await createPricingGroup({
+                vehicleTypeId,
+                name,
+                baseKm: baseKm ? parseFloat(baseKm) : 2,
+                baseFare: baseFare ? parseFloat(baseFare) : 50,
+                perKmPrice: parseFloat(perKmPrice),
+                cityCodeIds,
+            });
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "PRICING_GROUP", entityId: pricingGroup.id, description: `Created pricing group: ${name || pricingGroup.id}`, newData: pricingGroup, ...(0, auditLog_service_1.getRequestContext)(req) });
+            return res.status(201).json({
+                success: true,
+                message: "Vehicle pricing group created successfully",
+                data: pricingGroup,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to create pricing group",
+            });
+        }
+    },
+    getPricingGroups: async (req, res) => {
+        try {
+            const { vehicleTypeId } = req.query;
+            const { getPricingGroups } = require("../../services/city/city.service");
+            const groups = await getPricingGroups(vehicleTypeId);
+            return res.status(200).json({
+                success: true,
+                data: groups,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to get pricing groups",
+            });
+        }
+    },
+    updatePricingGroup: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { updatePricingGroup } = require("../../services/city/city.service");
+            const group = await updatePricingGroup(id, req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "PRICING_GROUP", entityId: id, description: `Updated pricing group: ${id}`, newData: req.body, ...(0, auditLog_service_1.getRequestContext)(req) });
+            return res.status(200).json({
+                success: true,
+                message: "Vehicle pricing group updated successfully",
+                data: group,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to update pricing group",
+            });
+        }
+    },
+    deletePricingGroup: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { deletePricingGroup } = require("../../services/city/city.service");
+            const result = await deletePricingGroup(id);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "DELETE", module: "PRICING_GROUP", entityId: id, description: `Deleted pricing group: ${id}`, ...(0, auditLog_service_1.getRequestContext)(req) });
+            return res.status(200).json({
+                success: true,
+                message: result.message,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to delete pricing group",
+            });
+        }
+    },
+    /* ============================================
         RIDE MANAGEMENT
     ============================================ */
     createManualRide: async (req, res) => {
         try {
             const adminId = req.user?.id;
             const ride = await (0, admin_service_1.createManualRideByAdmin)(adminId, req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "RIDE", entityId: ride.id, description: `Created manual ride booking`, newData: ride, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(201).json({
                 success: true,
                 message: "Manual ride booked successfully",
@@ -216,7 +314,9 @@ exports.default = {
         try {
             const { id } = req.params;
             const { status, userOtp, startingKm, endingKm } = req.body;
+            const oldRide = await prisma_1.prisma.ride.findUnique({ where: { id }, select: { status: true, startingKm: true, endingKm: true } });
             const ride = await (0, admin_service_1.updateRideStatusByAdmin)(id, status, userOtp, startingKm ? parseFloat(startingKm) : undefined, endingKm ? parseFloat(endingKm) : undefined);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Ride status changed to ${status}`, oldData: oldRide, newData: { status, startingKm, endingKm }, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: ride });
         }
         catch (err) {
@@ -234,7 +334,9 @@ exports.default = {
                     message: "paymentStatus and paymentMode are required",
                 });
             }
+            const oldRide = await prisma_1.prisma.ride.findUnique({ where: { id }, select: { paymentStatus: true, paymentMode: true } });
             const ride = await (0, admin_service_1.updateRidePaymentStatusByAdmin)(id, paymentStatus, paymentMode, adminId);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "RIDE", entityId: id, description: `Ride payment updated: ${paymentStatus} via ${paymentMode}`, oldData: oldRide, newData: { paymentStatus, paymentMode }, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: ride });
         }
         catch (err) {
@@ -253,9 +355,31 @@ exports.default = {
     /* ============================================
         USER MANAGEMENT
     ============================================ */
+    createUser: async (req, res) => {
+        try {
+            const user = await (0, admin_service_1.createUserByAdmin)(req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "USER", entityId: user.id, description: `Created user: ${req.body.name || req.body.phone}`, newData: user, ...(0, auditLog_service_1.getRequestContext)(req) });
+            res.status(201).json({ success: true, message: "User created successfully", data: user });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    updateUser: async (req, res) => {
+        try {
+            const oldUser = await prisma_1.prisma.user.findUnique({ where: { id: req.params.id }, select: { name: true, phone: true, email: true } });
+            const user = await (0, admin_service_1.updateUserByAdmin)(req.params.id, req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "USER", entityId: req.params.id, description: `Updated user details`, oldData: oldUser, newData: req.body, ...(0, auditLog_service_1.getRequestContext)(req) });
+            res.json({ success: true, message: "User updated successfully", data: user });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
     getAllUsers: async (req, res) => {
         try {
-            const users = await (0, admin_service_1.getAllUsers)();
+            const { search } = req.query;
+            const users = await (0, admin_service_1.getAllUsers)({ search: search });
             return res.status(200).json({
                 success: true,
                 message: "Users retrieved successfully",
@@ -309,6 +433,7 @@ exports.default = {
     createPartner: async (req, res) => {
         try {
             const partner = await (0, admin_service_1.createPartnerByAdmin)(req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "PARTNER", entityId: partner.id, description: `Created partner: ${req.body.name || req.body.phone}`, newData: partner, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.status(201).json({ success: true, message: "Partner created successfully", data: partner });
         }
         catch (err) {
@@ -354,6 +479,22 @@ exports.default = {
             });
         }
     },
+    getActivePartnerLocations: async (req, res) => {
+        try {
+            const locations = await (0, admin_service_1.getActivePartnerLocations)();
+            return res.status(200).json({
+                success: true,
+                message: "Active partner locations retrieved successfully",
+                data: locations,
+            });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || "Failed to get active partner locations",
+            });
+        }
+    },
     /* ============================================
         SCHEDULED RIDE MANAGEMENT
     ============================================ */
@@ -385,6 +526,7 @@ exports.default = {
             }
             const adminId = req.user?.id;
             const ride = await (0, admin_service_1.assignPartnerToRide)(id, partnerId, adminId);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "ASSIGNMENT", module: "RIDE", entityId: id, description: `Assigned partner to ride`, newData: { partnerId }, ...(0, auditLog_service_1.getRequestContext)(req) });
             return res.status(200).json({
                 success: true,
                 message: "Partner assigned to ride successfully",
@@ -404,6 +546,7 @@ exports.default = {
     createVendor: async (req, res) => {
         try {
             const vendor = await (0, admin_service_1.createVendorByAdmin)(req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "VENDOR", entityId: vendor.id, description: `Created vendor: ${req.body.name || req.body.phone}`, newData: vendor, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.status(201).json({ success: true, message: "Vendor created successfully", data: vendor });
         }
         catch (err) {
@@ -413,6 +556,7 @@ exports.default = {
     createAgent: async (req, res) => {
         try {
             const agent = await (0, admin_service_1.createAgentByAdmin)(req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "AGENT", entityId: agent.id, description: `Created agent: ${req.body.name || req.body.phone}`, newData: agent, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.status(201).json({ success: true, message: "Agent created successfully", data: agent });
         }
         catch (err) {
@@ -446,7 +590,9 @@ exports.default = {
     updateVendor: async (req, res) => {
         try {
             const adminId = req.user?.id;
+            const oldVendor = await prisma_1.prisma.vendor.findUnique({ where: { id: req.params.id }, select: { name: true, companyName: true, phone: true, email: true, status: true, verificationStatus: true } });
             const vendor = await (0, admin_service_1.updateVendor)(req.params.id, req.body, adminId);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "VENDOR", entityId: req.params.id, description: `Updated vendor details`, oldData: oldVendor, newData: req.body, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: vendor });
         }
         catch (err) {
@@ -481,7 +627,9 @@ exports.default = {
     },
     updateCorporate: async (req, res) => {
         try {
+            const oldCorp = await prisma_1.prisma.corporate.findUnique({ where: { id: req.params.id }, select: { companyName: true, status: true, verificationStatus: true } });
             const corporate = await (0, admin_service_1.updateCorporate)(req.params.id, req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "CORPORATE", entityId: req.params.id, description: `Updated corporate: ${oldCorp?.companyName || 'corporate'}`, oldData: oldCorp, newData: req.body, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: corporate });
         }
         catch (err) {
@@ -503,6 +651,7 @@ exports.default = {
     createCityCode: async (req, res) => {
         try {
             const city = await (0, admin_service_1.createCityCode)(req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "CITY_CODE", entityId: city.id, description: `Created city code: ${req.body.code} - ${req.body.cityName}`, newData: city, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.status(201).json({ success: true, data: city });
         }
         catch (err) {
@@ -511,7 +660,9 @@ exports.default = {
     },
     updateCityCode: async (req, res) => {
         try {
+            const oldCity = await prisma_1.prisma.cityCode.findUnique({ where: { id: req.params.id }, select: { code: true, cityName: true, isActive: true } });
             const city = await (0, admin_service_1.updateCityCode)(req.params.id, req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "CITY_CODE", entityId: req.params.id, description: `Updated city code: ${city.code || req.body.code}`, oldData: oldCity, newData: req.body, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: city });
         }
         catch (err) {
@@ -528,6 +679,7 @@ exports.default = {
                 ...req.body,
                 adminId,
             });
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "ATTACHMENT", entityId: attachment.id, description: `Created attachment`, newData: attachment, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.status(201).json({ success: true, data: attachment });
         }
         catch (err) {
@@ -566,6 +718,7 @@ exports.default = {
                 return res.status(400).json({ success: false, message: "Status is required" });
             }
             const attachment = await (0, admin_service_1.updateAttachmentStatus)(req.params.id, status, adminId);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "ATTACHMENT", entityId: req.params.id, description: `Attachment status changed to ${status}`, newData: { status }, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: attachment });
         }
         catch (err) {
@@ -580,6 +733,7 @@ exports.default = {
                 return res.status(400).json({ success: false, message: "Verification status is required" });
             }
             const attachment = await (0, admin_service_1.verifyAttachmentByAdmin)(req.params.id, status, adminId);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "ATTACHMENT", entityId: req.params.id, description: `Attachment verification: ${status}`, newData: { verificationStatus: status }, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: attachment });
         }
         catch (err) {
@@ -589,6 +743,7 @@ exports.default = {
     deleteAttachment: async (req, res) => {
         try {
             const result = await (0, admin_service_1.deleteAttachment)(req.params.id);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "DELETE", module: "ATTACHMENT", entityId: req.params.id, description: `Deleted attachment`, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: result });
         }
         catch (err) {
@@ -642,6 +797,24 @@ exports.default = {
         }
         catch (err) {
             res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    getCancellationAnalytics: async (req, res) => {
+        try {
+            const data = await (0, admin_service_1.getCancellationAnalytics)();
+            res.json({ success: true, data });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    },
+    getAuditTimeline: async (req, res) => {
+        try {
+            const data = await (0, admin_service_1.getAuditTimeline)();
+            res.json({ success: true, data });
+        }
+        catch (err) {
+            res.status(400).json({ success: false, message: err.message });
         }
     },
 };

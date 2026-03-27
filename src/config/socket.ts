@@ -66,7 +66,6 @@ export const initializeSocket = (server: HttpServer): Server => {
     // Handle partner/rider location updates
     socket.on("location:update", (data: { lat: number; lng: number; rideId?: string }) => {
       if ((socket.userRole === "PARTNER" || socket.userRole === "RIDER") && socket.userId) {
-
         // Fallback to local import to ensure it works
         const { prisma } = require("../../config/prisma");
         
@@ -105,7 +104,7 @@ export const initializeSocket = (server: HttpServer): Server => {
             data: {
               currentLat: data.lat,
               currentLng: data.lng,
-            }
+            },
           });
         }).catch((err: any) => console.error("Error updating partner location:", err));
 
@@ -228,6 +227,7 @@ export const emitToAdmins = (event: string, data: any): void => {
 export const emitToOnlineRiders = (event: string, data: any): void => {
   if (io) {
     io.to("online_riders").emit(event, data);
+    io.to("online_partners").emit(event, data);
   }
 };
 

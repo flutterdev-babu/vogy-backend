@@ -36,6 +36,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const partnerAuthService = __importStar(require("../../services/auth/partner.auth.service"));
 const partnerService = __importStar(require("../../services/partner/partner.service"));
 const adminService = __importStar(require("../../services/admin/admin.service"));
+const rideService = __importStar(require("../../services/ride/ride.service"));
+const prisma_1 = require("../../config/prisma");
+const auditLog_service_1 = require("../../services/audit/auditLog.service");
 exports.default = {
     /* ============================================
         AUTH ENDPOINTS
@@ -142,7 +145,9 @@ exports.default = {
             if (!status) {
                 return res.status(400).json({ success: false, message: "Status is required" });
             }
+            const oldPartner = await prisma_1.prisma.partner.findUnique({ where: { id: req.params.id }, select: { status: true, name: true } });
             const partner = await partnerService.updatePartnerStatus(req.params.id, status, adminId);
+            (0, auditLog_service_1.createAuditLog)({ userId: adminId, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "PARTNER", entityId: req.params.id, description: `Partner status changed to ${status}`, oldData: oldPartner, newData: { status }, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: partner });
         }
         catch (err) {
@@ -156,7 +161,9 @@ exports.default = {
             if (!status) {
                 return res.status(400).json({ success: false, message: "Verification status is required" });
             }
+            const oldPartner = await prisma_1.prisma.partner.findUnique({ where: { id: req.params.id }, select: { verificationStatus: true, name: true } });
             const partner = await partnerService.updatePartnerVerification(req.params.id, status, adminId);
+            (0, auditLog_service_1.createAuditLog)({ userId: adminId, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "PARTNER", entityId: req.params.id, description: `Partner verification changed to ${status}`, oldData: oldPartner, newData: { verificationStatus: status }, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: partner });
         }
         catch (err) {
@@ -165,7 +172,9 @@ exports.default = {
     },
     async updatePartnerByAdmin(req, res) {
         try {
+            const oldPartner = await prisma_1.prisma.partner.findUnique({ where: { id: req.params.id }, select: { name: true, phone: true, email: true, status: true, verificationStatus: true } });
             const partner = await partnerService.updatePartnerByAdmin(req.params.id, req.body);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "PARTNER", entityId: req.params.id, description: `Updated partner details`, oldData: oldPartner, newData: req.body, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: partner });
         }
         catch (err) {
@@ -179,6 +188,7 @@ exports.default = {
                 return res.status(400).json({ success: false, message: "vehicleId is required" });
             }
             const partner = await partnerService.assignPartnerToVehicle(req.params.id, vehicleId);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "ASSIGNMENT", module: "PARTNER", entityId: req.params.id, description: `Assigned partner to vehicle`, newData: { vehicleId }, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: partner });
         }
         catch (err) {
@@ -188,6 +198,7 @@ exports.default = {
     async unassignPartnerFromVehicle(req, res) {
         try {
             const partner = await partnerService.unassignPartnerFromVehicle(req.params.id);
+            (0, auditLog_service_1.createAuditLog)({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "ASSIGNMENT", module: "PARTNER", entityId: req.params.id, description: `Unassigned partner from vehicle`, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: partner });
         }
         catch (err) {
@@ -233,6 +244,7 @@ exports.default = {
         try {
             const adminId = req.user?.id;
             const result = await partnerService.deletePartner(req.params.id, adminId);
+            (0, auditLog_service_1.createAuditLog)({ userId: adminId, userName: req.user?.name, userRole: req.user?.role, action: "DELETE", module: "PARTNER", entityId: req.params.id, description: `Deleted a partner`, ...(0, auditLog_service_1.getRequestContext)(req) });
             res.json({ success: true, data: result });
         }
         catch (err) {
@@ -291,6 +303,19 @@ exports.default = {
         try {
             const earnings = await partnerService.getPartnerEarnings(req.user.id);
             res.json({ success: true, data: earnings });
+        }
+        catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    },
+    async getAvailableRides(req, res) {
+        try {
+            const { lat, lng, vehicleTypeId } = req.query;
+            if (!lat || !lng) {
+                return res.status(400).json({ success: false, message: "lat and lng are required" });
+            }
+            const rides = await rideService.getAvailableRides(Number(lat), Number(lng), vehicleTypeId);
+            res.json({ success: true, data: { rides: rides } });
         }
         catch (err) {
             res.status(500).json({ success: false, message: err.message });

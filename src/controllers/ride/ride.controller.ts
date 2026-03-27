@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { AuthedRequest } from "../../middleware/auth.middleware";
+import { prisma } from "../../config/prisma";
 import {
   createRide,
   createManualRide,
@@ -14,6 +15,8 @@ import {
   validateCouponLogic,
   estimateFare,
 } from "../../services/ride/ride.service";
+import { createAuditLog, getRequestContext } from "../../services/audit/auditLog.service";
+import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
 
 export default {
   /* ============================================
@@ -89,6 +92,8 @@ export default {
         expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
       });
 
+      createAuditLog({ userId, userName: req.user?.name, userRole: "USER", action: "CREATE", module: "RIDE", entityId: ride.id, description: `User created ride from ${pickupAddress} to ${dropAddress}`, ...getRequestContext(req) });
+
       return res.status(201).json({
         success: true,
         message: "Ride created successfully",
@@ -105,7 +110,8 @@ export default {
   // Create a manual/scheduled ride request
   createManualRide: async (req: AuthedRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      console.log("🚀 Entering createManualRide controller");
+      let userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
@@ -113,6 +119,35 @@ export default {
           message: "Unauthorized",
         });
       }
+
+      // If the caller is an ADMIN (or Agent/Vendor), they are booking on behalf of a user
+      if (req.user?.role === "ADMIN" || req.user?.role === "AGENT" || req.user?.role === "PARTNER" || req.user?.role === "VENDOR") {
+        const { userPhone, userName, email } = req.body;
+        if (!userPhone || !userName) {
+          return res.status(400).json({ success: false, message: "userPhone and userName are required for manual bookings" });
+        }
+        
+        console.log(`👤 Booking on behalf of user: ${userPhone} (${userName})`);
+        let user = await prisma.user.findUnique({ where: { phone: userPhone } });
+        if (!user) {
+          console.log("🆕 User not found, creating new user...");
+          const uniqueOtp = await generateUnique4DigitOtp();
+          user = await prisma.user.create({
+            data: { phone: userPhone, name: userName, email: email || null, uniqueOtp }
+          });
+          console.log(`✅ New user created: ${user.id}`);
+        } else if (!user.name || user.name === "User") {
+          console.log("📝 Updating existing user name...");
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { name: userName, ...(email ? { email } : {}) }
+          });
+        }
+        userId = user.id;
+      }
+
+      console.log(`📍 Calling createManualRide service for userId: ${userId}`);
+
 
       const {
         vehicleTypeId,
@@ -176,6 +211,7 @@ export default {
         expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
       });
 
+      console.log(`✨ Ride created successfully: ${ride.id}`);
       return res.status(201).json({
         success: true,
         message: "Scheduled ride booked successfully",
@@ -318,6 +354,8 @@ export default {
 
       const ride = await cancelRide(id, userId);
 
+      createAuditLog({ userId, userName: req.user?.name, userRole: "USER", action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `User cancelled ride`, newData: { status: "CANCELLED" }, ...getRequestContext(req) });
+
       return res.status(200).json({
         success: true,
         message: "Ride cancelled successfully",
@@ -432,6 +470,8 @@ export default {
 
       const ride = await acceptRide(id, partnerId);
 
+      createAuditLog({ userId: partnerId, userName: req.user?.name, userRole: "PARTNER", action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Partner accepted ride`, newData: { status: "ACCEPTED", partnerId }, ...getRequestContext(req) });
+
       return res.status(200).json({
         success: true,
         message: "Ride accepted successfully",
@@ -473,7 +513,7 @@ export default {
     }
   },
 
-  // Update ride status (ARRIVED, STARTED, ONGOING, COMPLETED)
+  // Update ride status (ARRIVED, STARTED, ONGOING, COMPLETED, CANCELLED)
   updateRideStatus: async (req: AuthedRequest, res: Response) => {
     try {
       const partnerId = req.user?.id;
@@ -487,11 +527,11 @@ export default {
         });
       }
 
-      const validStatuses = ["ARRIVED", "STARTED", "ONGOING", "COMPLETED"];
+      const validStatuses = ["ARRIVED", "STARTED", "ONGOING", "COMPLETED", "CANCELLED"];
       if (!status || !validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
-          message: "Status must be ARRIVED, STARTED, ONGOING, or COMPLETED",
+          message: "Status must be ARRIVED, STARTED, ONGOING, COMPLETED, or CANCELLED",
         });
       }
 
@@ -503,6 +543,8 @@ export default {
         startingKm ? parseFloat(startingKm) : undefined,
         endingKm ? parseFloat(endingKm) : undefined
       );
+
+      createAuditLog({ userId: partnerId, userName: req.user?.name, userRole: "PARTNER", action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Partner updated ride to ${status}`, newData: { status }, ...getRequestContext(req) });
 
       return res.status(200).json({
         success: true,
@@ -634,6 +676,78 @@ export default {
       return res.status(400).json({
         success: false,
         message: error.message || "Failed to update online status",
+      });
+    }
+  },
+
+  // Public booking from landing page
+  publicBook: async (req: any, res: Response) => {
+    try {
+      const { 
+        userName, 
+        userPhone, 
+        pickupAddress, 
+        dropAddress, 
+        pickupLat, 
+        pickupLng, 
+        dropLat, 
+        dropLng, 
+        distanceKm, 
+        scheduledDateTime, 
+        rideType, 
+        vehicleTypeId, 
+        cityCodeId,
+        passengers
+      } = req.body;
+
+      if (!userPhone || !userName || !pickupAddress || !vehicleTypeId || !cityCodeId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Required fields missing (name, phone, pickup, vehicle type, city)" 
+        });
+      }
+
+      // 1. Find or create user
+      let user = await prisma.user.findUnique({ where: { phone: userPhone } });
+      if (!user) {
+        const uniqueOtp = await generateUnique4DigitOtp();
+        user = await prisma.user.create({
+          data: { phone: userPhone, name: userName, uniqueOtp }
+        });
+      } else if (!user.name || user.name === "User") {
+        // Update name if it was a placeholder
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { name: userName }
+        });
+      }
+
+      // 2. Create ride via service
+      const ride = await createManualRide(user.id, {
+        vehicleTypeId,
+        pickupLat: parseFloat(pickupLat) || 0,
+        pickupLng: parseFloat(pickupLng) || 0,
+        pickupAddress,
+        dropLat: parseFloat(dropLat) || 0,
+        dropLng: parseFloat(dropLng) || 0,
+        dropAddress: dropAddress || "Not specified",
+        distanceKm: parseFloat(distanceKm) || 0,
+        scheduledDateTime: new Date(scheduledDateTime),
+        rideType: rideType || "LOCAL",
+        bookingNotes: `Public Booking. Passengers: ${passengers || 'Not specified'}`,
+        cityCodeId,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Ride booked successfully",
+        data: ride,
+      });
+    } catch (error: any) {
+      console.error("Public Booking Error:", error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to book ride",
       });
     }
   },

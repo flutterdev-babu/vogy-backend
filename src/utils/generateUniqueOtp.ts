@@ -10,6 +10,7 @@ export const generateUnique4DigitOtp = async (): Promise<string> => {
   let attempts = 0;
   const maxAttempts = 100;
 
+  console.log("🎲 Generating unique 4-digit OTP...");
   while (!isUnique && attempts < maxAttempts) {
     // Generate 4-digit OTP (1000-9999)
     otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -21,6 +22,9 @@ export const generateUnique4DigitOtp = async (): Promise<string> => {
 
     if (!exists) {
       isUnique = true;
+      console.log(`✅ OTP generated: ${otp}`);
+    } else {
+      console.log(`🔄 OTP ${otp} already exists, retrying...`);
     }
 
     attempts++;

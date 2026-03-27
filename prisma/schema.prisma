@@ -135,30 +135,36 @@ enum FuelType {
 // ============================================
 
 model User {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  phone        String   @unique
-  email        String?  @unique
-  profileImage String?
-  uniqueOtp    String   @unique // 4-digit unique OTP for ride verification
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  phone             String   @unique
+  email             String?  @unique
+  profileImage      String?
+  uniqueOtp         String   @unique // 4-digit unique OTP for ride verification
+  referralCode      String?  // Unique referral code for this user
+  referredBy        String?  // Referral code of the user who referred this one
+  savedPlaces       Json?    // Array of saved places (home, work, favorites)
+  emergencyContacts Json?    // Array of emergency contacts
+  safetyPrefs       Json?    // Safety preferences (women mode, auto-share, etc.)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // 1 user → many rides
-  rides        Ride[]   @relation("UserRides")
+  rides             Ride[]   @relation("UserRides")
 }
 
 // Rider model removed - Partner is now the unified driver entity
 // Partners can either be assigned to a vendor's vehicle OR have their own vehicle
 
 model Admin {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  email     String    @unique
-  password  String
-  role      AdminRole @default(SUBADMIN)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  email       String    @unique
+  password    String
+  role        AdminRole @default(SUBADMIN)
+  permissions String[]  @default([])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 // ============================================
@@ -673,6 +679,9 @@ model Ride {
   razorpayOrderId    String?
   razorpayPaymentId  String?
   razorpaySignature  String?
+
+  // Support tickets linked to this ride
+  supportTickets     SupportTicket[] @relation("TicketRide")
 }
 
 // ============================================
@@ -813,3 +822,140 @@ model AgentCoupon {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
+
+// ============================================
+// AUDIT LOG MODEL
+// ============================================
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  ASSIGNMENT
+  LOGIN
+  LOGOUT
+}
+
+model AuditLog {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Who performed the action
+  userId      String?     @db.ObjectId
+  userName    String?
+  userRole    String?     // ADMIN, SUPERADMIN, PARTNER, etc.
+  
+  // What action was performed
+  action      AuditAction
+  module      String      // e.g., "VEHICLE_TYPE", "PARTNER", "RIDE", "PRICING"
+  entityId    String?     // ID of the record that was modified
+  description String      // Human-readable explanation
+  
+  // Data snapshots for change tracking
+  oldData     Json?       // Previous values (for updates)
+  newData     Json?       // New values
+  
+  // Request context
+  ipAddress   String?
+  userAgent   String?
+  
+  // Immutable - no updatedAt
+  createdAt   DateTime    @default(now())
+}
+
+// ============================================
+// SUPPORT TICKET ENUMS
+// ============================================
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  RIDE_ISSUE
+  PAYMENT_ISSUE
+  PARTNER_COMPLAINT
+  ACCOUNT_ISSUE
+  APP_BUG
+  GENERAL_INQUIRY
+  OTHER
+}
+
+// ============================================
+// SUPPORT TICKET MODELS
+// ============================================
+
+model SupportTicket {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  ticketNumber  String         @unique
+  category      TicketCategory
+  priority      TicketPriority @default(MEDIUM)
+  status        TicketStatus   @default(OPEN)
+  subject       String
+  description   String
+
+  // Customer info
+  customerType  String         // "USER" | "PARTNER" | "VENDOR"
+  customerId    String
+  customerName  String
+  customerPhone String?
+
+  // Related ride (optional)
+  rideId        String?        @db.ObjectId
+  ride          Ride?          @relation("TicketRide", fields: [rideId], references: [id])
+
+  // Assignment
+  assignedToId  String?        @db.ObjectId
+
+  // Messages thread
+  messages      TicketMessage[]
+
+  // Resolution
+  resolvedAt    DateTime?
+  resolution    String?
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model TicketMessage {
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
+  ticketId   String        @db.ObjectId
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id])
+  senderType String        // "ADMIN" | "USER" | "PARTNER" | "SYSTEM"
+  senderId   String?
+  senderName String
+  message    String
+  isInternal Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+}
+
+// ============================================
+// BROADCAST NOTIFICATIONS
+// ============================================
+
+model BroadcastNotification {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  body            String
+  imageUrl        String?
+  targetAudience  String   // "ALL_USERS", "ALL_PARTNERS", "CITY_BLR", etc.
+  sentById        String?
+  sentByName      String?
+  status          String   @default("SENT") // "SENT", "FAILED"
+  recipientCount  Int?     @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+

@@ -27,6 +27,7 @@ const city_routes_1 = __importDefault(require("./routes/public/city.routes"));
 const vehicleType_routes_1 = __importDefault(require("./routes/public/vehicleType.routes"));
 const lookup_routes_1 = __importDefault(require("./routes/public/lookup.routes"));
 const payment_routes_1 = __importDefault(require("./routes/payment/payment.routes"));
+const enquiry_routes_1 = __importDefault(require("./routes/public/enquiry.routes"));
 const socket_1 = require("./config/socket");
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
@@ -75,6 +76,8 @@ app.use("/api/vehicle-types", vehicleType_routes_1.default);
 app.use("/api/lookup", lookup_routes_1.default);
 // Payment routes
 app.use("/api/payment", payment_routes_1.default);
+// Enquiry routes
+app.use("/api/enquiry", enquiry_routes_1.default);
 // Health check
 app.get("/", (req, res) => {
     res.send("API is running...");

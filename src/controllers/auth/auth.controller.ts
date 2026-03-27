@@ -6,6 +6,7 @@ import {
   registerAdmin,
   loginAdmin
 } from "../../services/auth/auth.service";
+import { createAuditLog, getRequestContext } from "../../services/audit/auditLog.service";
 
 export default {
   /* ============================================
@@ -101,6 +102,8 @@ export default {
 
       const admin = await registerAdmin({ name, email, password, role });
 
+      createAuditLog({ userId: admin.id, userName: name, userRole: role || "SUBADMIN", action: "CREATE", module: "ADMIN", entityId: admin.id, description: `Admin registered: ${name} (${email})`, ...getRequestContext(req) });
+
       return res.status(201).json({
         success: true,
         message: "Admin registered successfully",
@@ -126,6 +129,8 @@ export default {
       }
 
       const response = await loginAdmin(email, password);
+
+      createAuditLog({ userId: response.admin?.id, userName: response.admin?.name, userRole: response.admin?.role, action: "LOGIN", module: "ADMIN", description: `Admin logged in: ${email}`, ...getRequestContext(req) });
 
       return res.status(200).json({
         success: true,
