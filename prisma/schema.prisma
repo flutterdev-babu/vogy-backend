@@ -196,6 +196,9 @@ model VehiclePricingGroup {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
   name           String?      // e.g., "Metros", "Tier 2 Cities"
   
+  // Service Type (Airport, Local, Outstation, Rental)
+  serviceType    RideType     @default(LOCAL)
+  
   // Vehicle type for this pricing
   vehicleTypeId  String       @db.ObjectId
   vehicleType    VehicleType  @relation(fields: [vehicleTypeId], references: [id])

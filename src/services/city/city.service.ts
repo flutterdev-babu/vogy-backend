@@ -245,6 +245,7 @@ export const deleteCityCode = async (cityCodeId: string, agentId: string) => {
 export const createPricingGroup = async (data: {
   vehicleTypeId: string;
   name?: string;
+  serviceType?: string;
   baseKm: number;
   baseFare: number;
   perKmPrice: number;
@@ -261,6 +262,7 @@ export const createPricingGroup = async (data: {
     data: {
       vehicleTypeId: data.vehicleTypeId,
       name: data.name,
+      serviceType: (data.serviceType as any) || "LOCAL",
       baseKm: data.baseKm,
       baseFare: data.baseFare,
       perKmPrice: data.perKmPrice,
@@ -274,8 +276,11 @@ export const createPricingGroup = async (data: {
   return pricingGroup;
 };
 
-export const getPricingGroups = async (vehicleTypeId?: string) => {
-  const where = vehicleTypeId ? { vehicleTypeId } : {};
+export const getPricingGroups = async (vehicleTypeId?: string, serviceType?: string) => {
+  const where: any = {};
+  if (vehicleTypeId) where.vehicleTypeId = vehicleTypeId;
+  if (serviceType) where.serviceType = serviceType as any;
+  
   return await prisma.vehiclePricingGroup.findMany({
     where,
     include: {
@@ -289,6 +294,7 @@ export const updatePricingGroup = async (
   id: string,
   data: {
     name?: string;
+    serviceType?: string;
     baseKm?: number;
     baseFare?: number;
     perKmPrice?: number;
@@ -298,7 +304,10 @@ export const updatePricingGroup = async (
 ) => {
   return await prisma.vehiclePricingGroup.update({
     where: { id },
-    data,
+    data: {
+      ...data,
+      ...(data.serviceType && { serviceType: data.serviceType as any }),
+    },
     include: {
       vehicleType: true,
     },
@@ -312,11 +321,12 @@ export const deletePricingGroup = async (id: string) => {
   return { message: "Pricing group deleted successfully" };
 };
 
-export const getPricingForCity = async (vehicleTypeId: string, cityCodeId: string) => {
+export const getPricingForCity = async (vehicleTypeId: string, cityCodeId: string, serviceType: string = "LOCAL") => {
   // Find an active pricing group that contains this city and vehicle type
   const pricingGroup = await prisma.vehiclePricingGroup.findFirst({
     where: {
       vehicleTypeId,
+      serviceType: serviceType as any,
       cityCodeIds: { has: cityCodeId },
       isActive: true,
     },
