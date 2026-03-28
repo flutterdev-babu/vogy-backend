@@ -76,6 +76,7 @@ export const estimateFare = async (data: {
   distanceKm: number;
   cityCodeId: string;
   couponCode?: string;
+  rideType?: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL";
 }) => {
   // Validate city code
   const cityCodeEntry = await prisma.cityCode.findUnique({
@@ -134,7 +135,7 @@ export const estimateFare = async (data: {
   // Build fare for each vehicle type
   const vehicleOptions = await Promise.all(vehicleTypes.map(async (vt) => {
     // NEW: Get city-specific pricing group or fallback to vehicle type defaults
-    const cityPricing = await getPricingForCity(vt.id, data.cityCodeId);
+    const cityPricing = await getPricingForCity(vt.id, data.cityCodeId, data.rideType || "LOCAL");
     
     const baseFare = cityPricing.baseFare;
     const perKmPrice = cityPricing.perKmPrice;
@@ -250,7 +251,7 @@ export const createRide = async (
   }
 
   // NEW: Get city-specific pricing group or fallback to vehicle type defaults
-  const cityPricing = await getPricingForCity(data.vehicleTypeId, data.cityCodeId);
+  const cityPricing = await getPricingForCity(data.vehicleTypeId, data.cityCodeId, data.rideType || "LOCAL");
 
   const baseFare = cityPricing.baseFare;
   const perKmPrice = cityPricing.perKmPrice;
@@ -416,7 +417,7 @@ export const createManualRide = async (
   }
 
   // NEW: Get city-specific pricing group or fallback to vehicle type defaults
-  const cityPricing = await getPricingForCity(data.vehicleTypeId, data.cityCodeId);
+  const cityPricing = await getPricingForCity(data.vehicleTypeId, data.cityCodeId, data.rideType || "LOCAL");
 
   const baseFare = cityPricing.baseFare;
   const perKmPrice = cityPricing.perKmPrice;
