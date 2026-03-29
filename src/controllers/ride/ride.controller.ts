@@ -133,7 +133,7 @@ export default {
           console.log("🆕 User not found, creating new user...");
           const uniqueOtp = await generateUnique4DigitOtp();
           user = await prisma.user.create({
-            data: { phone: userPhone, name: userName, email: email || `${userPhone}@vogy.local`, uniqueOtp }
+            data: { phone: userPhone, name: userName, email: email || null, uniqueOtp }
           });
           console.log(`✅ New user created: ${user.id}`);
         } else if (!user.name || user.name === "User") {
@@ -712,7 +712,7 @@ export default {
       if (!user) {
         const uniqueOtp = await generateUnique4DigitOtp();
         user = await prisma.user.create({
-          data: { phone: userPhone, name: userName, email: `${userPhone}@vogy.local`, uniqueOtp }
+          data: { phone: userPhone, name: userName, uniqueOtp }
         });
       } else if (!user.name || user.name === "User") {
         // Update name if it was a placeholder

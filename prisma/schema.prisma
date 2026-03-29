@@ -138,7 +138,7 @@ model User {
   id                String   @id @default(auto()) @map("_id") @db.ObjectId
   name              String
   phone             String   @unique
-  email             String?  @unique
+  email             String?
   profileImage      String?
   uniqueOtp         String   @unique // 4-digit unique OTP for ride verification
   referralCode      String?  // Unique referral code for this user
