@@ -100,7 +100,29 @@ app.use("/api/payment", paymentRoutes);
 
 // Enquiry routes
 app.use("/api/enquiry", enquiryRoutes);
+import { prisma } from "./config/prisma";
+
 // Health check
+app.get("/api/health", async (req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ 
+      status: "OK", 
+      backend: "UP",
+      database: "UP",
+      timestamp: new Date().toISOString() 
+    });
+  } catch (error) {
+    res.status(503).json({ 
+      status: "ERROR", 
+      backend: "UP",
+      database: "DOWN",
+      timestamp: new Date().toISOString() 
+    });
+  }
+});
+
+// Root check
 app.get("/", (req: Request, res: Response) => {
   res.send("API is running...");
 });
