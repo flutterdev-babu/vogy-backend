@@ -236,7 +236,7 @@ export default {
 
   createPricingGroup: async (req: AuthedRequest, res: Response) => {
     try {
-      const { vehicleTypeId, name, baseKm, baseFare, perKmPrice, cityCodeIds } = req.body;
+      const { vehicleTypeId, name, serviceType, baseKm, baseFare, perKmPrice, cityCodeIds } = req.body;
 
       if (!vehicleTypeId || perKmPrice === undefined || !cityCodeIds) {
         return res.status(400).json({
@@ -249,6 +249,7 @@ export default {
       const pricingGroup = await createPricingGroup({
         vehicleTypeId,
         name,
+        serviceType,
         baseKm: baseKm ? parseFloat(baseKm) : 2,
         baseFare: baseFare ? parseFloat(baseFare) : 50,
         perKmPrice: parseFloat(perKmPrice),
@@ -272,9 +273,12 @@ export default {
 
   getPricingGroups: async (req: AuthedRequest, res: Response) => {
     try {
-      const { vehicleTypeId } = req.query;
+      const { vehicleTypeId, serviceType } = req.query;
       const { getPricingGroups } = require("../../services/city/city.service");
-      const groups = await getPricingGroups(vehicleTypeId as string);
+      const groups = await getPricingGroups(
+        vehicleTypeId as string,
+        serviceType as string
+      );
 
       return res.status(200).json({
         success: true,

@@ -228,7 +228,7 @@ export default {
   // Estimate fare before booking (no ride created)
   estimateFare: async (req: AuthedRequest, res: Response) => {
     try {
-      const { distanceKm, cityCodeId, couponCode } = req.body;
+      const { distanceKm, cityCodeId, couponCode, rideType } = req.body;
 
       if (distanceKm === undefined || !cityCodeId) {
         return res.status(400).json({
@@ -241,6 +241,7 @@ export default {
         distanceKm: parseFloat(distanceKm),
         cityCodeId,
         couponCode,
+        rideType,
       });
 
       return res.status(200).json({

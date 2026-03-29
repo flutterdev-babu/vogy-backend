@@ -81,13 +81,18 @@ export const sendOtp = async (role: "USER" | "PARTNER", phone: string) => {
     },
   });
 
+  // Bypass Twilio for development if needed (e.g., account suspended)
+  /*
   await twilioClient.messages.create({
     body: `Your login OTP is: ${otp}`,
     from: TWILIO_PHONE,
     to: phone,
   });
+  */
+  
+  console.log(`[DEV] OTP for ${phone} (${role}): ${otp}`);
 
-  return { message: "OTP sent successfully" };
+  return { message: "OTP sent successfully (Development Mode)" };
 };
 
 export const verifyOtp = async (
