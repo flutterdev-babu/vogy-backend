@@ -140,6 +140,7 @@ model User {
   phone             String   @unique
   email             String?
   profileImage      String?
+  password          String?  // Hashed password for email/password login
   uniqueOtp         String   @unique // 4-digit unique OTP for ride verification
   referralCode      String?  // Unique referral code for this user
   referredBy        String?  // Referral code of the user who referred this one

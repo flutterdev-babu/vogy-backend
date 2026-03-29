@@ -14,6 +14,7 @@ import {
   updateEmergencyContacts,
   getUserReferralCode,
   applyReferralCode,
+  updateUserPassword,
 } from "../../services/user/user.service";
 import {
   createRide,
@@ -27,6 +28,40 @@ export default {
   /* ============================================
       USER PROFILE (Already exists)
   ============================================ */
+  updatePassword: async (req: AuthedRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const { password } = req.body;
+
+      if (!password || password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "Password is required and must be at least 6 characters",
+        });
+      }
+
+      const updatedUser = await updateUserPassword(userId, password);
+
+      return res.status(200).json({
+        success: true,
+        message: "Password updated successfully",
+        data: updatedUser,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to update password",
+      });
+    }
+  },
   getProfile: async (req: AuthedRequest, res: Response) => {
     try {
       const userId = req.user?.id;

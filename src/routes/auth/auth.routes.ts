@@ -10,6 +10,9 @@ const router = Router();
 // Register user
 router.post("/register-user", authController.registerUser);
 
+// Login user (Email/Password)
+router.post("/login-user", authController.loginUser);
+
 // Note: Rider registration has been removed - use Partner auth (/api/partners/auth/register)
 // All drivers are now unified under the Partner entity
 

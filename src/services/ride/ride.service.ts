@@ -50,7 +50,7 @@ export const validateCouponLogic = async (
   // Check if city matches (Primary or Legacy)
   const isPrimaryCity = coupon.agent.cityCodeId === cityCodeId;
   const isLegacyCity = coupon.agent.cityCodes.some((c) => c.id === cityCodeId);
-  
+
   if (!isPrimaryCity && !isLegacyCity) {
     throw new Error("Coupon is not valid for this city");
   }
@@ -118,7 +118,7 @@ export const estimateFare = async (data: {
     if (coupon && coupon.isActive) {
       const now = new Date();
       const isDateValid = now >= coupon.validFrom && now <= coupon.validTo;
-      
+
       const isPrimaryCity = coupon.agent.cityCodeId === data.cityCodeId;
       const isLegacyCity = coupon.agent.cityCodes.some((c) => c.id === data.cityCodeId);
 
@@ -136,12 +136,11 @@ export const estimateFare = async (data: {
   const vehicleOptions = await Promise.all(vehicleTypes.map(async (vt) => {
     // NEW: Get city-specific pricing group or fallback to vehicle type defaults
     const cityPricing = await getPricingForCity(vt.id, data.cityCodeId, data.rideType || "LOCAL");
-    
+
     const baseFare = cityPricing.baseFare;
     const perKmPrice = cityPricing.perKmPrice;
-    
+
     // Calculation: baseFare + (perKmPrice * (distanceKm - baseKm))
-    // If distance is less than baseKm, it's just baseFare
     const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
     let estimatedFare = parseFloat((baseFare + perKmPrice * billableKm).toFixed(2));
 
@@ -172,6 +171,7 @@ export const estimateFare = async (data: {
       pricePerKm: perKmPrice,
       baseKm: cityPricing.baseKm,
       estimatedFare,
+      totalFare: couponInfo ? finalFare : estimatedFare,
       ...(couponInfo && {
         discountAmount,
         finalFare,
@@ -181,7 +181,8 @@ export const estimateFare = async (data: {
 
   return {
     distanceKm: data.distanceKm,
-    vehicleOptions,
+    fareEstimates: vehicleOptions,
+    vehicleOptions, // For public API compatibility
     ...(couponInfo && {
       couponApplied: {
         couponCode: couponInfo.couponCode,
@@ -522,8 +523,8 @@ export const getUserRides = async (userId: string, status?: string) => {
   const where: any = { userId };
 
   if (status === "FUTURE") {
-    where.status = { 
-      in: ["UPCOMING", "ASSIGNED", "STARTED", "ARRIVED", "ONGOING", "STOPPED"] 
+    where.status = {
+      in: ["UPCOMING", "ASSIGNED", "STARTED", "ARRIVED", "ONGOING", "STOPPED"]
     };
   } else if (status) {
     where.status = status as any;
@@ -997,7 +998,7 @@ export const updateRideStatus = async (
     if (user.uniqueOtp !== userOtp) {
       throw new Error("Invalid user OTP");
     }
-    
+
     // Rental validation
     if (ride.rideType === "RENTAL") {
       if (startingKm === undefined || startingKm < 0) {
@@ -1011,7 +1012,7 @@ export const updateRideStatus = async (
     if (ride.status !== "ONGOING" && ride.status !== "STARTED") {
       throw new Error("Ride must be ONGOING or STARTED before completing");
     }
-    
+
     // Rental validation
     if (ride.rideType === "RENTAL") {
       if (endingKm === undefined || endingKm < 0) {
@@ -1034,39 +1035,39 @@ export const updateRideStatus = async (
   if (status === "STARTED") {
     updateData.startTime = new Date();
   }
-  
+
   if (status === "ONGOING") {
     // If not already started, set start time
     if (!ride.startTime) {
-       updateData.startTime = new Date();
+      updateData.startTime = new Date();
     }
     if (ride.rideType === "RENTAL" && startingKm !== undefined) {
-       updateData.startingKm = startingKm;
+      updateData.startingKm = startingKm;
     }
   }
-  
+
   // Custom completion logic for pricing
   if (status === "COMPLETED") {
     updateData.endTime = new Date();
-    
+
     if (ride.rideType === "RENTAL" && endingKm !== undefined && ride.startingKm) {
       updateData.endingKm = endingKm;
       const totalDistance = endingKm - ride.startingKm;
       updateData.distanceKm = totalDistance;
-      
+
       // Calculate fare for rental ride based on distance and pricing
       const perKmPrice = ride.perKmPrice || 0;
       const baseFare = ride.baseFare || 20;
-      
+
       const newTotalFare = baseFare + (perKmPrice * totalDistance);
-      
+
       const pricingConfig = await prisma.pricingConfig.findFirst({
         where: { isActive: true },
         orderBy: { createdAt: "desc" },
       });
       const riderPercentage = pricingConfig ? pricingConfig.riderPercentage : 80;
       const appCommissionStr = pricingConfig ? pricingConfig.appCommission : 20;
-      
+
       updateData.totalFare = newTotalFare;
       updateData.riderEarnings = (newTotalFare * riderPercentage) / 100;
       updateData.commission = (newTotalFare * appCommissionStr) / 100;
@@ -1120,7 +1121,7 @@ export const updateRideStatus = async (
     // Emitting ride started handles ONGOING well enough, depending on frontend.
     emitRideStarted(updatedRide);
   } else if (status === "COMPLETED") {
-    
+
     // Update partner's total earnings if partner exists
     if (updatedRide.partnerId && updatedRide.riderEarnings) {
       await prisma.partner.update({
@@ -1154,9 +1155,9 @@ const calculateDistance = (
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
   return distance;

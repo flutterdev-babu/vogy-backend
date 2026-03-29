@@ -3,7 +3,7 @@ import crypto from "crypto";
 import twilio from "twilio";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
-import { validatePhoneNumber } from "../../utils/phoneValidation";
+import { normalizePhone, validatePhoneNumber } from "../../utils/phoneValidation";
 import { signToken } from "../../utils/jwt";
 
 const twilioClient = twilio(
@@ -18,23 +18,49 @@ const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 const otpExpiry = () => new Date(Date.now() + 5 * 60 * 1000);
 
 export const registerUser = async (data: any) => {
-  // Validate phone number format (E.164)
-  validatePhoneNumber(data.phone);
+  // Normalize phone number (E.164)
+  const phone = normalizePhone(data.phone);
 
   const exists = await prisma.user.findUnique({
-    where: { phone: data.phone },
+    where: { phone },
   });
 
-  if (exists) throw new Error("User already exists");
+  if (exists) {
+    // If the user exists but has no password, they likely registered via OTP only.
+    // Allow them to "register" their email and password now to enable dual login.
+    if (!exists.password) {
+      const uniqueOtp = exists.uniqueOtp || (await generateUnique4DigitOtp());
+      const hashedPassword = data.password ? await hashPassword(data.password) : null;
 
-  // Generate unique 4-digit OTP for user
+      const updatedUser = await prisma.user.update({
+        where: { id: exists.id },
+        data: {
+          name: data.name || exists.name,
+          email: data.email || exists.email,
+          password: hashedPassword,
+          uniqueOtp: uniqueOtp,
+        },
+      });
+      return updatedUser;
+    }
+
+    throw new Error(
+      "This phone number is already registered. Please go to the Login page to access your account."
+    );
+  }
+
+  // Generate unique 4-digit OTP for new user
   const uniqueOtp = await generateUnique4DigitOtp();
+
+  // Hash password if provided
+  const hashedPassword = data.password ? await hashPassword(data.password) : null;
 
   const user = await prisma.user.create({
     data: {
       name: data.name,
-      phone: data.phone,
+      phone: phone,
       email: data.email || null,
+      password: hashedPassword,
       profileImage: data.profileImage || null,
       uniqueOtp: uniqueOtp,
     },
@@ -47,19 +73,19 @@ export const registerUser = async (data: any) => {
 // The old registerRider function has been removed - use Partner auth instead
 
 export const sendOtp = async (role: "USER" | "PARTNER", phone: string) => {
-  // Validate phone number format (E.164)
-  validatePhoneNumber(phone);
+  // Normalize phone number (E.164)
+  const normalizedPhone = normalizePhone(phone);
 
   // Verify phone number is registered
   let exists = false;
   if (role === "USER") {
     const user = await prisma.user.findUnique({
-      where: { phone },
+      where: { phone: normalizedPhone },
     });
     exists = !!user;
   } else if (role === "PARTNER") {
     const partner = await prisma.partner.findUnique({
-      where: { phone },
+      where: { phone: normalizedPhone },
     });
     exists = !!partner;
   }
@@ -74,7 +100,7 @@ export const sendOtp = async (role: "USER" | "PARTNER", phone: string) => {
 
   await prisma.otpCode.create({
     data: {
-      phone,
+      phone: normalizedPhone,
       role,
       code: otp,
       expiresAt: otpExpiry(),
@@ -89,7 +115,7 @@ export const sendOtp = async (role: "USER" | "PARTNER", phone: string) => {
     to: phone,
   });
   */
-  
+
   console.log(`[DEV] OTP for ${phone} (${role}): ${otp}`);
 
   return { message: "OTP sent successfully (Development Mode)" };
@@ -100,11 +126,11 @@ export const verifyOtp = async (
   phone: string,
   code: string
 ) => {
-  // Validate phone number format (E.164)
-  validatePhoneNumber(phone);
+  // Normalize phone number (E.164)
+  const normalizedPhone = normalizePhone(phone);
 
   const otpRecord = await prisma.otpCode.findFirst({
-    where: { phone, role, code },
+    where: { phone: normalizedPhone, role, code },
     orderBy: { createdAt: "desc" },
   });
 
@@ -122,7 +148,7 @@ export const verifyOtp = async (
     const token = signToken({ id: user.id, role });
 
     // Remove OTP after use
-    await prisma.otpCode.deleteMany({ where: { phone } });
+    await prisma.otpCode.deleteMany({ where: { phone: normalizedPhone } });
 
     return {
       message: "Login successful",
@@ -156,7 +182,7 @@ export const verifyOtp = async (
         },
       },
     });
-    
+
     if (!partner) throw new Error("Partner not found. Please register first.");
 
     // Check if partner is suspended
@@ -168,7 +194,7 @@ export const verifyOtp = async (
     const token = signToken({ id: partner.id, role });
 
     // Remove OTP after use
-    await prisma.otpCode.deleteMany({ where: { phone } });
+    await prisma.otpCode.deleteMany({ where: { phone: normalizedPhone } });
 
     const { password, ...partnerWithoutPassword } = partner;
 
@@ -241,5 +267,40 @@ export const loginAdmin = async (email: string, password: string) => {
     message: "Login successful",
     token,
     admin: adminWithoutPassword,
+  };
+};
+
+/* ============================================
+    USER LOGIN (EMAIL/PASSWORD)
+============================================ */
+export const loginUser = async (email: string, password: string) => {
+  // Find user by email
+  const user = await prisma.user.findFirst({
+    where: { email },
+  });
+
+  if (!user) {
+    throw new Error("No account found with this email. Please register first or use OTP login with your phone number.");
+  }
+
+  if (!user.password) {
+    throw new Error("This account was created via OTP and does not have a password. Please use OTP Login to sign in.");
+  }
+
+  // Verify password
+  const isPasswordValid = await comparePassword(password, user.password);
+
+  if (!isPasswordValid) throw new Error("Incorrect password. Please try again or use OTP Login.");
+
+  // Generate JWT
+  const token = signToken({ id: user.id, role: "USER" });
+
+  // Remove password from response
+  const { password: _, ...userWithoutPassword } = user;
+
+  return {
+    message: "Login successful",
+    token,
+    user: userWithoutPassword,
   };
 };

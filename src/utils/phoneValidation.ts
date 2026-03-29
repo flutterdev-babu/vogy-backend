@@ -10,16 +10,16 @@
  * @returns true if valid E.164 format
  */
 export const isValidE164Phone = (phone: string): boolean => {
-  // E.164 format: starts with +, followed by 1-3 digit country code, then 6-14 digits
-  // Total length: 8-15 characters (including +)
+  // Support 10 digits or E.164
+  const indian10Digit = /^\d{10}$/;
   const e164Regex = /^\+[1-9]\d{7,14}$/;
-  return e164Regex.test(phone);
+  return indian10Digit.test(phone) || e164Regex.test(phone);
 };
 
 /**
  * Validates phone number and throws error if invalid
  * @param phone - Phone number to validate
- * @throws Error if phone number is not in E.164 format
+ * @throws Error if phone number is invalid
  */
 export const validatePhoneNumber = (phone: string): void => {
   if (!phone) {
@@ -28,23 +28,34 @@ export const validatePhoneNumber = (phone: string): void => {
 
   if (!isValidE164Phone(phone)) {
     throw new Error(
-      "Invalid phone number format. Phone must include country code (e.g., +919876543210)"
+      "Invalid phone number format. Enter a 10-digit mobile number or include country code (e.g., +919876543210)"
     );
   }
 };
 
 /**
- * Normalizes phone number by ensuring it starts with +
- * This is a safety measure, but frontend should always send with +
+ * Normalizes phone number by ensuring it starts with +91 if 10 digits
  * @param phone - Phone number to normalize
  * @returns Normalized phone number
  */
 export const normalizePhone = (phone: string): string => {
+  let p = phone.trim();
+
+  // If 10 digits, assume India (+91)
+  if (/^\d{10}$/.test(p)) {
+    return `+91${p}`;
+  }
+
+  // If starts with 91 (12 digits), add +
+  if (/^91\d{10}$/.test(p)) {
+    return `+${p}`;
+  }
+
   // If phone doesn't start with +, it's invalid for Twilio
-  if (!phone.startsWith("+")) {
+  if (!p.startsWith("+")) {
     throw new Error(
       "Phone number must include country code starting with + (e.g., +919876543210)"
     );
   }
-  return phone.trim();
+  return p;
 };

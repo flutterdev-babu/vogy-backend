@@ -19,6 +19,9 @@ router.get("/profile", userController.getProfile);
 router.put("/profile", userController.updateProfile);
 router.patch("/profile", userController.updateProfile);
 
+// Update password
+router.put("/profile/password", userController.updatePassword);
+
 // Ride summary & active ride
 router.get("/rides/summary", userController.getRideSummary);
 router.get("/rides/active", userController.getActiveRide);

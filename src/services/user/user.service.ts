@@ -1,5 +1,39 @@
 import { prisma } from "../../config/prisma";
 import { generateUnique4DigitOtp } from "../../utils/generateUniqueOtp";
+import { hashPassword } from "../../utils/hash";
+
+/* ============================================
+    UPDATE USER PASSWORD
+============================================ */
+export const updateUserPassword = async (userId: string, password: string) => {
+  // Check if user exists
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // Hash new password
+  const hashedPassword = await hashPassword(password);
+
+  // Update user's password
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      password: hashedPassword,
+    },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+    },
+  });
+
+  return updatedUser;
+};
 
 /* ============================================
     GET USER PROFILE

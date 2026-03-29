@@ -17,10 +17,10 @@ const generateCustomId = async (
     ATTACHMENT: "AA",
   };
   const prefix = prefixMap[entityType];
-  
+
   // Count existing entities with this city code
   let count = 0;
-  
+
   if (entityType === "VENDOR") {
     count = await prisma.vendor.count({
       where: { cityCode: { code: cityCode } },
@@ -51,13 +51,13 @@ const generateCustomId = async (
       where: { customId: { contains: `ACAA${cityCode}` } }
     });
   }
-  
+
   // Generate next serial number
   // For RIDE we use 4 digits to reach 10 chars
   // For others, we keep 2 digits
   const serialPadding = (entityType === "RIDE") ? 4 : 2;
   const serialNumber = String(count + 1).padStart(serialPadding, "0");
-  
+
   // Format: AC + prefix + cityCode + serial (no hyphen)
   // e.g., ACVBLR01, ACPBLR01, ACABLR01, ACCBLR01, ACRBLR0001, ACAABLR01
   const customId = `AC${prefix}${cityCode}${serialNumber}`;
@@ -282,7 +282,7 @@ export const getPricingGroups = async (vehicleTypeId?: string, serviceType?: str
   const where: any = {};
   if (vehicleTypeId) where.vehicleTypeId = vehicleTypeId;
   if (serviceType) where.serviceType = serviceType as any;
-  
+
   return await prisma.vehiclePricingGroup.findMany({
     where,
     include: {
@@ -353,8 +353,8 @@ export const getPricingForCity = async (vehicleTypeId: string, cityCodeId: strin
 
   return {
     baseFare: vehicleType.baseFare || 20, // Global default if not set
-    perKmPrice: vehicleType.pricePerKm,
-    baseKm: 0, // No base distance for manual/default pricing usually?
+    perKmPrice: vehicleType.pricePerKm || 15, // Default rate if not set
+    baseKm: 0,
   };
 };
 

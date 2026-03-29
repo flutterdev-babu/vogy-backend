@@ -35,6 +35,10 @@ export default {
         });
       }
 
+      console.log('--- CREATE RIDE REQUEST ---');
+      console.log('User ID:', userId);
+      console.log('Payload:', req.body);
+
       const {
         vehicleTypeId,
         pickupLat,
@@ -55,23 +59,15 @@ export default {
       } = req.body;
 
       // Validate required fields
-      if (
-        !vehicleTypeId ||
-        pickupLat === undefined ||
-        pickupLng === undefined ||
-        !pickupAddress ||
-        dropLat === undefined ||
-        dropLng === undefined ||
-        !dropAddress ||
-        distanceKm === undefined ||
-        !cityCodeId // NEW
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "vehicleTypeId, pickupLat, pickupLng, pickupAddress, dropLat, dropLng, dropAddress, distanceKm, and cityCodeId are required",
-        });
-      }
+      if (!vehicleTypeId) return res.status(400).json({ success: false, message: "vehicleTypeId is required" });
+      if (pickupLat === undefined) return res.status(400).json({ success: false, message: "pickupLat is required" });
+      if (pickupLng === undefined) return res.status(400).json({ success: false, message: "pickupLng is required" });
+      if (!pickupAddress) return res.status(400).json({ success: false, message: "pickupAddress is required" });
+      if (dropLat === undefined) return res.status(400).json({ success: false, message: "dropLat is required" });
+      if (dropLng === undefined) return res.status(400).json({ success: false, message: "dropLng is required" });
+      if (!dropAddress) return res.status(400).json({ success: false, message: "dropAddress is required" });
+      if (distanceKm === undefined) return res.status(400).json({ success: false, message: "distanceKm is required" });
+      if (!cityCodeId) return res.status(400).json({ success: false, message: "cityCodeId is required" });
 
       const ride = await createRide(userId, {
         vehicleTypeId,
@@ -126,7 +122,7 @@ export default {
         if (!userPhone || !userName) {
           return res.status(400).json({ success: false, message: "userPhone and userName are required for manual bookings" });
         }
-        
+
         console.log(`👤 Booking on behalf of user: ${userPhone} (${userName})`);
         let user = await prisma.user.findUnique({ where: { phone: userPhone } });
         if (!user) {
@@ -536,10 +532,10 @@ export default {
       }
 
       const ride = await updateRideStatus(
-        id, 
-        partnerId, 
-        status, 
-        userOtp, 
+        id,
+        partnerId,
+        status,
+        userOtp,
         startingKm ? parseFloat(startingKm) : undefined,
         endingKm ? parseFloat(endingKm) : undefined
       );
@@ -630,7 +626,7 @@ export default {
       }
 
       const { prisma } = require("../../config/prisma");
-      
+
       // If going online, require location
       if (isOnline && (lat === undefined || lng === undefined)) {
         return res.status(400).json({
@@ -683,27 +679,27 @@ export default {
   // Public booking from landing page
   publicBook: async (req: any, res: Response) => {
     try {
-      const { 
-        userName, 
-        userPhone, 
-        pickupAddress, 
-        dropAddress, 
-        pickupLat, 
-        pickupLng, 
-        dropLat, 
-        dropLng, 
-        distanceKm, 
-        scheduledDateTime, 
-        rideType, 
-        vehicleTypeId, 
+      const {
+        userName,
+        userPhone,
+        pickupAddress,
+        dropAddress,
+        pickupLat,
+        pickupLng,
+        dropLat,
+        dropLng,
+        distanceKm,
+        scheduledDateTime,
+        rideType,
+        vehicleTypeId,
         cityCodeId,
         passengers
       } = req.body;
 
       if (!userPhone || !userName || !pickupAddress || !vehicleTypeId || !cityCodeId) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Required fields missing (name, phone, pickup, vehicle type, city)" 
+        return res.status(400).json({
+          success: false,
+          message: "Required fields missing (name, phone, pickup, vehicle type, city)"
         });
       }
 

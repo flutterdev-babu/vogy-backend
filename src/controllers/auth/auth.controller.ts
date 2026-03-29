@@ -4,7 +4,8 @@ import {
   sendOtp,
   verifyOtp,
   registerAdmin,
-  loginAdmin
+  loginAdmin,
+  loginUser
 } from "../../services/auth/auth.service";
 import { createAuditLog, getRequestContext } from "../../services/audit/auditLog.service";
 
@@ -131,6 +132,32 @@ export default {
       const response = await loginAdmin(email, password);
 
       createAuditLog({ userId: response.admin?.id, userName: response.admin?.name, userRole: response.admin?.role, action: "LOGIN", module: "ADMIN", description: `Admin logged in: ${email}`, ...getRequestContext(req) });
+
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        data: response,
+      });
+    } catch (error: any) {
+      return res.status(401).json({ success: false, message: error.message });
+    }
+  },
+
+  /* ============================================
+      LOGIN USER (EMAIL/PASSWORD)
+  ============================================ */
+  loginUser: async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: "Email and password are required",
+        });
+      }
+
+      const response = await loginUser(email, password);
 
       return res.status(200).json({
         success: true,
