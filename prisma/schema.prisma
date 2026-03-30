@@ -100,6 +100,9 @@ enum PaymentStatus {
   PENDING
   COMPLETED
   PARTIAL
+  VERIFIED
+  LINKED
+  EXPIRED
 }
 
 enum RideType {
@@ -140,18 +143,18 @@ model User {
   phone             String   @unique
   email             String?
   profileImage      String?
-  password          String?  // Hashed password for email/password login
+  password          String? // Hashed password for email/password login
   uniqueOtp         String   @unique // 4-digit unique OTP for ride verification
-  referralCode      String?  // Unique referral code for this user
-  referredBy        String?  // Referral code of the user who referred this one
-  savedPlaces       Json?    // Array of saved places (home, work, favorites)
-  emergencyContacts Json?    // Array of emergency contacts
-  safetyPrefs       Json?    // Safety preferences (women mode, auto-share, etc.)
+  referralCode      String? // Unique referral code for this user
+  referredBy        String? // Referral code of the user who referred this one
+  savedPlaces       Json? // Array of saved places (home, work, favorites)
+  emergencyContacts Json? // Array of emergency contacts
+  safetyPrefs       Json? // Safety preferences (women mode, auto-share, etc.)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   // 1 user → many rides
-  rides             Ride[]   @relation("UserRides")
+  rides Ride[] @relation("UserRides")
 }
 
 // Rider model removed - Partner is now the unified driver entity
@@ -173,55 +176,55 @@ model Admin {
 // ============================================
 
 model CityCode {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  code        String   @unique   // e.g., "BLR", "HYD", "MUM"
-  cityName    String              // e.g., "Bangalore", "Hyderabad"
-  isActive    Boolean  @default(true)
-  
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  code     String  @unique // e.g., "BLR", "HYD", "MUM"
+  cityName String // e.g., "Bangalore", "Hyderabad"
+  isActive Boolean @default(true)
+
   // Relations to pricing groups
   pricingGroupIds String[] @db.ObjectId
-  
-  // Entities registered in this city
-  vendors     Vendor[]
-  partners    Partner[]
-  vehicles    Vehicle[]
-  corporates  Corporate[] @relation("CorporateCityCode")
-  rides       Ride[]      @relation("RideCityCode")
-  
-  // DEPRECATED: Legacy Linked Agent (Governance shifting to Admin)
-  agentId     String?     @db.ObjectId
-  agent       Agent?      @relation("AgentCityCodes", fields: [agentId], references: [id])
-  
-  // NEW: Primary Agent Relationship (One-to-Many)
-  primaryAgents Agent[]   @relation("AgentPrimaryCityCode")
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Entities registered in this city
+  vendors    Vendor[]
+  partners   Partner[]
+  vehicles   Vehicle[]
+  corporates Corporate[] @relation("CorporateCityCode")
+  rides      Ride[]      @relation("RideCityCode")
+
+  // DEPRECATED: Legacy Linked Agent (Governance shifting to Admin)
+  agentId String? @db.ObjectId
+  agent   Agent?  @relation("AgentCityCodes", fields: [agentId], references: [id])
+
+  // NEW: Primary Agent Relationship (One-to-Many)
+  primaryAgents Agent[] @relation("AgentPrimaryCityCode")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model VehiclePricingGroup {
-  id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  name           String?      // e.g., "Metros", "Tier 2 Cities"
-  
+  id   String  @id @default(auto()) @map("_id") @db.ObjectId
+  name String? // e.g., "Metros", "Tier 2 Cities"
+
   // Service Type (Airport, Local, Outstation, Rental)
-  serviceType    RideType     @default(LOCAL)
-  
+  serviceType RideType @default(LOCAL)
+
   // Vehicle type for this pricing
-  vehicleTypeId  String       @db.ObjectId
-  vehicleType    VehicleType  @relation(fields: [vehicleTypeId], references: [id])
-  
+  vehicleTypeId String      @db.ObjectId
+  vehicleType   VehicleType @relation(fields: [vehicleTypeId], references: [id])
+
   // Pricing details
-  baseKm         Float        @default(2) // e.g., 2 km
-  baseFare       Float        @default(50) // e.g., ₹50 for first 2 km
-  perKmPrice     Float        // e.g., ₹12 per km after base
-  
+  baseKm     Float @default(2) // e.g., 2 km
+  baseFare   Float @default(50) // e.g., ₹50 for first 2 km
+  perKmPrice Float // e.g., ₹12 per km after base
+
   // Cities in this pricing group
-  cityCodeIds    String[]     @db.ObjectId
-  
-  isActive       Boolean      @default(true)
-  
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  cityCodeIds String[] @db.ObjectId
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================
@@ -229,269 +232,269 @@ model VehiclePricingGroup {
 // ============================================
 
 model Vendor {
-  id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  customId      String?      @unique  // e.g., "ACVBLR01"
-  name          String
-  companyName   String
-  phone         String       @unique
-  email         String?      @unique
-  password      String
-  address       String?
-  status        EntityStatus @default(ACTIVE)
+  id                 String             @id @default(auto()) @map("_id") @db.ObjectId
+  customId           String?            @unique // e.g., "ACVBLR01"
+  name               String
+  companyName        String
+  phone              String             @unique
+  email              String?            @unique
+  password           String
+  address            String?
+  status             EntityStatus       @default(ACTIVE)
   verificationStatus VerificationStatus @default(UNVERIFIED)
-  type          VendorType   @default(BUSINESS)
-  isDeleted     Boolean      @default(false)
-  
+  type               VendorType         @default(BUSINESS)
+  isDeleted          Boolean            @default(false)
+
   // Additional contact details
-  gstNumber        String?
-  panNumber        String?
-  ccMobile         String?      // CC Mobile Number
-  primaryNumber    String?      // Primary Contact
-  secondaryNumber  String?      // Secondary Contact
-  ownerContact     String?      // Owner Contact Number
-  officeLandline   String?      // Office Landline
-  officeAddress    String?      // Office Address
-  
+  gstNumber       String?
+  panNumber       String?
+  ccMobile        String? // CC Mobile Number
+  primaryNumber   String? // Primary Contact
+  secondaryNumber String? // Secondary Contact
+  ownerContact    String? // Owner Contact Number
+  officeLandline  String? // Office Landline
+  officeAddress   String? // Office Address
+
   // Banking details (for payments)
-  accountNumber    String?
-  
+  accountNumber String?
+
   // City code for ID generation
-  cityCodeId    String?      @db.ObjectId
-  cityCode      CityCode?    @relation(fields: [cityCodeId], references: [id])
-  
+  cityCodeId String?   @db.ObjectId
+  cityCode   CityCode? @relation(fields: [cityCodeId], references: [id])
+
   // Owned vehicles
-  vehicles      Vehicle[]
-  
+  vehicles Vehicle[]
+
   // Partners linked to this vendor
-  partners      Partner[]    @relation("VendorPartners")
-  
+  partners Partner[] @relation("VendorPartners")
+
   // Rides assigned to this vendor
-  rides         Ride[]       @relation("VendorRides")
+  rides Ride[] @relation("VendorRides")
 
   // NEW: Attachments (Centralized)
   // attachments   Attachment[] @relation("VendorAttachments")
-  
+
   // DEPRECATED: Linked Agent (Governance shifting to Admin)
-  agentId       String?      @db.ObjectId
-  agent         Agent?       @relation("AgentVendors", fields: [agentId], references: [id])
+  agentId String? @db.ObjectId
+  agent   Agent?  @relation("AgentVendors", fields: [agentId], references: [id])
 
-  attachments   Attachment[]
+  attachments Attachment[]
 
-  updatedByAdminId String?   @db.ObjectId
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  updatedByAdminId String?  @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Partner {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  customId       String?       @unique  // e.g., "ACPBLR01"
-  
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  customId String? @unique // e.g., "ACPBLR01"
+
   // Personal details (split name)
-  firstName      String?
-  lastName       String?
-  name           String        // Full name (for backward compatibility)
-  phone          String        @unique
-  email          String?       @unique
-  password       String
-  profileImage   String?
-  
+  firstName    String?
+  lastName     String?
+  name         String // Full name (for backward compatibility)
+  phone        String  @unique
+  email        String? @unique
+  password     String
+  profileImage String?
+
   // Additional personal info
-  dateOfBirth    DateTime?
-  gender         Gender?
-  localAddress   String?       // Current Address
-  permanentAddress String?     // Address as on Aadhar Card
-  
-  status         EntityStatus @default(ACTIVE)
+  dateOfBirth      DateTime?
+  gender           Gender?
+  localAddress     String? // Current Address
+  permanentAddress String? // Address as on Aadhar Card
+
+  status             EntityStatus       @default(ACTIVE)
   verificationStatus VerificationStatus @default(UNVERIFIED)
-  isDeleted      Boolean      @default(false)
+  isDeleted          Boolean            @default(false)
 
   // KYC Details
-  panNumber      String?
-  panCardPhoto   String?
-  aadhaarNumber  String?
+  panNumber         String?
+  panCardPhoto      String?
+  aadhaarNumber     String?
   aadhaarFrontPhoto String?
   aadhaarBackPhoto  String?
-  
-  licenseNumber  String?
-  licenseImage   String?
+
+  licenseNumber     String?
+  licenseImage      String?
   licenseExpiryDate DateTime?
-  hasLicense     Boolean       @default(false)
-  
+  hasLicense        Boolean   @default(false)
+
   // Bank Details
-  accountHolderName String?
-  bankName          String?
-  accountNumber     String?
-  ifscCode          String?
+  accountHolderName    String?
+  bankName             String?
+  accountNumber        String?
+  ifscCode             String?
   cancelledChequePhoto String?
 
-  isOnline       Boolean       @default(false)
-  currentLat     Float?
-  currentLng     Float?
-  rating         Float         @default(5)
-  totalEarnings  Float         @default(0)
-  
+  isOnline      Boolean @default(false)
+  currentLat    Float?
+  currentLng    Float?
+  rating        Float   @default(5)
+  totalEarnings Float   @default(0)
+
   // City code for ID generation
-  cityCodeId     String?       @db.ObjectId
-  cityCode       CityCode?     @relation(fields: [cityCodeId], references: [id])
-  
+  cityCodeId String?   @db.ObjectId
+  cityCode   CityCode? @relation(fields: [cityCodeId], references: [id])
+
   // Assigned vehicle from vendor (one partner per vehicle)
-  vehicleId      String?       @unique @db.ObjectId
-  vehicle        Vehicle?      @relation(fields: [vehicleId], references: [id])
- 
+  vehicleId String?  @unique @db.ObjectId
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+
   // Vendor relationship
-  vendorId       String?       @db.ObjectId
-  vendor         Vendor?       @relation("VendorPartners", fields: [vendorId], references: [id])
-  
+  vendorId String? @db.ObjectId
+  vendor   Vendor? @relation("VendorPartners", fields: [vendorId], references: [id])
+
   // Own vehicle details (for partners who have their own vehicle)
-  hasOwnVehicle      Boolean      @default(false)
-  ownVehicleNumber   String?
-  ownVehicleModel    String?
-  ownVehicleTypeId   String?      @db.ObjectId
-  ownVehicleType     VehicleType? @relation("PartnerOwnVehicle", fields: [ownVehicleTypeId], references: [id])
-  
+  hasOwnVehicle    Boolean      @default(false)
+  ownVehicleNumber String?
+  ownVehicleModel  String?
+  ownVehicleTypeId String?      @db.ObjectId
+  ownVehicleType   VehicleType? @relation("PartnerOwnVehicle", fields: [ownVehicleTypeId], references: [id])
+
   // Rides driven by this partner
-  rides          Ride[]        @relation("PartnerRides")
- 
+  rides Ride[] @relation("PartnerRides")
+
   // NEW: Attachments (Centralized)
-  attachments    Attachment[]
-  
-  updatedByAdminId String?     @db.ObjectId
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  attachments Attachment[]
+
+  updatedByAdminId String?  @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Vehicle {
-  id                 String       @id @default(auto()) @map("_id") @db.ObjectId
-  customId           String?      @unique  // e.g., "ACVHBLR01"
-  registrationNumber String       @unique
+  id                 String  @id @default(auto()) @map("_id") @db.ObjectId
+  customId           String? @unique // e.g., "ACVHBLR01"
+  registrationNumber String  @unique
   vehicleModel       String
-  
+
   // Additional vehicle details
-  color              String?
-  fuelType           FuelType?
-  seatingCapacity    Int?
-  rtoTaxExpiryDate   DateTime?
-  speedGovernor      Boolean?     @default(false)
-  
-  status             EntityStatus @default(ACTIVE)
+  color            String?
+  fuelType         FuelType?
+  seatingCapacity  Int?
+  rtoTaxExpiryDate DateTime?
+  speedGovernor    Boolean?  @default(false)
+
+  status             EntityStatus       @default(ACTIVE)
   verificationStatus VerificationStatus @default(UNVERIFIED)
-  isDeleted          Boolean      @default(false)
+  isDeleted          Boolean            @default(false)
 
   // RC Details
-  rcNumber           String?
-  rcPhoto            String?
-  chassisNumber      String?
-  
+  rcNumber      String?
+  rcPhoto       String?
+  chassisNumber String?
+
   // Insurance Details
-  insuranceNumber    String?
-  insurancePhoto     String?
+  insuranceNumber     String?
+  insurancePhoto      String?
   insuranceExpiryDate DateTime?
 
   // City code for ID generation
-  cityCodeId         String?      @db.ObjectId
-  cityCode           CityCode?    @relation(fields: [cityCodeId], references: [id])
-  
+  cityCodeId String?   @db.ObjectId
+  cityCode   CityCode? @relation(fields: [cityCodeId], references: [id])
+
   // Vehicle type (category + pricing)
-  vehicleTypeId      String       @db.ObjectId
-  vehicleType        VehicleType  @relation("VehicleToType", fields: [vehicleTypeId], references: [id])
-  
+  vehicleTypeId String      @db.ObjectId
+  vehicleType   VehicleType @relation("VehicleToType", fields: [vehicleTypeId], references: [id])
+
   // Owner vendor (optional at registration)
-  vendorId           String?      @db.ObjectId
-  vendor             Vendor?      @relation(fields: [vendorId], references: [id])
-  
+  vendorId String? @db.ObjectId
+  vendor   Vendor? @relation(fields: [vendorId], references: [id])
+
   // Assigned partner/driver (optional - one partner per vehicle)
-  partner            Partner?
-  
-  isAvailable        Boolean      @default(true)
-  isActive           Boolean      @default(true) // DEPRECATED: use status
-  
+  partner Partner?
+
+  isAvailable Boolean @default(true)
+  isActive    Boolean @default(true) // DEPRECATED: use status
+
   // Rides using this vehicle
-  rides              Ride[]       @relation("VehicleRides")
- 
+  rides Ride[] @relation("VehicleRides")
+
   // NEW: Attachments (Centralized)
-  attachments        Attachment[]
-  
-  updatedByAdminId String?     @db.ObjectId
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  attachments Attachment[]
+
+  updatedByAdminId String?  @db.ObjectId
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Agent {
-  id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  customId     String?    @unique  // e.g., "ICABLR01"
-  agentCode    String?    @unique  // Code for customers to get discount
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  customId     String? @unique // e.g., "ICABLR01"
+  agentCode    String? @unique // Code for customers to get discount
   name         String
-  phone        String     @unique
-  email        String?    @unique
+  phone        String  @unique
+  email        String? @unique
   password     String
   profileImage String?
-  
-  // Rides sourced through this agent (via agentCode)
-  rides        Ride[]     @relation("AgentRides")
-  
-  // Coupons created by this agent/admin for this agent
-  coupons      AgentCoupon[] @relation("AgentCoupons")
-  
-  // Registration City Code for CustomId generation
-  cityCodeId   String?    @db.ObjectId
-  cityCode     CityCode?  @relation(fields: [cityCodeId], references: [id], name: "AgentPrimaryCityCode", onDelete: NoAction, onUpdate: NoAction)
-  
-  // DEPRECATED: Legacy relationships
-  vendors      Vendor[]   @relation("AgentVendors")
-  corporates   Corporate[] @relation("AgentCorporates")
-  cityCodes    CityCode[] @relation("AgentCityCodes")
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  // Rides sourced through this agent (via agentCode)
+  rides Ride[] @relation("AgentRides")
+
+  // Coupons created by this agent/admin for this agent
+  coupons AgentCoupon[] @relation("AgentCoupons")
+
+  // Registration City Code for CustomId generation
+  cityCodeId String?   @db.ObjectId
+  cityCode   CityCode? @relation(fields: [cityCodeId], references: [id], name: "AgentPrimaryCityCode", onDelete: NoAction, onUpdate: NoAction)
+
+  // DEPRECATED: Legacy relationships
+  vendors    Vendor[]    @relation("AgentVendors")
+  corporates Corporate[] @relation("AgentCorporates")
+  cityCodes  CityCode[]  @relation("AgentCityCodes")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Corporate {
-  id            String          @id @default(auto()) @map("_id") @db.ObjectId
-  customId      String?         @unique  // e.g., "ICCBLR01"
+  id            String  @id @default(auto()) @map("_id") @db.ObjectId
+  customId      String? @unique // e.g., "ICCBLR01"
   companyName   String
   contactPerson String
-  phone         String          @unique
-  email         String          @unique
+  phone         String  @unique
+  email         String  @unique
   password      String
-  
+
   // Basic Information
-  address       String?
-  state         String?
-  area          String?
+  address String?
+  state   String?
+  area    String?
 
   // Address Details
   headOfficeAddress   String?
   branchOfficeAddress String?
 
   // Tax & Legal Details
-  gstNumber     String?
-  panNumber     String?
-  
+  gstNumber String?
+  panNumber String?
+
   // Additional Info
-  comments      String?
-  
+  comments String?
+
   // Owner Details
-  ownerName     String?
-  ownerPhone    String?
-  ownerEmail    String?
-  ownerAadhaar  String?
-  ownerPan      String?
-  
+  ownerName    String?
+  ownerPhone   String?
+  ownerEmail   String?
+  ownerAadhaar String?
+  ownerPan     String?
+
   // Primary Contact Details
   primaryContactName   String?
   primaryContactEmail  String?
   primaryContactNumber String?
-  
+
   // Secondary Contact Details
   secondaryContactName   String?
   secondaryContactNumber String?
   secondaryContactEmail  String?
-  
+
   // Finance Contact Details
   financeContactName   String?
   financeContactNumber String?
   financeContactEmail  String?
-  
+
   // Bank Details
   accountHolderName String?
   bankName          String?
@@ -499,98 +502,98 @@ model Corporate {
   ifscCode          String?
   branchAddress     String?
   upiLinkedNumber   String?
-  
-  status        EntityStatus @default(ACTIVE)
-  verificationStatus VerificationStatus @default(UNVERIFIED)
-  isDeleted     Boolean      @default(false)
-  
-  // City code for ID generation
-  cityCodeId    String?         @db.ObjectId
-  cityCode      CityCode?       @relation("CorporateCityCode", fields: [cityCodeId], references: [id])
-  
-  // Credit system
-  creditLimit   Float           @default(0)
-  creditUsed    Float           @default(0)
-  creditBalance Float           @default(0)
-  
-  // Rides booked by this corporate
-  rides         Ride[]          @relation("CorporateRides")
-  
-  // Billing records
-  billings      CorporateBilling[]
-  
-  // Payment records
-  payments      CorporatePayment[]
-  
-  // DEPRECATED: Linked Agent (Governance shifting to Admin)
-  agentId       String?         @db.ObjectId
-  agent         Agent?          @relation("AgentCorporates", fields: [agentId], references: [id])
 
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  status             EntityStatus       @default(ACTIVE)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  isDeleted          Boolean            @default(false)
+
+  // City code for ID generation
+  cityCodeId String?   @db.ObjectId
+  cityCode   CityCode? @relation("CorporateCityCode", fields: [cityCodeId], references: [id])
+
+  // Credit system
+  creditLimit   Float @default(0)
+  creditUsed    Float @default(0)
+  creditBalance Float @default(0)
+
+  // Rides booked by this corporate
+  rides Ride[] @relation("CorporateRides")
+
+  // Billing records
+  billings CorporateBilling[]
+
+  // Payment records
+  payments CorporatePayment[]
+
+  // DEPRECATED: Linked Agent (Governance shifting to Admin)
+  agentId String? @db.ObjectId
+  agent   Agent?  @relation("AgentCorporates", fields: [agentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Attachment {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  customId        String?  @unique // e.g., "ACATBLR0001"
-  
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  customId String? @unique // e.g., "ACATBLR0001"
+
   // Relations to core entities
-  vendorId        String?   @db.ObjectId
-  partnerId       String?   @db.ObjectId
-  vehicleId       String?   @db.ObjectId
-  
-  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
-  partner         Partner?  @relation(fields: [partnerId], references: [id])
-  vehicle         Vehicle?  @relation(fields: [vehicleId], references: [id])
-  
+  vendorId  String? @db.ObjectId
+  partnerId String? @db.ObjectId
+  vehicleId String? @db.ObjectId
+
+  vendor  Vendor?  @relation(fields: [vendorId], references: [id])
+  partner Partner? @relation(fields: [partnerId], references: [id])
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+
   // Polymorphic backup/future-proofing (optional)
-  referenceType   AttachmentReferenceType?
-  referenceId     String?   @db.ObjectId // ID of Partner, Vehicle, or Vendor
-  
-  fileType        AttachmentFileType?
-  fileUrl         String?
-  
-  status          EntityStatus @default(ACTIVE)
+  referenceType AttachmentReferenceType?
+  referenceId   String?                  @db.ObjectId // ID of Partner, Vehicle, or Vendor
+
+  fileType AttachmentFileType?
+  fileUrl  String?
+
+  status             EntityStatus       @default(ACTIVE)
   verificationStatus VerificationStatus @default(UNVERIFIED)
-  
-  uploadedBy      UploadedBy @default(PARTNER)
-  updatedByAdminId String?   @db.ObjectId
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+
+  uploadedBy       UploadedBy @default(PARTNER)
+  updatedByAdminId String?    @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Note: We don't use strict relations here to maintain generic attachment system,
   // but we can query by referenceId and referenceType.
 }
 
 model CorporateBilling {
-  id                 String        @id @default(auto()) @map("_id") @db.ObjectId
-  
-  corporateId        String        @db.ObjectId
-  corporate          Corporate     @relation(fields: [corporateId], references: [id])
-  
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  corporateId String    @db.ObjectId
+  corporate   Corporate @relation(fields: [corporateId], references: [id])
+
   billingPeriodStart DateTime
   billingPeriodEnd   DateTime
   totalAmount        Float
   paidAmount         Float         @default(0)
   status             PaymentStatus @default(PENDING)
-  
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CorporatePayment {
-  id            String      @id @default(auto()) @map("_id") @db.ObjectId
-  
-  corporateId   String      @db.ObjectId
-  corporate     Corporate   @relation(fields: [corporateId], references: [id])
-  
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  corporateId String    @db.ObjectId
+  corporate   Corporate @relation(fields: [corporateId], references: [id])
+
   amount        Float
   paymentMode   PaymentMode
   transactionId String?
   notes         String?
-  
-  createdAt     DateTime    @default(now())
+
+  createdAt DateTime @default(now())
 }
 
 // ============================================
@@ -598,91 +601,100 @@ model CorporatePayment {
 // ============================================
 
 model Ride {
-  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  idempotencyKey String? // Removed @unique for migration compatibility
 
   // User who booked the ride
-  userId        String?    @db.ObjectId
-  vehicleTypeId String?    @db.ObjectId
+  userId        String? @db.ObjectId
+  vehicleTypeId String? @db.ObjectId
 
-  user          User?      @relation("UserRides", fields: [userId], references: [id])
-  vehicleType   VehicleType? @relation(fields: [vehicleTypeId], references: [id])
+  user        User?        @relation("UserRides", fields: [userId], references: [id])
+  vehicleType VehicleType? @relation(fields: [vehicleTypeId], references: [id])
 
   // NEW: Entity relationships
-  vendorId      String?    @db.ObjectId
-  partnerId     String?    @db.ObjectId
-  vehicleId     String?    @db.ObjectId
-  agentId       String?    @db.ObjectId
-  corporateId   String?    @db.ObjectId
+  vendorId    String? @db.ObjectId
+  partnerId   String? @db.ObjectId
+  vehicleId   String? @db.ObjectId
+  agentId     String? @db.ObjectId
+  corporateId String? @db.ObjectId
 
-  vendor        Vendor?    @relation("VendorRides", fields: [vendorId], references: [id])
-  partner       Partner?   @relation("PartnerRides", fields: [partnerId], references: [id])
-  vehicle       Vehicle?   @relation("VehicleRides", fields: [vehicleId], references: [id])
-  agent         Agent?     @relation("AgentRides", fields: [agentId], references: [id])
-  corporate     Corporate? @relation("CorporateRides", fields: [corporateId], references: [id])
+  vendor    Vendor?    @relation("VendorRides", fields: [vendorId], references: [id])
+  partner   Partner?   @relation("PartnerRides", fields: [partnerId], references: [id])
+  vehicle   Vehicle?   @relation("VehicleRides", fields: [vehicleId], references: [id])
+  agent     Agent?     @relation("AgentRides", fields: [agentId], references: [id])
+  corporate Corporate? @relation("CorporateRides", fields: [corporateId], references: [id])
 
   // NEW: Agent Code tracking
-  agentCode     String?
+  agentCode String?
 
   // NEW: City relationship for customId generation
-  cityCodeId    String?    @db.ObjectId
-  cityCode      CityCode?  @relation("RideCityCode", fields: [cityCodeId], references: [id])
+  cityCodeId String?   @db.ObjectId
+  cityCode   CityCode? @relation("RideCityCode", fields: [cityCodeId], references: [id])
 
-  customId      String?    @unique  // e.g., "ICRBLR0001" (10 chars)
+  customId String? @unique // e.g., "ICRBLR0001" (10 chars)
 
-  status        RideStatus @default(UPCOMING)
+  status RideStatus @default(UPCOMING)
 
   // Location details
   pickupLat     Float
   pickupLng     Float
   pickupAddress String
 
-  dropLat       Float
-  dropLng       Float
-  dropAddress   String
+  dropLat     Float
+  dropLng     Float
+  dropAddress String
 
-  distanceKm    Float
-  startingKm    Float?    // Odometer reading at start of rental
-  endingKm      Float?    // Odometer reading at end of rental
+  distanceKm Float
+  startingKm Float? // Odometer reading at start of rental
+  endingKm   Float? // Odometer reading at end of rental
 
-  rideType      RideType   @default(LOCAL)
-  altMobile     String?
-  
+  rideType  RideType @default(LOCAL)
+  altMobile String?
+
   // Pricing details
-  baseFare      Float?      // Base fare from pricing config
-  perKmPrice    Float?      // Price per km for this vehicle type
-  totalFare     Float?      // Total calculated fare
-  couponCode    String?     // Applied coupon code
-  discountAmount Float?     @default(0) // Discount amount derived from coupon
-  riderEarnings Float?      // Amount rider receives (percentage)
-  commission    Float?      // App commission (percentage)
+  baseFare       Float? // Base fare from pricing config
+  perKmPrice     Float? // Price per km for this vehicle type
+  totalFare      Float? // Total calculated fare
+  couponCode     String? // Applied coupon code
+  discountAmount Float?  @default(0) // Discount amount derived from coupon
+  riderEarnings  Float? // Amount rider receives (percentage)
+  commission     Float? // App commission (percentage)
 
   // Payment tracking
   paymentMode   PaymentMode   @default(CASH)
   paymentStatus PaymentStatus @default(PENDING)
 
   // OTP verification for ride completion
-  userOtp       String?     // User's OTP used to complete the ride
+  userOtp String? // User's OTP used to complete the ride
 
-  startTime     DateTime?
-  endTime       DateTime?
-  acceptedAt    DateTime?
-  arrivedAt     DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  startTime  DateTime?
+  endTime    DateTime?
+  acceptedAt DateTime?
+  arrivedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   // Manual booking fields
-  isManualBooking    Boolean   @default(false)
-  scheduledDateTime  DateTime?
-  assignedByAdminId  String?   @db.ObjectId
-  bookingNotes       String?
+  isManualBooking   Boolean   @default(false)
+  scheduledDateTime DateTime?
+  assignedByAdminId String?   @db.ObjectId
+  bookingNotes      String?
 
   // Razorpay integration
-  razorpayOrderId    String?
-  razorpayPaymentId  String?
-  razorpaySignature  String?
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+
+  // NEW: UPI Payment Details (26% Advance)
+  advanceAmount      Float?
+  transactionId      String?
+
+  // Linking to payment verification
+  paymentVerificationId String? @db.ObjectId
+  paymentVerification   PaymentVerification? @relation("RideToPayment", fields: [paymentVerificationId], references: [id])
 
   // Support tickets linked to this ride
-  supportTickets     SupportTicket[] @relation("TicketRide")
+  supportTickets SupportTicket[] @relation("TicketRide")
 }
 
 // ============================================
@@ -692,57 +704,57 @@ model Ride {
 model VehicleType {
   id          String          @id @default(auto()) @map("_id") @db.ObjectId
   category    VehicleCategory // Parent category (BIKE, AUTO, CAR)
-  name        String          @unique  // Unique identifier e.g., "SEDAN", "SUV", "MPV", "STANDARD_BIKE"
-  displayName String          // Display name e.g., "Sedan", "SUV", "MPV", "Bike"
-  pricePerKm  Float           // Price per kilometer for this sub-type
-  baseFare    Float?          // Optional per-type base fare (overrides global if set)
+  name        String          @unique // Unique identifier e.g., "SEDAN", "SUV", "MPV", "STANDARD_BIKE"
+  displayName String // Display name e.g., "Sedan", "SUV", "MPV", "Bike"
+  pricePerKm  Float // Price per kilometer for this sub-type
+  baseFare    Float? // Optional per-type base fare (overrides global if set)
   isActive    Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   // 1 vehicle type → many rides
-  rides       Ride[]
+  rides              Ride[]
   // 1 vehicle type → many partners with own vehicles
-  ownVehiclePartners Partner[] @relation("PartnerOwnVehicle")
+  ownVehiclePartners Partner[]             @relation("PartnerOwnVehicle")
   // 1 vehicle type → many vehicles (vendor vehicles)
-  vehicles    Vehicle[]       @relation("VehicleToType")
+  vehicles           Vehicle[]             @relation("VehicleToType")
   // City pricing for this vehicle type
-  pricingGroups VehiclePricingGroup[]
+  pricingGroups      VehiclePricingGroup[]
   // Peak hour charges for this vehicle type
-  peakHourCharges PeakHourCharge[]
+  peakHourCharges    PeakHourCharge[]
 }
 
 model PeakHourCharge {
-  id              String       @id @default(auto()) @map("_id") @db.ObjectId
-  name            String?      // e.g., "Morning Peak Bangalore"
-  
+  id   String  @id @default(auto()) @map("_id") @db.ObjectId
+  name String? // e.g., "Morning Peak Bangalore"
+
   // Link to vehicle type (Required)
-  vehicleTypeId   String       @db.ObjectId
-  vehicleType     VehicleType  @relation(fields: [vehicleTypeId], references: [id])
-  
+  vehicleTypeId String      @db.ObjectId
+  vehicleType   VehicleType @relation(fields: [vehicleTypeId], references: [id])
+
   // Cities covered by this configuration
-  cityCodeIds     String[]     @db.ObjectId
-  
+  cityCodeIds String[] @db.ObjectId
+
   // Peak hour slots
-  slots           PeakHourSlot[]
-  
+  slots PeakHourSlot[]
+
   // Day-based configuration
   // If empty, applies to all days. Otherwise, only for specific days.
-  days            DayOfWeek[]
-  
-  isActive        Boolean      @default(true)
-  
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  days DayOfWeek[]
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 type PeakHourSlot {
-  startTime       String       // e.g., "07:00" (HH:mm format)
-  endTime         String       // e.g., "10:00"
-  
+  startTime String // e.g., "07:00" (HH:mm format)
+  endTime   String // e.g., "10:00"
+
   // Price adjustment
-  fixedExtra      Float        @default(0) // ₹50 extra
-  percentageExtra Float        @default(0) // 10% more (value = 10)
+  fixedExtra      Float @default(0) // ₹50 extra
+  percentageExtra Float @default(0) // 10% more (value = 10)
 }
 
 enum DayOfWeek {
@@ -760,43 +772,44 @@ enum DayOfWeek {
 // ============================================
 
 model PricingConfig {
-  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
-  baseFare            Float    @default(20) // Flat base fare for all rides
-  riderPercentage     Float    @default(80) // Percentage rider gets (e.g., 80%)
-  appCommission       Float    @default(20) // App commission percentage (e.g., 20%)
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  baseFare        Float    @default(20) // Flat base fare for all rides
+  riderPercentage Float    @default(80) // Percentage rider gets (e.g., 80%)
+  appCommission   Float    @default(20) // App commission percentage (e.g., 20%)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model OtpCode {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   phone     String
-  role      String   // USER, RIDER, VENDOR, PARTNER, AGENT, CORPORATE
+  role      String // USER, RIDER, VENDOR, PARTNER, AGENT, CORPORATE
   code      String
   expiresAt DateTime
   createdAt DateTime @default(now())
 }
+
 // TEMPORARY: Rider model for migration (to be removed after migration)
 model Rider {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  name           String
-  phone          String   @unique
-  email          String?  @unique
-  aadharNumber   String?
-  licenseNumber  String?
-  licenseImage   String?
-  profileImage   String?
-  vehicleNumber  String?
-  vehicleModel   String?
-  vehicleTypeId  String?  @db.ObjectId
-  isOnline       Boolean  @default(false)
-  currentLat     Float?
-  currentLng     Float?
-  rating         Float    @default(5)
-  totalEarnings  Float    @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  phone         String   @unique
+  email         String?  @unique
+  aadharNumber  String?
+  licenseNumber String?
+  licenseImage  String?
+  profileImage  String?
+  vehicleNumber String?
+  vehicleModel  String?
+  vehicleTypeId String?  @db.ObjectId
+  isOnline      Boolean  @default(false)
+  currentLat    Float?
+  currentLng    Float?
+  rating        Float    @default(5)
+  totalEarnings Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 // ============================================
@@ -804,24 +817,24 @@ model Rider {
 // ============================================
 
 model AgentCoupon {
-  id                String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  agentId           String   @db.ObjectId
-  agent             Agent    @relation("AgentCoupons", fields: [agentId], references: [id])
-  
-  couponCode        String   @unique
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  agentId String @db.ObjectId
+  agent   Agent  @relation("AgentCoupons", fields: [agentId], references: [id])
+
+  couponCode        String  @unique
   description       String?
-  discountValue     Float    // Percentage (e.g., 10 for 10%)
-  minBookingAmount  Float    @default(0)
-  maxDiscountAmount Float    @default(0)
-  
-  validFrom         DateTime
-  validTo           DateTime
-  
-  isActive          Boolean  @default(true)
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  discountValue     Float // Percentage (e.g., 10 for 10%)
+  minBookingAmount  Float   @default(0)
+  maxDiscountAmount Float   @default(0)
+
+  validFrom DateTime
+  validTo   DateTime
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================
@@ -839,29 +852,36 @@ enum AuditAction {
 }
 
 model AuditLog {
-  id          String      @id @default(auto()) @map("_id") @db.ObjectId
-  
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
   // Who performed the action
-  userId      String?     @db.ObjectId
-  userName    String?
-  userRole    String?     // ADMIN, SUPERADMIN, PARTNER, etc.
-  
+  userId   String? @db.ObjectId // Removed @unique to allow multiple logs per user
+  userName String?
+  userRole String? // ADMIN, SUPERADMIN, PARTNER, etc.
+
   // What action was performed
   action      AuditAction
-  module      String      // e.g., "VEHICLE_TYPE", "PARTNER", "RIDE", "PRICING"
-  entityId    String?     // ID of the record that was modified
-  description String      // Human-readable explanation
-  
+  module      String // e.g., "VEHICLE_TYPE", "PARTNER", "RIDE", "PRICING", "PAYMENT"
+  entityId    String? // ID of the record that was modified
+  description String // Human-readable explanation
+
+  // Payment specific auditing
+  transactionId String?
+
   // Data snapshots for change tracking
-  oldData     Json?       // Previous values (for updates)
-  newData     Json?       // New values
-  
-  // Request context
-  ipAddress   String?
-  userAgent   String?
-  
+  oldData Json? // Previous values (for updates)
+  newData Json? // New values
+
+  // Request context (Ship+ Enriched)
+  ipAddress String?
+  userAgent String?
+
   // Immutable - no updatedAt
-  createdAt   DateTime    @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([transactionId])
+  @@index([createdAt])
 }
 
 // ============================================
@@ -898,43 +918,43 @@ enum TicketCategory {
 // ============================================
 
 model SupportTicket {
-  id            String         @id @default(auto()) @map("_id") @db.ObjectId
-  ticketNumber  String         @unique
-  category      TicketCategory
-  priority      TicketPriority @default(MEDIUM)
-  status        TicketStatus   @default(OPEN)
-  subject       String
-  description   String
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  ticketNumber String         @unique
+  category     TicketCategory
+  priority     TicketPriority @default(MEDIUM)
+  status       TicketStatus   @default(OPEN)
+  subject      String
+  description  String
 
   // Customer info
-  customerType  String         // "USER" | "PARTNER" | "VENDOR"
+  customerType  String // "USER" | "PARTNER" | "VENDOR"
   customerId    String
   customerName  String
   customerPhone String?
 
   // Related ride (optional)
-  rideId        String?        @db.ObjectId
-  ride          Ride?          @relation("TicketRide", fields: [rideId], references: [id])
+  rideId String? @db.ObjectId
+  ride   Ride?   @relation("TicketRide", fields: [rideId], references: [id])
 
   // Assignment
-  assignedToId  String?        @db.ObjectId
+  assignedToId String? @db.ObjectId
 
   // Messages thread
-  messages      TicketMessage[]
+  messages TicketMessage[]
 
   // Resolution
-  resolvedAt    DateTime?
-  resolution    String?
+  resolvedAt DateTime?
+  resolution String?
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TicketMessage {
   id         String        @id @default(auto()) @map("_id") @db.ObjectId
   ticketId   String        @db.ObjectId
   ticket     SupportTicket @relation(fields: [ticketId], references: [id])
-  senderType String        // "ADMIN" | "USER" | "PARTNER" | "SYSTEM"
+  senderType String // "ADMIN" | "USER" | "PARTNER" | "SYSTEM"
   senderId   String?
   senderName String
   message    String
@@ -947,16 +967,53 @@ model TicketMessage {
 // ============================================
 
 model BroadcastNotification {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  title           String
-  body            String
-  imageUrl        String?
-  targetAudience  String   // "ALL_USERS", "ALL_PARTNERS", "CITY_BLR", etc.
-  sentById        String?
-  sentByName      String?
-  status          String   @default("SENT") // "SENT", "FAILED"
-  recipientCount  Int?     @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  body           String
+  imageUrl       String?
+  targetAudience String // "ALL_USERS", "ALL_PARTNERS", "CITY_BLR", etc.
+  sentById       String?
+  sentByName     String?
+  status         String   @default("SENT") // "SENT", "FAILED"
+  recipientCount Int?     @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
+// ============================================
+// PAYMENT VERIFICATION MODEL
+// ============================================
+
+model PaymentVerification {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  idempotencyKey String        @unique // Generated by frontend
+  transactionId  String?       @unique
+  amount         Float
+  status         PaymentStatus @default(PENDING)
+  userId         String?       @db.ObjectId
+  rideDetails    Json? // Stores pickup/drop/fare during intent phase
+  expiresAt      DateTime // Intent expires after 15m
+
+  // Relation to rides (many-to-one for migration compatibility)
+  rides         Ride[]   @relation("RideToPayment")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model FraudLog {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String?   @db.ObjectId
+  ipAddress    String?
+  attemptCount Int       @default(0)
+  lockedUntil  DateTime? // 15m cooldown after 5 failed attempts
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([ipAddress])
+}

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rideController from "../../controllers/ride/ride.controller";
+import paymentController from "../../controllers/ride/payment.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
 
 const router = Router();
@@ -10,6 +11,11 @@ const router = Router();
 
 // All routes require authentication and USER role
 router.use(authMiddleware(["USER"]));
+
+// Payment Verification (Atomic Flow)
+router.post("/initiate-payment", paymentController.initiateIntent);
+router.post("/verify-payment", paymentController.verifyPayment);
+router.get("/active-intent", paymentController.getActiveIntent);
 
 // Create a new ride request (instant booking)
 router.post("/new-ride", rideController.createRide);

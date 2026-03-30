@@ -127,11 +127,31 @@ export const getFraudAlerts = async () => {
   const severityOrder: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
   alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
+  // NEW: Fetch Active Persistent Fraud Logs (Blocked IPs/Users)
+  const fraudLogs = await (prisma as any).fraudLog.findMany({
+    where: {
+      OR: [
+        { attemptCount: { gt: 0 } },
+        { lockedUntil: { gt: new Date() } }
+      ]
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 50
+  });
+
   return {
     totalAlerts: alerts.length,
     highSeverity: alerts.filter((a) => a.severity === "HIGH").length,
     mediumSeverity: alerts.filter((a) => a.severity === "MEDIUM").length,
     lowSeverity: alerts.filter((a) => a.severity === "LOW").length,
     alerts,
+    securityBlocks: (fraudLogs as any[]).map((log: any) => ({
+      userId: log.userId,
+      ipAddress: log.ipAddress,
+      attempts: log.attemptCount,
+      isLocked: log.lockedUntil && log.lockedUntil > new Date(),
+      lockedUntil: log.lockedUntil,
+      updatedAt: log.updatedAt
+    }))
   };
 };

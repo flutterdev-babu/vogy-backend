@@ -280,17 +280,17 @@ export const loginUser = async (email: string, password: string) => {
   });
 
   if (!user) {
-    throw new Error("No account found with this email. Please register first or use OTP login with your phone number.");
+    throw new Error("No account found with this email. Please register first.");
   }
 
   if (!user.password) {
-    throw new Error("This account was created via OTP and does not have a password. Please use OTP Login to sign in.");
+    throw new Error("This account does not have a password set. Please contact support or reset your password.");
   }
 
   // Verify password
   const isPasswordValid = await comparePassword(password, user.password);
 
-  if (!isPasswordValid) throw new Error("Incorrect password. Please try again or use OTP Login.");
+  if (!isPasswordValid) throw new Error("Incorrect password. Please try again.");
 
   // Generate JWT
   const token = signToken({ id: user.id, role: "USER" });

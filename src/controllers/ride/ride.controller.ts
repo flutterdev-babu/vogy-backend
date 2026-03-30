@@ -56,6 +56,8 @@ export default {
         agentCode,
         couponCode,
         expectedFare,
+        advanceAmount,
+        transactionId,
       } = req.body;
 
       // Validate required fields
@@ -86,6 +88,8 @@ export default {
         agentCode,
         couponCode,
         expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
+        advanceAmount: advanceAmount ? parseFloat(advanceAmount) : undefined,
+        transactionId,
       });
 
       createAuditLog({ userId, userName: req.user?.name, userRole: "USER", action: "CREATE", module: "RIDE", entityId: ride.id, description: `User created ride from ${pickupAddress} to ${dropAddress}`, ...getRequestContext(req) });
@@ -164,6 +168,8 @@ export default {
         agentCode,
         couponCode,
         expectedFare,
+        advanceAmount,
+        transactionId,
       } = req.body;
 
       // Validate required fields
@@ -205,6 +211,8 @@ export default {
         agentCode,
         couponCode,
         expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
+        advanceAmount: advanceAmount ? parseFloat(advanceAmount) : undefined,
+        transactionId,
       });
 
       console.log(`✨ Ride created successfully: ${ride.id}`);

@@ -10,6 +10,8 @@ import {
 } from "../socket/socket.service";
 import { generateEntityCustomId, getPricingForCity } from "../city/city.service";
 import { getPeakHourAdjustment } from "../admin/peakHour.service";
+import { logPaymentAudit } from "./payment.service";
+import { PaymentStatus, AuditAction } from "@prisma/client";
 
 /* ============================================
     COUPON VALIDATION LOGIC
@@ -215,9 +217,25 @@ export const createRide = async (
     couponCode?: string;
     expectedFare?: number;
     corporateId?: string;
+    advanceAmount?: number;
+    transactionId?: string;
+    idempotencyKey?: string;
+    paymentVerificationId?: string;
   }
 ) => {
-  // Get city code for ID generation
+  // 1. Idempotency Check
+  if (data.idempotencyKey) {
+    const existingRide = await prisma.ride.findUnique({
+      where: { idempotencyKey: data.idempotencyKey },
+      include: {
+        vehicleType: true,
+        user: { select: { id: true, name: true, phone: true } },
+      },
+    });
+    if (existingRide) return existingRide;
+  }
+
+  // 2. Fetch City Code
   const cityCodeEntry = await prisma.cityCode.findUnique({
     where: { id: data.cityCodeId },
   });
@@ -303,52 +321,95 @@ export const createRide = async (
     }
   }
 
-  // Create ride
-  const ride = await prisma.ride.create({
-    data: {
-      userId: userId,
-      vehicleTypeId: data.vehicleTypeId,
-      pickupLat: data.pickupLat,
-      pickupLng: data.pickupLng,
-      pickupAddress: data.pickupAddress,
-      dropLat: data.dropLat,
-      dropLng: data.dropLng,
-      dropAddress: data.dropAddress,
-      distanceKm: data.distanceKm,
-      baseFare: baseFare,
-      perKmPrice: perKmPrice,
-      totalFare: totalFare,
-      couponCode: appliedCouponCode,
-      discountAmount: appliedDiscountAmount,
-      riderEarnings: riderEarnings,
-      commission: commission,
-      status: "UPCOMING",
-      isManualBooking: false,
-      cityCodeId: data.cityCodeId,
-      customId: customId,
-      agentId: agentId,
-      agentCode: agentCode || (data as any).agentCode || null,
-      rideType: data.rideType || "LOCAL",
-      altMobile: data.altMobile || null,
-      paymentMode: data.paymentMode || "CASH",
-      corporateId: data.corporateId || null,
-    },
-    include: {
-      vehicleType: true,
-      user: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
+  // 3. Payment Verification Check (Step 4 of Atomic Flow)
+  let verification = null;
+  if (data.paymentVerificationId) {
+    verification = await prisma.paymentVerification.findUnique({
+      where: { id: data.paymentVerificationId },
+    });
+
+    if (!verification) {
+      throw new Error("Payment verification record not found.");
+    }
+
+    if (verification.status === "LINKED") {
+      throw new Error("This payment has already been used for another booking.");
+    }
+
+    if (verification.status !== "VERIFIED") {
+      throw new Error("Payment has not been verified yet.");
+    }
+  }
+
+  // 4. Create Ride with Atomic Status Update
+  return await prisma.$transaction(async (tx) => {
+    const ride = await tx.ride.create({
+      data: {
+        userId: userId,
+        vehicleTypeId: data.vehicleTypeId,
+        pickupLat: data.pickupLat,
+        pickupLng: data.pickupLng,
+        pickupAddress: data.pickupAddress,
+        dropLat: data.dropLat,
+        dropLng: data.dropLng,
+        dropAddress: data.dropAddress,
+        distanceKm: data.distanceKm,
+        baseFare: baseFare,
+        perKmPrice: perKmPrice,
+        totalFare: totalFare,
+        couponCode: appliedCouponCode,
+        discountAmount: appliedDiscountAmount,
+        riderEarnings: riderEarnings,
+        commission: commission,
+        status: "UPCOMING",
+        isManualBooking: false,
+        cityCodeId: data.cityCodeId,
+        customId: customId,
+        agentId: agentId,
+        agentCode: agentCode || (data as any).agentCode || null,
+        rideType: data.rideType || "LOCAL",
+        altMobile: data.altMobile || null,
+        paymentMode: data.paymentMode || "CASH",
+        corporateId: data.corporateId || null,
+        advanceAmount: data.advanceAmount || null,
+        transactionId: data.transactionId || null,
+        idempotencyKey: data.idempotencyKey,
+        paymentVerificationId: data.paymentVerificationId,
+      },
+      include: {
+        vehicleType: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
         },
       },
-    },
+    });
+
+    if (data.paymentVerificationId) {
+      await tx.paymentVerification.update({
+        where: { id: data.paymentVerificationId },
+        data: { status: "LINKED" as any },
+      });
+
+      // Audit Log
+      await logPaymentAudit({
+        userId,
+        action: AuditAction.UPDATE,
+        transactionId: data.transactionId,
+        entityId: ride.id,
+        description: `Ride ${ride.customId} successfully LINKED to payment intent ${data.paymentVerificationId}`,
+        newData: { status: "LINKED", rideId: ride.id },
+      });
+    }
+
+    // Socket emission (moved inside transaction to ensure atomicity before user sees it)
+    emitRideCreated(ride);
+
+    return ride;
   });
-
-  // Emit socket event for real-time updates
-  emitRideCreated(ride);
-
-  return ride;
 };
 
 /* ============================================
@@ -375,6 +436,8 @@ export const createManualRide = async (
     couponCode?: string;
     expectedFare?: number;
     corporateId?: string;
+    advanceAmount?: number;
+    transactionId?: string;
   }
 ) => {
   // Get city code for ID generation
@@ -497,6 +560,8 @@ export const createManualRide = async (
       altMobile: data.altMobile || null,
       paymentMode: data.paymentMode || "CASH",
       corporateId: data.corporateId || null,
+      advanceAmount: data.advanceAmount || null,
+      transactionId: data.transactionId || null,
     },
     include: {
       vehicleType: true,
@@ -637,6 +702,16 @@ export const cancelRide = async (rideId: string, userId: string) => {
 
   if (ride.status === "CANCELLED") {
     throw new Error("Ride is already cancelled");
+  }
+
+  // NEW: 3-hour cancellation rule
+  const scheduledTime = ride.scheduledDateTime ? new Date(ride.scheduledDateTime) : new Date(ride.createdAt);
+  const now = new Date();
+  const diffMs = scheduledTime.getTime() - now.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  if (diffHours < 3 && diffHours > -1) { // If within 3 hours or passed but not started
+    throw new Error("Cancellation is only allowed up to 3 hours before the ride start time.");
   }
 
   const updatedRide = await prisma.ride.update({

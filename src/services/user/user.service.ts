@@ -81,7 +81,7 @@ export const updateUserProfile = async (
 
   // Check if email is being updated and if it's already taken by another user
   if (data.email && data.email !== user.email) {
-    const emailExists = await prisma.user.findUnique({
+    const emailExists = await prisma.user.findFirst({
       where: { email: data.email },
     });
 
@@ -185,11 +185,11 @@ export const getUserRideSummary = async (userId: string) => {
     }),
   ]);
 
-  return {
+    return {
     totalRides,
     completedRides,
     cancelledRides,
-    inProgress: totalRides - completedRides - cancelledRides,
+    activeRides: totalRides - completedRides - cancelledRides, // Changed from inProgress to activeRides
     totalSpent: spending._sum.totalFare || 0,
     averageFare: spending._avg.totalFare ? parseFloat(spending._avg.totalFare.toFixed(2)) : 0,
   };
