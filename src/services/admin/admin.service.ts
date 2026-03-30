@@ -565,7 +565,8 @@ export const updateRideStatusByAdmin = async (
   status: any, 
   userOtp?: string,
   startingKm?: number,
-  endingKm?: number
+  endingKm?: number,
+  partnerManualDiscount?: number
 ) => {
   // If making the ride ONGOING, verify user unique OTP
   if (status === "ONGOING") {
@@ -608,6 +609,7 @@ export const updateRideStatusByAdmin = async (
       }),
       // If status is arrived, record the arrived time
       ...(status === "ARRIVED" && { arrivedAt: new Date() }),
+      ...(partnerManualDiscount !== undefined && { partnerManualDiscount })
     },
     include: {
       user: true,

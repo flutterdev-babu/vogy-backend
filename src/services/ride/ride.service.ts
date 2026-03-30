@@ -57,8 +57,8 @@ export const validateCouponLogic = async (
     throw new Error("Coupon is not valid for this city");
   }
 
-  // Calculate discount
-  let discountAmount = (totalFare * coupon.discountValue) / 100;
+  // Calculate rounded discount
+  let discountAmount = Math.round((totalFare * coupon.discountValue) / 100);
   if (coupon.maxDiscountAmount > 0 && discountAmount > coupon.maxDiscountAmount) {
     discountAmount = coupon.maxDiscountAmount;
   }
@@ -144,24 +144,24 @@ export const estimateFare = async (data: {
 
     // Calculation: baseFare + (perKmPrice * (distanceKm - baseKm))
     const billableKm = Math.max(0, data.distanceKm - (cityPricing.baseKm || 0));
-    let estimatedFare = parseFloat((baseFare + perKmPrice * billableKm).toFixed(2));
+    let estimatedFare = Math.round(baseFare + perKmPrice * billableKm);
 
     // NEW: Apply Peak Hour Adjustment
     const peakAdjustment = await getPeakHourAdjustment(data.cityCodeId, vt.id, new Date());
     if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
       const percentageAmount = (estimatedFare * peakAdjustment.percentageExtra) / 100;
-      estimatedFare = parseFloat((estimatedFare + peakAdjustment.fixedExtra + percentageAmount).toFixed(2));
+      estimatedFare = Math.round(estimatedFare + peakAdjustment.fixedExtra + percentageAmount);
     }
 
     let discountAmount = 0;
     let finalFare = estimatedFare;
 
     if (couponInfo && estimatedFare >= 0) {
-      discountAmount = parseFloat(((estimatedFare * couponInfo.discountValue) / 100).toFixed(2));
+      discountAmount = Math.round((estimatedFare * couponInfo.discountValue) / 100);
       if (couponInfo.maxDiscountAmount > 0 && discountAmount > couponInfo.maxDiscountAmount) {
         discountAmount = couponInfo.maxDiscountAmount;
       }
-      finalFare = parseFloat((estimatedFare - discountAmount).toFixed(2));
+      finalFare = Math.round(estimatedFare - discountAmount);
     }
 
     return {
@@ -225,7 +225,7 @@ export const createRide = async (
 ) => {
   // 1. Idempotency Check
   if (data.idempotencyKey) {
-    const existingRide = await prisma.ride.findUnique({
+    const existingRide = await prisma.ride.findFirst({
       where: { idempotencyKey: data.idempotencyKey },
       include: {
         vehicleType: true,
@@ -281,7 +281,7 @@ export const createRide = async (
   const peakAdjustment = await getPeakHourAdjustment(data.cityCodeId, data.vehicleTypeId, new Date());
   if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
     const percentageAmount = (totalFare * peakAdjustment.percentageExtra) / 100;
-    totalFare = parseFloat((totalFare + peakAdjustment.fixedExtra + percentageAmount).toFixed(2));
+    totalFare = Math.round(totalFare + peakAdjustment.fixedExtra + percentageAmount);
   }
 
   // NEW: Validate and apply Coupon Code
@@ -305,8 +305,8 @@ export const createRide = async (
     }
   }
 
-  const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
-  const commission = (totalFare * pricingConfig.appCommission) / 100;
+  const riderEarnings = Math.round((totalFare * pricingConfig.riderPercentage) / 100);
+  const commission = Math.round((totalFare * pricingConfig.appCommission) / 100);
 
   // NEW: Handle agentCode if provided
   let agentId = null;
@@ -492,7 +492,7 @@ export const createManualRide = async (
   const peakAdjustment = await getPeakHourAdjustment(data.cityCodeId, data.vehicleTypeId, scheduledDate);
   if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
     const percentageAmount = (totalFare * peakAdjustment.percentageExtra) / 100;
-    totalFare = parseFloat((totalFare + peakAdjustment.fixedExtra + percentageAmount).toFixed(2));
+    totalFare = Math.round(totalFare + peakAdjustment.fixedExtra + percentageAmount);
   }
 
   // NEW: Validate and apply Coupon Code
@@ -503,7 +503,7 @@ export const createManualRide = async (
     const couponData = await validateCouponLogic(data.couponCode, data.cityCodeId, totalFare);
     appliedCouponCode = couponData.couponCode;
     appliedDiscountAmount = couponData.discountAmount;
-    totalFare = totalFare - appliedDiscountAmount;
+    totalFare = Math.round(totalFare - appliedDiscountAmount);
   }
 
   // EXPECTED FARE VALIDATION (Strict Mode)
@@ -513,8 +513,8 @@ export const createManualRide = async (
     }
   }
 
-  const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
-  const commission = (totalFare * pricingConfig.appCommission) / 100;
+  const riderEarnings = Math.round((totalFare * pricingConfig.riderPercentage) / 100);
+  const commission = Math.round((totalFare * pricingConfig.appCommission) / 100);
 
   // Handle agentCode if provided
   let agentId = null;

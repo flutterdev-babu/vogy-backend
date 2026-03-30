@@ -652,13 +652,14 @@ model Ride {
   altMobile String?
 
   // Pricing details
-  baseFare       Float? // Base fare from pricing config
-  perKmPrice     Float? // Price per km for this vehicle type
-  totalFare      Float? // Total calculated fare
-  couponCode     String? // Applied coupon code
-  discountAmount Float?  @default(0) // Discount amount derived from coupon
-  riderEarnings  Float? // Amount rider receives (percentage)
-  commission     Float? // App commission (percentage)
+  baseFare             Float? // Base fare from pricing config
+  perKmPrice           Float? // Price per km for this vehicle type
+  totalFare            Float? // Total calculated fare
+  couponCode           String? // Applied coupon code
+  discountAmount       Float?  @default(0) // Discount amount derived from coupon
+  riderEarnings        Float? // Amount rider receives (percentage)
+  commission           Float? // App commission (percentage)
+  partnerManualDiscount Float?  @default(0) // Admin manual adjustment to partner earnings
 
   // Payment tracking
   paymentMode   PaymentMode   @default(CASH)

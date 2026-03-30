@@ -116,27 +116,49 @@ export const initiatePaymentIntent = async (userId: string, data: PaymentIntentD
   // 2. Fraud Check
   await checkFraudLock(userId);
 
-  // 3. Check for existing PENDING/VERIFIED intent (Single Intent Guarantee)
-  const existingIntent = await (prisma as any).paymentVerification.findFirst({
+  // 3. Check for existing intent by IDEMPOTENCY KEY (Primary Guarantee)
+  const existingByIdempotency = await (prisma as any).paymentVerification.findUnique({
+    where: { idempotencyKey: data.idempotencyKey },
+  });
+
+  if (existingByIdempotency) {
+    // If it belongs to this user, just return it.
+    if (existingByIdempotency.userId === userId) {
+      return existingByIdempotency;
+    }
+    // If it belongs to someone else but has the same ID (unlikely), error out
+    throw new Error("Conflict: Idempotency key already in use.");
+  }
+
+  // 4. Check for existing PENDING intent for THIS USER (Single Intent Guarantee)
+  // This avoids accumulating multiple pending records for the same user.
+  const pendingIntent = await (prisma as any).paymentVerification.findFirst({
     where: {
       userId,
-      status: { in: [PaymentStatus.PENDING, PaymentStatus.VERIFIED] },
-      rides: { none: {} }, // Not yet linked to any ride
+      status: PaymentStatus.PENDING,
+      rides: { none: {} },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  if (existingIntent) {
-    // If it's the SAME idempotency key, just return it
-    if (existingIntent.idempotencyKey === data.idempotencyKey) {
-      return existingIntent;
-    }
-    // If it's a different one but still pending, return the existing one (Single Intent Guarantee)
-    return existingIntent;
+  const expiresAt = new Date(Date.now() + INTENT_EXPIRY_MINS * 60000);
+
+  if (pendingIntent) {
+    // Reuse existing record by updating its idempotency key and amount
+    // This effectively "recycles" the record, avoiding unique constraint issues with null transactionId
+    return await (prisma as any).paymentVerification.update({
+      where: { id: pendingIntent.id },
+      data: {
+        idempotencyKey: data.idempotencyKey,
+        amount: data.amount,
+        rideDetails: data.rideDetails,
+        expiresAt,
+        status: PaymentStatus.PENDING,
+      },
+    });
   }
 
-  // 4. Create new intent
-  const expiresAt = new Date(Date.now() + INTENT_EXPIRY_MINS * 60000);
+  // 5. Create new intent only if no pending one found
   return await (prisma as any).paymentVerification.create({
     data: {
       userId,
@@ -158,7 +180,10 @@ export const verifyPaymentIntent = async (
   transactionId: string,
   context: { ip?: string; userAgent?: string }
 ) => {
-  // 1. Fraud Check
+  // 1. Validation & Fraud Check
+  if (!transactionId || transactionId.trim() === "") {
+    throw new Error("A valid transaction reference is required for verification.");
+  }
   await checkFraudLock(userId, context.ip);
 
   // 2. Fetch intent

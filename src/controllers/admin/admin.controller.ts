@@ -404,17 +404,18 @@ export default {
   updateRideStatus: async (req: AuthedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { status, userOtp, startingKm, endingKm } = req.body;
-      const oldRide = await prisma.ride.findUnique({ where: { id }, select: { status: true, startingKm: true, endingKm: true } });
+      const { status, userOtp, startingKm, endingKm, manualDiscount } = req.body;
+      const oldRide = await prisma.ride.findUnique({ where: { id }, select: { status: true, startingKm: true, endingKm: true, ...({ partnerManualDiscount: true } as any) } });
       const ride = await updateRideStatusByAdmin(
         id, 
         status, 
         userOtp,
         startingKm ? parseFloat(startingKm) : undefined,
-        endingKm ? parseFloat(endingKm) : undefined
+        endingKm ? parseFloat(endingKm) : undefined,
+        manualDiscount !== undefined ? parseFloat(manualDiscount) : undefined
       );
 
-      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Ride status changed to ${status}`, oldData: oldRide, newData: { status, startingKm, endingKm }, ...getRequestContext(req) });
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Ride status changed to ${status}${manualDiscount !== undefined ? ` with discount ${manualDiscount}` : ''}`, oldData: oldRide, newData: { status, startingKm, endingKm, partnerManualDiscount: manualDiscount }, ...getRequestContext(req) });
 
       res.json({ success: true, data: ride });
     } catch (err: any) {
