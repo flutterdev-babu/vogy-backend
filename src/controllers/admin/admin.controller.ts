@@ -30,6 +30,7 @@ import {
   getAllCityCodes,
   createCityCode,
   updateCityCode,
+  deleteCityCode,
   createAttachment,
   getAllAttachments,
   getAttachmentById,
@@ -173,6 +174,37 @@ export default {
         success: false,
         message: error.message || "Failed to delete vehicle type",
       });
+    }
+  },
+
+  updateVehiclePricing: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { basePrice, pricePerKm } = req.body;
+      const vehicleType = await prisma.vehicleType.update({
+        where: { id },
+        data: {
+          baseFare: basePrice !== undefined ? parseFloat(basePrice) : undefined,
+          pricePerKm: pricePerKm !== undefined ? parseFloat(pricePerKm) : undefined,
+        }
+      });
+      return res.status(200).json({ success: true, message: "Vehicle pricing updated", data: vehicleType });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  updateAllVehiclesPricing: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { basePrice, pricePerKm } = req.body;
+      const dataToUpdate: any = {};
+      if (basePrice !== undefined) dataToUpdate.baseFare = parseFloat(basePrice);
+      if (pricePerKm !== undefined) dataToUpdate.pricePerKm = parseFloat(pricePerKm);
+
+      const result = await prisma.vehicleType.updateMany({ data: dataToUpdate });
+      return res.status(200).json({ success: true, message: "All vehicle pricings updated", data: result });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message });
     }
   },
 
@@ -405,10 +437,15 @@ export default {
     try {
       const { id } = req.params;
       const { status, userOtp, startingKm, endingKm, manualDiscount } = req.body;
-      const oldRide = await prisma.ride.findUnique({ where: { id }, select: { status: true, startingKm: true, endingKm: true, ...({ partnerManualDiscount: true } as any) } });
+      const oldRide = await prisma.ride.findUnique({ where: { id }, select: { status: true, startingKm: true, endingKm: true, isLocked: true, ...({ partnerManualDiscount: true } as any) } });
+
+      if (oldRide?.isLocked && req.user?.role !== 'SUPERADMIN') {
+        throw new Error("This ride is finalized and locked. Only a SuperAdmin can make changes.");
+      }
+
       const ride = await updateRideStatusByAdmin(
-        id, 
-        status, 
+        id,
+        status,
         userOtp,
         startingKm ? parseFloat(startingKm) : undefined,
         endingKm ? parseFloat(endingKm) : undefined,
@@ -418,6 +455,58 @@ export default {
       createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "STATUS_CHANGE", module: "RIDE", entityId: id, description: `Ride status changed to ${status}${manualDiscount !== undefined ? ` with discount ${manualDiscount}` : ''}`, oldData: oldRide, newData: { status, startingKm, endingKm, partnerManualDiscount: manualDiscount }, ...getRequestContext(req) });
 
       res.json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  updateRideDetails: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { taxes, tollCharges, additionalCharges, driverDiscount, partnerId, paymentStatus, bookingNotes, isLocked } = req.body;
+
+      const oldRide = await prisma.ride.findUnique({ where: { id }, select: { isLocked: true } });
+      if (oldRide?.isLocked && req.user?.role !== 'SUPERADMIN') {
+        throw new Error("This ride is finalized and locked. Only a SuperAdmin can make changes.");
+      }
+
+      const updateData: any = {};
+      if (taxes !== undefined) updateData.taxes = parseFloat(taxes);
+      if (tollCharges !== undefined) updateData.tollCharges = parseFloat(tollCharges);
+      if (additionalCharges !== undefined) updateData.additionalCharges = parseFloat(additionalCharges);
+      if (driverDiscount !== undefined) updateData.partnerManualDiscount = parseFloat(driverDiscount);
+      if (partnerId !== undefined) updateData.partnerId = partnerId || null;
+      if (paymentStatus !== undefined) updateData.paymentStatus = paymentStatus;
+      if (bookingNotes !== undefined) updateData.bookingNotes = bookingNotes;
+      if (isLocked !== undefined) {
+        if (req.user?.role !== 'SUPERADMIN' && oldRide?.isLocked) {
+          throw new Error("Only a SuperAdmin can unlock a ride.");
+        }
+        updateData.isLocked = isLocked;
+      }
+
+      const updatedRide = await prisma.ride.update({
+        where: { id },
+        data: updateData,
+        include: { user: true, partner: true, vehicleType: true }
+      });
+
+      // Recalculate total logic (sync with backend calculation if we were changing base fares, but here total changes visually first, then we update it)
+      const perKmPrice = updatedRide?.perKmPrice ?? 0;
+      const baseFare = updatedRide?.baseFare ?? 0;
+      const extraKmCharges = Math.max(0, perKmPrice * (updatedRide?.distanceKm ?? 0));
+      const taxableAmount = Math.max(0, baseFare + extraKmCharges);
+      const gstAmount = taxableAmount * 0.05;
+
+      const newTotal = baseFare + extraKmCharges + gstAmount +
+        (updateData.taxes || 0) + (updateData.tollCharges || 0) + (updateData.additionalCharges || 0);
+
+      const finalizedRide = await prisma.ride.update({
+        where: { id },
+        data: { totalFare: newTotal }
+      });
+
+      res.json({ success: true, message: "Ride details updated", data: finalizedRide });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
     }
@@ -436,7 +525,10 @@ export default {
         });
       }
 
-      const oldRide = await prisma.ride.findUnique({ where: { id }, select: { paymentStatus: true, paymentMode: true } });
+      const oldRide = await prisma.ride.findUnique({ where: { id }, select: { paymentStatus: true, paymentMode: true, isLocked: true } });
+      if (oldRide?.isLocked && req.user?.role !== 'SUPERADMIN') {
+        throw new Error("This ride is finalized and locked. Only a SuperAdmin can make changes.");
+      }
       const ride = await updateRidePaymentStatusByAdmin(id, paymentStatus, paymentMode, adminId);
 
       createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "RIDE", entityId: id, description: `Ride payment updated: ${paymentStatus} via ${paymentMode}`, oldData: oldRide, newData: { paymentStatus, paymentMode }, ...getRequestContext(req) });
@@ -608,6 +700,7 @@ export default {
       });
     }
   },
+
 
   /* ============================================
       SCHEDULED RIDE MANAGEMENT
@@ -787,6 +880,17 @@ export default {
       const city = await updateCityCode(req.params.id, req.body);
       createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "CITY_CODE", entityId: req.params.id, description: `Updated city code: ${city.code || req.body.code}`, oldData: oldCity, newData: req.body, ...getRequestContext(req) });
       res.json({ success: true, data: city });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  deleteCityCode: async (req: AuthedRequest, res: Response) => {
+    try {
+      const oldCity = await prisma.cityCode.findUnique({ where: { id: req.params.id } });
+      await deleteCityCode(req.params.id);
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "DELETE", module: "CITY_CODE", entityId: req.params.id, description: `Deleted city code: ${oldCity?.code}`, oldData: oldCity, ...getRequestContext(req) });
+      res.json({ success: true, message: "City code deleted successfully" });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
     }

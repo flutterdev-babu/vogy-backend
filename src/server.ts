@@ -105,7 +105,7 @@ import { prisma } from "./config/prisma";
 // Health check
 app.get("/api/health", async (req: Request, res: Response) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await prisma.user.findFirst(); // Basic connectivity check for MongoDB // Basic connectivity check for MongoDB
     res.json({ 
       status: "OK", 
       backend: "UP",

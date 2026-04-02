@@ -43,14 +43,20 @@ export const emitRideCreated = (ride: any): void => {
       ride,
     });
   }
+};
 
-  // If instant booking (or admin instant ride), notify online partners
-  if (!ride.isManualBooking || ride.status === "UPCOMING") {
-    emitToOnlineRiders(RideSocketEvents.RIDE_NEW_REQUEST, {
-      message: "New ride request available",
-      ride,
-    });
-  }
+/**
+ * Emit ride request to specific drivers
+ */
+export const emitRideRequestToDrivers = async (driverIds: string[], ride: any): Promise<void> => {
+  await Promise.all(
+    driverIds.map(async (driverId) => {
+      emitToPartner(driverId, RideSocketEvents.RIDE_NEW_REQUEST, {
+        message: "New ride request available",
+        ride,
+      });
+    })
+  );
 };
 
 /**

@@ -44,6 +44,7 @@ export const getAllPartners = async (filters?: {
       { name: { contains: filters.search, mode: "insensitive" } },
       { phone: { contains: filters.search } },
       { email: { contains: filters.search, mode: "insensitive" } },
+      { customId: { contains: filters.search, mode: "insensitive" } },
     ];
   }
 
@@ -173,7 +174,7 @@ export const updatePartnerStatus = async (partnerId: string, status: EntityStatu
 
   const partner = await prisma.partner.update({
     where: { id: partnerId },
-    data: { 
+    data: {
       status,
       ...(adminId && { updatedByAdminId: adminId })
     },
@@ -208,7 +209,7 @@ export const updatePartnerVerification = async (partnerId: string, verificationS
 
   const partner = await prisma.partner.update({
     where: { id: partnerId },
-    data: { 
+    data: {
       verificationStatus,
       ...(adminId && { updatedByAdminId: adminId })
     },
@@ -249,7 +250,7 @@ export const updatePartnerByAdmin = async (
     gender?: Gender;
     localAddress?: string;
     permanentAddress?: string;
-    
+
     // KYC Details
     panNumber?: string;
     panCardPhoto?: string;
@@ -260,21 +261,21 @@ export const updatePartnerByAdmin = async (
     licenseImage?: string;
     licenseExpiryDate?: Date;
     hasLicense?: boolean;
-    
+
     // Bank Details
     accountHolderName?: string;
     bankName?: string;
     accountNumber?: string;
     ifscCode?: string;
     cancelledChequePhoto?: string;
-    
+
     status?: EntityStatus;
     verificationStatus?: VerificationStatus;
     updatedByAdminId?: string;
   }
 ) => {
   const { updatedByAdminId, ...updateData } = data;
-  
+
   if (data.firstName && data.lastName) {
     (updateData as any).name = `${data.firstName} ${data.lastName}`;
   }
@@ -573,9 +574,9 @@ export const deletePartner = async (partnerId: string, adminId?: string) => {
   // Soft delete
   await prisma.partner.update({
     where: { id: partnerId },
-    data: { 
+    data: {
       isDeleted: true,
-      status: "BANNED", 
+      status: "BANNED",
       ...(adminId && { updatedByAdminId: adminId })
     },
   });
@@ -728,10 +729,10 @@ export const getPartnerVehicleInfo = async (partnerId: string) => {
     hasOwnVehicle: partner.hasOwnVehicle,
     ownVehicle: partner.hasOwnVehicle
       ? {
-          number: partner.ownVehicleNumber,
-          model: partner.ownVehicleModel,
-          vehicleType: partner.ownVehicleType,
-        }
+        number: partner.ownVehicleNumber,
+        model: partner.ownVehicleModel,
+        vehicleType: partner.ownVehicleType,
+      }
       : null,
     assignedVehicle: partner.vehicle || null,
   };

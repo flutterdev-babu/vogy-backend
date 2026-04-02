@@ -23,11 +23,12 @@ export const migrateRidersToPartners = async (): Promise<void> => {
     console.log("📝 Renaming 'riderId' field to 'partnerId' in Ride collection...");
     try {
       await (prisma as any).$runCommandRaw({
-        updateMany: "Ride",
+        update: "Ride",
         updates: [
           {
             q: { riderId: { $exists: true } },
-            u: { $rename: { riderId: "partnerId" } }
+            u: { $rename: { riderId: "partnerId" } },
+            multi: true
           }
         ]
       });

@@ -71,7 +71,8 @@ router.get("/vehicle-types/:id", permissionMiddleware("vehicles"), adminControll
 router.put("/vehicle-types/:id", permissionMiddleware("vehicles"), adminController.updateVehicleType);
 router.patch("/vehicle-types/:id", permissionMiddleware("vehicles"), adminController.updateVehicleType);
 router.delete("/vehicle-types/:id", permissionMiddleware("vehicles"), adminController.deleteVehicleType);
-
+router.patch("/vehicle-type/:id/pricing", permissionMiddleware("vehicles"), adminController.updateVehiclePricing);
+router.patch("/vehicle-type/pricing/all", permissionMiddleware("vehicles"), adminController.updateAllVehiclesPricing);
 // ============================================
 // PRICING CONFIGURATION
 // ============================================
@@ -105,6 +106,7 @@ router.get("/rides", permissionMiddleware("rides"), adminController.getAllRides)
 router.get("/rides/scheduled", permissionMiddleware("rides"), adminController.getScheduledRides);
 router.get("/rides/:id", permissionMiddleware("rides"), adminController.getRideById);
 router.patch("/rides/:id/status", permissionMiddleware("rides"), adminController.updateRideStatus);
+router.patch("/rides/:id/update", permissionMiddleware("rides"), adminController.updateRideDetails);
 router.get("/rides/:id/otp", permissionMiddleware("rides"), adminController.getRideOtp);
 router.post("/rides/:id/assign-rider", permissionMiddleware("rides"), adminController.assignRiderToRide);
 router.patch("/rides/:id/payment", permissionMiddleware("rides"), adminController.updateRidePaymentStatus);
@@ -175,6 +177,7 @@ router.get("/city-codes", permissionMiddleware("config"), adminController.getAll
 router.post("/city-codes", permissionMiddleware("config"), adminController.createCityCode);
 router.put("/city-codes/:id", permissionMiddleware("config"), adminController.updateCityCode);
 router.patch("/city-codes/:id", permissionMiddleware("config"), adminController.updateCityCode);
+router.delete("/city-codes/:id", permissionMiddleware("config"), adminController.deleteCityCode);
 
 // ============================================
 // VEHICLE MANAGEMENT

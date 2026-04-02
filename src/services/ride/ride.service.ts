@@ -8,10 +8,16 @@ import {
   emitRideCompleted,
   emitRideCancelled,
 } from "../socket/socket.service";
+import { emitRideRequestToDrivers } from "../socket/socket.service";
 import { generateEntityCustomId, getPricingForCity } from "../city/city.service";
 import { getPeakHourAdjustment } from "../admin/peakHour.service";
 import { logPaymentAudit } from "./payment.service";
 import { PaymentStatus, AuditAction } from "@prisma/client";
+import { computeHaversineDistance } from "../../utils/haversine";
+import { EventEmitter } from "events";
+
+export const rideEventEmitter = new EventEmitter();
+const driverCooldowns = new Map<string, number>();
 
 /* ============================================
     COUPON VALIDATION LOGIC
@@ -193,6 +199,116 @@ export const estimateFare = async (data: {
       },
     }),
   };
+};
+
+export const findNearbyDrivers = async ({
+  pickupLat,
+  pickupLng,
+  cityCodeId,
+  vehicleTypeId,
+  radius,
+}: {
+  pickupLat: number;
+  pickupLng: number;
+  cityCodeId: string;
+  vehicleTypeId: string;
+  radius: number;
+}) => {
+  const drivers = await prisma.partner.findMany({
+    where: {
+      cityCodeId,
+      isOnline: true,
+      status: "ACTIVE", // Using standard active status check for VOGY partner model
+      OR: [
+        { vehicle: { vehicleTypeId } },
+        { ownVehicleTypeId: vehicleTypeId }
+      ],
+      currentLat: { not: null },
+      currentLng: { not: null },
+    },
+    take: 200,
+    select: { id: true, currentLat: true, currentLng: true },
+  });
+
+  const now = Date.now();
+  
+  const nearbyDrivers = drivers
+    .map(driver => ({
+      ...driver,
+      distance: computeHaversineDistance(
+        pickupLat,
+        pickupLng,
+        driver.currentLat!,
+        driver.currentLng!
+      )
+    }))
+    .filter(driver => {
+      // Check cooldown (15s)
+      const lastPing = driverCooldowns.get(driver.id) || 0;
+      if (now - lastPing < 15000) return false;
+      return driver.distance <= radius;
+    })
+    .sort((a, b) => a.distance - b.distance);
+
+  return nearbyDrivers;
+};
+
+const waitForDriverAcceptance = (rideId: string, timeoutMs: number): Promise<string | null> => {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      rideEventEmitter.removeAllListeners(`ride_accepted_${rideId}`);
+      resolve(null);
+    }, timeoutMs);
+
+    rideEventEmitter.once(`ride_accepted_${rideId}`, (driverId: string) => {
+      clearTimeout(timeout);
+      resolve(driverId);
+    });
+  });
+};
+
+export const runDispatchEngine = async (ride: any) => {
+  const radii = [2000, 4000, 6000];
+  let driverAssigned = false;
+
+  for (const radius of radii) {
+    if (driverAssigned) break;
+
+    const nearbyDrivers = await findNearbyDrivers({
+      pickupLat: ride.pickupLat,
+      pickupLng: ride.pickupLng,
+      cityCodeId: ride.cityCodeId,
+      vehicleTypeId: ride.vehicleTypeId,
+      radius,
+    });
+
+    if (nearbyDrivers.length === 0) continue;
+
+    const topDrivers = nearbyDrivers.slice(0, 3);
+    const driverIds = topDrivers.map(d => d.id);
+
+    // Apply cooldown
+    const now = Date.now();
+    driverIds.forEach(id => driverCooldowns.set(id, now));
+
+    await emitRideRequestToDrivers(driverIds, ride);
+
+    const acceptedDriverId = await waitForDriverAcceptance(ride.id, 15000);
+
+    if (acceptedDriverId) {
+      driverAssigned = true;
+      break;
+    }
+  }
+
+  if (!driverAssigned) {
+    await prisma.ride.update({
+      where: { id: ride.id },
+      data: { status: "CANCELLED", bookingNotes: "No drivers available" },
+    });
+    // Emit generic cancel message so user knows
+    emitRideCancelled(ride, "PARTNER");
+  }
 };
 
 /* ============================================
@@ -405,13 +521,14 @@ export const createRide = async (
       });
     }
 
-    // Socket emission (moved inside transaction to ensure atomicity before user sees it)
-    emitRideCreated(ride);
+    // Trigger asynchronous dispatch flow without blocking return
+    runDispatchEngine(ride).catch((err) => {
+      console.error(`Dispatch Engine Error for Ride ${ride.id}:`, err);
+    });
 
     return ride;
   });
 };
-
 /* ============================================
     CREATE MANUAL/SCHEDULED RIDE (USER)
 ============================================ */
@@ -905,35 +1022,31 @@ export const acceptRide = async (rideId: string, partnerId: string) => {
     throw new Error("Partner must be online to accept rides");
   }
 
-  // Get ride
-  const ride = await prisma.ride.findUnique({
-    where: { id: rideId },
-  });
-
-  if (!ride) {
-    throw new Error("Ride not found");
-  }
-
-  if (ride.status !== "UPCOMING") {
-    throw new Error("Ride is not available for acceptance");
-  }
-
-  if (ride.partnerId) {
-    throw new Error("Ride has already been accepted");
-  }
-
   // Determine vehicle to use (partner's assigned vendor vehicle or own vehicle)
   const vehicleId = partner.vehicleId || null;
 
-  // Accept ride
-  const updatedRide = await prisma.ride.update({
-    where: { id: rideId },
+  // Use updateMany for atomic operation to prevent race conditions
+  const updateResult = await prisma.ride.updateMany({
+    where: { 
+      id: rideId, 
+      status: "UPCOMING",
+      partnerId: null 
+    },
     data: {
       partnerId: partnerId,
       vehicleId: vehicleId,
       status: "ASSIGNED",
       acceptedAt: new Date(),
     },
+  });
+
+  if (updateResult.count === 0) {
+    throw new Error("Ride is no longer available or already accepted by another driver.");
+  }
+
+  // Fetch the successfully updated ride
+  const updatedRide = await prisma.ride.findUnique({
+    where: { id: rideId },
     include: {
       vehicleType: true,
       user: {
@@ -967,6 +1080,13 @@ export const acceptRide = async (rideId: string, partnerId: string) => {
       },
     },
   });
+
+  if (!updatedRide) {
+    throw new Error("Ride could not be retrieved after acceptance.");
+  }
+
+  // Emit event for dispatch engine to resolve waitForDriverAcceptance
+  rideEventEmitter.emit(`ride_accepted_${rideId}`, partnerId);
 
   // Emit socket event to notify user
   emitRideAccepted(updatedRide);
