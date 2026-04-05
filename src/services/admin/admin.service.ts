@@ -286,7 +286,6 @@ export const getPartnerById = async (partnerId: string) => {
 export const getActivePartnerLocations = async () => {
   const partners = await prisma.partner.findMany({
     where: {
-      isOnline: true,
       currentLat: { not: null },
       currentLng: { not: null }
     },
@@ -295,17 +294,18 @@ export const getActivePartnerLocations = async () => {
       customId: true,
       name: true,
       phone: true,
+      isOnline: true,
       currentLat: true,
       currentLng: true,
       vehicle: {
         select: {
           vehicleType: {
-            select: { name: true, displayName: true }
+            select: { name: true, displayName: true, category: true }
           }
         }
       },
       ownVehicleType: {
-        select: { name: true, displayName: true }
+        select: { name: true, displayName: true, category: true }
       }
     }
   });
@@ -315,9 +315,11 @@ export const getActivePartnerLocations = async () => {
     customId: p.customId,
     name: p.name,
     phone: p.phone,
+    isOnline: p.isOnline,
     lat: p.currentLat,
     lng: p.currentLng,
-    vehicleType: p.vehicle?.vehicleType?.name || p.ownVehicleType?.name || "Unknown"
+    vehicleType: p.vehicle?.vehicleType?.displayName || p.ownVehicleType?.displayName || "Unknown",
+    category: p.vehicle?.vehicleType?.category || p.ownVehicleType?.category || "CAR"
   }));
 };
 

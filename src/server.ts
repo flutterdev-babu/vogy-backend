@@ -106,18 +106,18 @@ import { prisma } from "./config/prisma";
 app.get("/api/health", async (req: Request, res: Response) => {
   try {
     await prisma.user.findFirst(); // Basic connectivity check for MongoDB // Basic connectivity check for MongoDB
-    res.json({ 
-      status: "OK", 
+    res.json({
+      status: "OK",
       backend: "UP",
       database: "UP",
-      timestamp: new Date().toISOString() 
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(503).json({ 
-      status: "ERROR", 
+    res.status(503).json({
+      status: "ERROR",
       backend: "UP",
       database: "DOWN",
-      timestamp: new Date().toISOString() 
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -128,7 +128,7 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 // Start Server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Import startup utilities
 import { fixAgentCustomIds } from "./utils/fixCustomIds";
@@ -136,7 +136,7 @@ import { migrateRidersToPartners } from "./utils/migrateRidersToPartners";
 
 server.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT} with Socket.IO`);
-  
+
   // Migrate legacy Riders to unified Partners
   await migrateRidersToPartners();
 
