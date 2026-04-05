@@ -784,11 +784,20 @@ export const getPartnerRideById = async (partnerId: string, rideId: string) => {
     GET PARTNER EARNINGS SUMMARY
 ============================================ */
 export const getPartnerEarnings = async (partnerId: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   // Overall earnings
   const totalEarnings = await prisma.ride.aggregate({
     where: { partnerId, status: "COMPLETED" },
-    _sum: { totalFare: true, riderEarnings: true },
+    _sum: { totalFare: true, riderEarnings: true, commission: true },
     _count: true,
+  });
+
+  // Today's earnings
+  const todayEarningsData = await prisma.ride.aggregate({
+    where: { partnerId, status: "COMPLETED", createdAt: { gte: today } },
+    _sum: { riderEarnings: true },
   });
 
   // By payment mode
@@ -799,11 +808,25 @@ export const getPartnerEarnings = async (partnerId: string) => {
     _sum: { riderEarnings: true },
   });
 
+  // Recent rides (last 20 completed)
+  const recentRidesRaw = await prisma.ride.findMany({
+    where: { partnerId, status: "COMPLETED" },
+    select: {
+      id: true,
+      totalFare: true,
+      riderEarnings: true,
+      commission: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
   // Last 30 days daily breakdown
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const recentRides = await prisma.ride.findMany({
+  const recentRidesForBreakdown = await prisma.ride.findMany({
     where: {
       partnerId,
       status: "COMPLETED",
@@ -819,7 +842,7 @@ export const getPartnerEarnings = async (partnerId: string) => {
 
   // Group by date
   const dailyBreakdown: Record<string, { earnings: number; rides: number }> = {};
-  recentRides.forEach((ride) => {
+  recentRidesForBreakdown.forEach((ride) => {
     const dateKey = ride.createdAt.toISOString().split("T")[0];
     if (!dailyBreakdown[dateKey]) {
       dailyBreakdown[dateKey] = { earnings: 0, rides: 0 };
@@ -829,11 +852,17 @@ export const getPartnerEarnings = async (partnerId: string) => {
   });
 
   return {
-    total: {
-      earnings: totalEarnings._sum.riderEarnings || 0,
-      totalFare: totalEarnings._sum.totalFare || 0,
-      completedRides: totalEarnings._count,
-    },
+    total: totalEarnings._sum.riderEarnings || 0,
+    totalFare: totalEarnings._sum.totalFare || 0,
+    sessionEarnings: totalEarnings._sum.riderEarnings || 0,
+    todayEarnings: todayEarningsData._sum.riderEarnings || 0,
+    recentRides: recentRidesRaw.map((r) => ({
+      rideId: r.id,
+      date: r.createdAt.toISOString(),
+      totalFare: r.totalFare || 0,
+      commission: r.commission || 0,
+      earning: r.riderEarnings || 0,
+    })),
     byPaymentMode: byPaymentMode.map((pm) => ({
       mode: pm.paymentMode,
       count: pm._count,

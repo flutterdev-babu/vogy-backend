@@ -219,6 +219,39 @@ model VehiclePricingGroup {
   baseFare   Float @default(50) // e.g., ₹50 for first 2 km
   perKmPrice Float // e.g., ₹12 per km after base
 
+  // ============================================
+  // 1. DRIVER/ADMIN GENERAL METRICS
+  // ============================================
+  driverBaseKm          Float?
+  driverBasePrice       Float?
+  driverExtraPricePerKm Float?
+  commissionPercentage  Float?
+  tollRate              Float?
+  parkingRate           Float?
+  gstRate               Float?
+
+  // ============================================
+  // 2. RENTAL PACKAGE METRICS (Half Day / Full Day)
+  // ============================================
+  rentalHalfDayBaseHr   Int?   @default(4)
+  rentalHalfDayBaseKm   Int?   @default(40)
+  rentalHalfDayBaseFare Float?
+
+  rentalFullDayBaseHr   Int?   @default(8)
+  rentalFullDayBaseKm   Int?   @default(80)
+  rentalFullDayBaseFare Float?
+
+  rentalExtraHrPrice Float? // R - Ex Hr from Rate Card
+  rentalExtraKmPrice Float? // R - Ex Km from Rate Card
+
+  // ============================================
+  // 3. OUTSTATION METRICS
+  // ============================================
+  outstationOnewayPricePerKm    Float?
+  outstationRoundTripPricePerKm Float?
+  outstationDriverAllowance     Float? // e.g., 300 per day
+  outstationMinBaseKmPerDay     Int?   @default(300) // The min km charged per day
+
   // Cities in this pricing group
   cityCodeIds String[] @db.ObjectId
 
@@ -227,6 +260,7 @@ model VehiclePricingGroup {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
 
 // ============================================
 // NEW ENTITY MODELS

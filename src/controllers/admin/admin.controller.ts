@@ -268,7 +268,7 @@ export default {
 
   createPricingGroup: async (req: AuthedRequest, res: Response) => {
     try {
-      const { vehicleTypeId, name, serviceType, baseKm, baseFare, perKmPrice, cityCodeIds } = req.body;
+      const { vehicleTypeId, perKmPrice, cityCodeIds } = req.body;
 
       if (!vehicleTypeId || perKmPrice === undefined || !cityCodeIds) {
         return res.status(400).json({
@@ -278,17 +278,9 @@ export default {
       }
 
       const { createPricingGroup } = require("../../services/city/city.service");
-      const pricingGroup = await createPricingGroup({
-        vehicleTypeId,
-        name,
-        serviceType,
-        baseKm: baseKm ? parseFloat(baseKm) : 2,
-        baseFare: baseFare ? parseFloat(baseFare) : 50,
-        perKmPrice: parseFloat(perKmPrice),
-        cityCodeIds,
-      });
+      const pricingGroup = await createPricingGroup(req.body);
 
-      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "PRICING_GROUP", entityId: pricingGroup.id, description: `Created pricing group: ${name || pricingGroup.id}`, newData: pricingGroup, ...getRequestContext(req) });
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "PRICING_GROUP", entityId: pricingGroup.id, description: `Created pricing group: ${req.body.name || pricingGroup.id}`, newData: pricingGroup, ...getRequestContext(req) });
 
       return res.status(201).json({
         success: true,
