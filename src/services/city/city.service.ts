@@ -252,6 +252,26 @@ export const createPricingGroup = async (data: {
   baseFare: number;
   perKmPrice: number;
   cityCodeIds: string[];
+  // New Fields
+  driverBaseKm?: number;
+  driverBasePrice?: number;
+  driverExtraPricePerKm?: number;
+  commissionPercentage?: number;
+  tollRate?: number;
+  parkingRate?: number;
+  gstRate?: number;
+  rentalHalfDayBaseHr?: number;
+  rentalHalfDayBaseKm?: number;
+  rentalHalfDayBaseFare?: number;
+  rentalFullDayBaseHr?: number;
+  rentalFullDayBaseKm?: number;
+  rentalFullDayBaseFare?: number;
+  rentalExtraHrPrice?: number;
+  rentalExtraKmPrice?: number;
+  outstationOnewayPricePerKm?: number;
+  outstationRoundTripPricePerKm?: number;
+  outstationDriverAllowance?: number;
+  outstationMinBaseKmPerDay?: number;
 }) => {
   // Verify vehicle type exists
   const vehicleType = await prisma.vehicleType.findUnique({
@@ -262,13 +282,8 @@ export const createPricingGroup = async (data: {
   // Create pricing group
   const pricingGroup = await prisma.vehiclePricingGroup.create({
     data: {
-      vehicleTypeId: data.vehicleTypeId,
-      name: data.name,
+      ...data,
       serviceType: (data.serviceType as any) || "LOCAL",
-      baseKm: data.baseKm,
-      baseFare: data.baseFare,
-      perKmPrice: data.perKmPrice,
-      cityCodeIds: data.cityCodeIds,
     },
     include: {
       vehicleType: true,
@@ -302,6 +317,26 @@ export const updatePricingGroup = async (
     perKmPrice?: number;
     cityCodeIds?: string[];
     isActive?: boolean;
+    // New Fields
+    driverBaseKm?: number;
+    driverBasePrice?: number;
+    driverExtraPricePerKm?: number;
+    commissionPercentage?: number;
+    tollRate?: number;
+    parkingRate?: number;
+    gstRate?: number;
+    rentalHalfDayBaseHr?: number;
+    rentalHalfDayBaseKm?: number;
+    rentalHalfDayBaseFare?: number;
+    rentalFullDayBaseHr?: number;
+    rentalFullDayBaseKm?: number;
+    rentalFullDayBaseFare?: number;
+    rentalExtraHrPrice?: number;
+    rentalExtraKmPrice?: number;
+    outstationOnewayPricePerKm?: number;
+    outstationRoundTripPricePerKm?: number;
+    outstationDriverAllowance?: number;
+    outstationMinBaseKmPerDay?: number;
   }
 ) => {
   return await prisma.vehiclePricingGroup.update({
