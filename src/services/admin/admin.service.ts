@@ -14,11 +14,11 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   const R = 6371; // Radius of the earth in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2); 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const d = R * c; // Distance in km
   return d;
 };
@@ -286,7 +286,6 @@ export const getPartnerById = async (partnerId: string) => {
 export const getActivePartnerLocations = async () => {
   const partners = await prisma.partner.findMany({
     where: {
-      isOnline: true,
       currentLat: { not: null },
       currentLng: { not: null }
     },
@@ -295,17 +294,18 @@ export const getActivePartnerLocations = async () => {
       customId: true,
       name: true,
       phone: true,
+      isOnline: true,
       currentLat: true,
       currentLng: true,
       vehicle: {
         select: {
           vehicleType: {
-            select: { name: true, displayName: true }
+            select: { name: true, displayName: true, category: true }
           }
         }
       },
       ownVehicleType: {
-        select: { name: true, displayName: true }
+        select: { name: true, displayName: true, category: true }
       }
     }
   });
@@ -315,9 +315,11 @@ export const getActivePartnerLocations = async () => {
     customId: p.customId,
     name: p.name,
     phone: p.phone,
+    isOnline: p.isOnline,
     lat: p.currentLat,
     lng: p.currentLng,
-    vehicleType: p.vehicle?.vehicleType?.name || p.ownVehicleType?.name || "Unknown"
+    vehicleType: p.vehicle?.vehicleType?.displayName || p.ownVehicleType?.displayName || "Unknown",
+    category: p.vehicle?.vehicleType?.category || p.ownVehicleType?.category || "CAR"
   }));
 };
 
@@ -561,8 +563,8 @@ export const getRideById = async (id: string) => {
 };
 
 export const updateRideStatusByAdmin = async (
-  rideId: string, 
-  status: any, 
+  rideId: string,
+  status: any,
   userOtp?: string,
   startingKm?: number,
   endingKm?: number,
@@ -594,12 +596,12 @@ export const updateRideStatusByAdmin = async (
 
   const ride = await prisma.ride.update({
     where: { id: rideId },
-    data: { 
+    data: {
       status,
       // If status is started, record the start time
       ...(status === "STARTED" && { startTime: new Date() }),
       // If status is ONGOING and not started, record start time
-      ...(status === "ONGOING" && { 
+      ...(status === "ONGOING" && {
         startTime: new Date(),
         ...(startingKm !== undefined && { startingKm })
       }),
@@ -639,7 +641,7 @@ export const verifyAttachmentByAdmin = async (attachmentId: string, verification
 
   const attachment = await prisma.attachment.update({
     where: { id: attachmentId },
-    data: { 
+    data: {
       verificationStatus,
       ...(adminId && { updatedByAdminId: adminId })
     },
@@ -741,9 +743,9 @@ export const updateUserByAdmin = async (id: string, data: any) => {
   // If changing phone number, check if it already exists for another user
   if (data.phone) {
     const existingUser = await prisma.user.findFirst({
-      where: { 
+      where: {
         phone: data.phone,
-        id: { not: id } 
+        id: { not: id }
       },
     });
 
@@ -928,9 +930,22 @@ export const createCityCode = async (data: any) => {
 };
 
 export const updateCityCode = async (id: string, data: any) => {
+  const { code, cityName, isActive, isAvailable } = data;
+  const updateData: any = {};
+  if (code !== undefined) updateData.code = code;
+  if (cityName !== undefined) updateData.cityName = cityName;
+  if (isActive !== undefined) updateData.isActive = isActive;
+  if (isAvailable !== undefined) updateData.isAvailable = isAvailable;
+
   return await prisma.cityCode.update({
     where: { id },
-    data,
+    data: updateData,
+  });
+};
+
+export const deleteCityCode = async (id: string) => {
+  return await prisma.cityCode.delete({
+    where: { id },
   });
 };
 
@@ -1030,7 +1045,7 @@ export const createAttachment = async (data: {
         verificationStatus: "VERIFIED",
       },
     });
-    
+
     // Auto-verify the reference entity
     if (data.referenceType === "PARTNER" && data.referenceId) {
       await prisma.partner.update({
@@ -1048,7 +1063,7 @@ export const createAttachment = async (data: {
         data: { verificationStatus: "VERIFIED" }
       });
     }
-    
+
     return attachment;
   }
 
@@ -1112,7 +1127,7 @@ export const getAttachmentById = async (id: string) => {
 export const updateAttachmentStatus = async (id: string, status: EntityStatus, adminId?: string) => {
   return await prisma.attachment.update({
     where: { id },
-    data: { 
+    data: {
       status,
       ...(adminId && { updatedByAdminId: adminId })
     },
@@ -1246,7 +1261,7 @@ export const createManualRideByAdmin = async (
     where: { isActive: true },
     orderBy: { createdAt: "desc" },
   });
-  
+
   if (!pricingConfig) throw new Error("Pricing configuration not found");
   const riderEarnings = (totalFare * pricingConfig.riderPercentage) / 100;
   const commission = (totalFare * pricingConfig.appCommission) / 100;
@@ -1263,7 +1278,7 @@ export const createManualRideByAdmin = async (
   let finalStatus = data.isInstant ? "UPCOMING" : "SCHEDULED";
   let assignedVendorId: string | null = null;
   let assignedVehicleId: string | null = null;
-  
+
   // 4b. Find Nearest Active Partner if not instant and it's a "Now" booking (scheduledDateTime is null/now)
   const isNowBooking = !data.scheduledDateTime || new Date(data.scheduledDateTime).getTime() <= new Date().getTime() + 5 * 60000; // Within 5 minutes
 
@@ -1639,7 +1654,7 @@ export const updateRidePaymentStatusByAdmin = async (
 ) => {
   const ride = await prisma.ride.update({
     where: { id: rideId },
-    data: { 
+    data: {
       paymentStatus,
       paymentMode,
       ...(adminId && { assignedByAdminId: adminId })

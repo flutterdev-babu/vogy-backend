@@ -34,13 +34,15 @@ export default {
   // Get all tickets
   getAllTickets: async (req: AuthedRequest, res: Response) => {
     try {
-      const { status, priority, category, assignedToId, search, page, limit } = req.query;
+      const { status, priority, category, assignedToId, search, rideId, customerId, page, limit } = req.query;
       const result = await ticketService.getAllTickets({
         status: status as string,
         priority: priority as string,
         category: category as string,
         assignedToId: assignedToId as string,
         search: search as string,
+        rideId: rideId as string,
+        customerId: customerId as string,
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
       });

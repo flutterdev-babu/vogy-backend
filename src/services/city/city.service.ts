@@ -133,6 +133,7 @@ export const getAllCityCodes = async () => {
       id: true,
       code: true,
       cityName: true,
+      isAvailable: true,
     },
     orderBy: {
       cityName: "asc",

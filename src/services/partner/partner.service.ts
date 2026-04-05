@@ -44,6 +44,7 @@ export const getAllPartners = async (filters?: {
       { name: { contains: filters.search, mode: "insensitive" } },
       { phone: { contains: filters.search } },
       { email: { contains: filters.search, mode: "insensitive" } },
+      { customId: { contains: filters.search, mode: "insensitive" } },
     ];
   }
 
@@ -173,7 +174,7 @@ export const updatePartnerStatus = async (partnerId: string, status: EntityStatu
 
   const partner = await prisma.partner.update({
     where: { id: partnerId },
-    data: { 
+    data: {
       status,
       ...(adminId && { updatedByAdminId: adminId })
     },
@@ -208,7 +209,7 @@ export const updatePartnerVerification = async (partnerId: string, verificationS
 
   const partner = await prisma.partner.update({
     where: { id: partnerId },
-    data: { 
+    data: {
       verificationStatus,
       ...(adminId && { updatedByAdminId: adminId })
     },
@@ -249,7 +250,7 @@ export const updatePartnerByAdmin = async (
     gender?: Gender;
     localAddress?: string;
     permanentAddress?: string;
-    
+
     // KYC Details
     panNumber?: string;
     panCardPhoto?: string;
@@ -260,21 +261,21 @@ export const updatePartnerByAdmin = async (
     licenseImage?: string;
     licenseExpiryDate?: Date;
     hasLicense?: boolean;
-    
+
     // Bank Details
     accountHolderName?: string;
     bankName?: string;
     accountNumber?: string;
     ifscCode?: string;
     cancelledChequePhoto?: string;
-    
+
     status?: EntityStatus;
     verificationStatus?: VerificationStatus;
     updatedByAdminId?: string;
   }
 ) => {
   const { updatedByAdminId, ...updateData } = data;
-  
+
   if (data.firstName && data.lastName) {
     (updateData as any).name = `${data.firstName} ${data.lastName}`;
   }
@@ -573,9 +574,9 @@ export const deletePartner = async (partnerId: string, adminId?: string) => {
   // Soft delete
   await prisma.partner.update({
     where: { id: partnerId },
-    data: { 
+    data: {
       isDeleted: true,
-      status: "BANNED", 
+      status: "BANNED",
       ...(adminId && { updatedByAdminId: adminId })
     },
   });
@@ -728,10 +729,10 @@ export const getPartnerVehicleInfo = async (partnerId: string) => {
     hasOwnVehicle: partner.hasOwnVehicle,
     ownVehicle: partner.hasOwnVehicle
       ? {
-          number: partner.ownVehicleNumber,
-          model: partner.ownVehicleModel,
-          vehicleType: partner.ownVehicleType,
-        }
+        number: partner.ownVehicleNumber,
+        model: partner.ownVehicleModel,
+        vehicleType: partner.ownVehicleType,
+      }
       : null,
     assignedVehicle: partner.vehicle || null,
   };
@@ -783,11 +784,20 @@ export const getPartnerRideById = async (partnerId: string, rideId: string) => {
     GET PARTNER EARNINGS SUMMARY
 ============================================ */
 export const getPartnerEarnings = async (partnerId: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   // Overall earnings
   const totalEarnings = await prisma.ride.aggregate({
     where: { partnerId, status: "COMPLETED" },
-    _sum: { totalFare: true, riderEarnings: true },
+    _sum: { totalFare: true, riderEarnings: true, commission: true },
     _count: true,
+  });
+
+  // Today's earnings
+  const todayEarningsData = await prisma.ride.aggregate({
+    where: { partnerId, status: "COMPLETED", createdAt: { gte: today } },
+    _sum: { riderEarnings: true },
   });
 
   // By payment mode
@@ -798,11 +808,25 @@ export const getPartnerEarnings = async (partnerId: string) => {
     _sum: { riderEarnings: true },
   });
 
+  // Recent rides (last 20 completed)
+  const recentRidesRaw = await prisma.ride.findMany({
+    where: { partnerId, status: "COMPLETED" },
+    select: {
+      id: true,
+      totalFare: true,
+      riderEarnings: true,
+      commission: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
   // Last 30 days daily breakdown
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const recentRides = await prisma.ride.findMany({
+  const recentRidesForBreakdown = await prisma.ride.findMany({
     where: {
       partnerId,
       status: "COMPLETED",
@@ -818,7 +842,7 @@ export const getPartnerEarnings = async (partnerId: string) => {
 
   // Group by date
   const dailyBreakdown: Record<string, { earnings: number; rides: number }> = {};
-  recentRides.forEach((ride) => {
+  recentRidesForBreakdown.forEach((ride) => {
     const dateKey = ride.createdAt.toISOString().split("T")[0];
     if (!dailyBreakdown[dateKey]) {
       dailyBreakdown[dateKey] = { earnings: 0, rides: 0 };
@@ -828,11 +852,17 @@ export const getPartnerEarnings = async (partnerId: string) => {
   });
 
   return {
-    total: {
-      earnings: totalEarnings._sum.riderEarnings || 0,
-      totalFare: totalEarnings._sum.totalFare || 0,
-      completedRides: totalEarnings._count,
-    },
+    total: totalEarnings._sum.riderEarnings || 0,
+    totalFare: totalEarnings._sum.totalFare || 0,
+    sessionEarnings: totalEarnings._sum.riderEarnings || 0,
+    todayEarnings: todayEarningsData._sum.riderEarnings || 0,
+    recentRides: recentRidesRaw.map((r) => ({
+      rideId: r.id,
+      date: r.createdAt.toISOString(),
+      totalFare: r.totalFare || 0,
+      commission: r.commission || 0,
+      earning: r.riderEarnings || 0,
+    })),
     byPaymentMode: byPaymentMode.map((pm) => ({
       mode: pm.paymentMode,
       count: pm._count,

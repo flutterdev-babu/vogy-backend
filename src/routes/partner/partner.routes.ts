@@ -58,6 +58,9 @@ router.get("/earnings", partnerController.getPartnerEarningsSummary);
 // Analytics
 router.get("/analytics", partnerController.getPartnerAnalytics);
 
+// Documents (KYC documents view)
+router.get("/documents", partnerController.getPartnerDocuments);
+
 // Attachments
 router.post("/attachments", partnerController.createAttachment);
 

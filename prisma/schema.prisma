@@ -180,6 +180,7 @@ model CityCode {
   code     String  @unique // e.g., "BLR", "HYD", "MUM"
   cityName String // e.g., "Bangalore", "Hyderabad"
   isActive Boolean @default(true)
+  isAvailable Boolean @default(true)
 
   // Relations to pricing groups
   pricingGroupIds String[] @db.ObjectId
@@ -626,8 +627,8 @@ model CorporatePayment {
   paymentMode   PaymentMode
   transactionId String?
   notes         String?
-
-  createdAt DateTime @default(now())
+  isLocked      Boolean       @default(false)
+  createdAt     DateTime      @default(now())
 }
 
 // ============================================
@@ -694,6 +695,9 @@ model Ride {
   riderEarnings        Float? // Amount rider receives (percentage)
   commission           Float? // App commission (percentage)
   partnerManualDiscount Float?  @default(0) // Admin manual adjustment to partner earnings
+  taxes                Float?  @default(0)
+  tollCharges          Float?  @default(0)
+  additionalCharges    Float?  @default(0)
 
   // Payment tracking
   paymentMode   PaymentMode   @default(CASH)
@@ -706,6 +710,7 @@ model Ride {
   endTime    DateTime?
   acceptedAt DateTime?
   arrivedAt  DateTime?
+  isLocked   Boolean   @default(false)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 

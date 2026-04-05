@@ -243,7 +243,7 @@ export const createUser = async (data: {
 
   // Check if email exists
   if (data.email) {
-    const existingByEmail = await prisma.user.findUnique({
+    const existingByEmail = await prisma.user.findFirst({
       where: { email: data.email },
     });
     if (existingByEmail) {

@@ -47,7 +47,7 @@ const generateTicketNumber = async (
   rideId?: string | null
 ): Promise<string> => {
   const today = new Date();
-  
+
   // Format YYYYMMDD
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -127,6 +127,8 @@ export const getAllTickets = async (filters?: {
   category?: string;
   assignedToId?: string;
   search?: string;
+  rideId?: string;
+  customerId?: string;
   page?: number;
   limit?: number;
 }) => {
@@ -140,6 +142,8 @@ export const getAllTickets = async (filters?: {
   if (filters?.priority) where.priority = filters.priority as TicketPriority;
   if (filters?.category) where.category = filters.category as TicketCategory;
   if (filters?.assignedToId) where.assignedToId = filters.assignedToId;
+  if (filters?.rideId) where.rideId = filters.rideId;
+  if (filters?.customerId) where.customerId = filters.customerId;
 
   if (filters?.search) {
     where.OR = [

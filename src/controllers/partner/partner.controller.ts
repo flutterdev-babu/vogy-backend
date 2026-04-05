@@ -280,6 +280,64 @@ export default {
     }
   },
 
+  async getPartnerDocuments(req: AuthedRequest, res: Response) {
+    try {
+      const partner = await prisma.partner.findUnique({
+        where: { id: req.user.id },
+        select: {
+          panNumber: true,
+          panCardPhoto: true,
+          aadhaarNumber: true,
+          aadhaarFrontPhoto: true,
+          aadhaarBackPhoto: true,
+          licenseNumber: true,
+          licenseImage: true,
+          licenseExpiryDate: true,
+          cancelledChequePhoto: true,
+          profileImage: true,
+        }
+      });
+
+      if (!partner) {
+        return res.status(404).json({ success: false, message: "Partner not found" });
+      }
+
+      // Build documents list from partner's KYC fields
+      const documents = [
+        {
+          id: 'pan_card',
+          name: 'PAN Card',
+          status: partner.panNumber && partner.panCardPhoto ? 'APPROVED' : partner.panNumber || partner.panCardPhoto ? 'PENDING' : 'MISSING',
+        },
+        {
+          id: 'aadhaar_card',
+          name: 'Aadhaar Card',
+          status: partner.aadhaarNumber && (partner.aadhaarFrontPhoto || partner.aadhaarBackPhoto) ? 'APPROVED' : partner.aadhaarNumber ? 'PENDING' : 'MISSING',
+        },
+        {
+          id: 'driving_license',
+          name: 'Driving License',
+          status: partner.licenseNumber && partner.licenseImage ? 'APPROVED' : partner.licenseNumber ? 'PENDING' : 'MISSING',
+          expiryDate: partner.licenseExpiryDate?.toISOString() || undefined,
+        },
+        {
+          id: 'cancelled_cheque',
+          name: 'Cancelled Cheque / Bank Proof',
+          status: partner.cancelledChequePhoto ? 'APPROVED' : 'MISSING',
+        },
+        {
+          id: 'profile_photo',
+          name: 'Profile Photo',
+          status: partner.profileImage ? 'APPROVED' : 'MISSING',
+        },
+      ];
+
+      res.json({ success: true, data: documents });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
   async getAvailableRides(req: AuthedRequest, res: Response) {
     try {
       const { lat, lng, vehicleTypeId } = req.query;
