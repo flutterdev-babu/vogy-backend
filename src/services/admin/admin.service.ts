@@ -524,6 +524,21 @@ export const getRideById = async (id: string) => {
           uniqueOtp: true,
         },
       },
+      corporate: {
+        select: {
+          id: true,
+          customId: true,
+          companyName: true,
+          contactPerson: true,
+        }
+      },
+      corporateEmployee: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        }
+      },
       partner: {
         select: {
           id: true,

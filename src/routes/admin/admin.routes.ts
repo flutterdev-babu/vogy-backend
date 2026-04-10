@@ -158,6 +158,7 @@ router.post("/partners/:id/assign-vehicle", permissionMiddleware("partners"), pa
 router.delete("/partners/:id/unassign-vehicle", permissionMiddleware("partners"), partnerController.unassignPartnerFromVehicle);
 router.get("/partners/:id/rides", permissionMiddleware("partners"), partnerController.getPartnerRides);
 router.get("/partners/:id/analytics", permissionMiddleware("partners"), partnerController.getPartnerAnalytics);
+router.post("/partners/:id/notify", permissionMiddleware("partners"), partnerController.notifyPartner);
 router.delete("/partners/:id", permissionMiddleware("partners"), partnerController.deletePartner);
 
 // ============================================

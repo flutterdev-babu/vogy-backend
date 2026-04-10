@@ -854,6 +854,7 @@ export const getPartnerEarnings = async (partnerId: string) => {
   return {
     total: totalEarnings._sum.riderEarnings || 0,
     totalFare: totalEarnings._sum.totalFare || 0,
+    totalRides: totalEarnings._count || 0,
     sessionEarnings: totalEarnings._sum.riderEarnings || 0,
     todayEarnings: todayEarningsData._sum.riderEarnings || 0,
     recentRides: recentRidesRaw.map((r) => ({

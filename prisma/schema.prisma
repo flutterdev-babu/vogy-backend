@@ -358,6 +358,7 @@ model Partner {
 
   // NEW: Attachments (Centralized)
   attachments Attachment[]
+  notifications Notification[]
 
   updatedByAdminId String?  @db.ObjectId
   createdAt        DateTime @default(now())
@@ -526,6 +527,9 @@ model Corporate {
   // Payment records
   payments CorporatePayment[]
 
+  // Employee Management
+  employees CorporateEmployee[]
+
   // DEPRECATED: Linked Agent (Governance shifting to Admin)
   agentId String? @db.ObjectId
   agent   Agent?  @relation("AgentCorporates", fields: [agentId], references: [id])
@@ -597,6 +601,23 @@ model CorporatePayment {
   createdAt     DateTime      @default(now())
 }
 
+model CorporateEmployee {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  corporateId    String    @db.ObjectId
+  corporate      Corporate @relation(fields: [corporateId], references: [id])
+  name           String
+  email          String
+  department     String?
+  spendingLimit  Float     @default(0)
+  status         String    @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  rides          Ride[]
+
+  @@unique([corporateId, email])
+}
+
 // ============================================
 // RIDE MODEL (Updated with new entity relationships)
 // ============================================
@@ -624,6 +645,9 @@ model Ride {
   vehicle   Vehicle?   @relation("VehicleRides", fields: [vehicleId], references: [id])
   agent     Agent?     @relation("AgentRides", fields: [agentId], references: [id])
   corporate Corporate? @relation("CorporateRides", fields: [corporateId], references: [id])
+  
+  corporateEmployeeId String? @db.ObjectId
+  corporateEmployee   CorporateEmployee? @relation(fields: [corporateEmployeeId], references: [id])
 
   // NEW: Agent Code tracking
   agentCode String?
@@ -984,6 +1008,17 @@ model BroadcastNotification {
   recipientCount Int?     @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, SUCCESS, CRITICAL
+  partnerId String?  @db.ObjectId
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 // ============================================

@@ -354,4 +354,42 @@ export default {
       res.status(500).json({ success: false, message: err.message });
     }
   },
+
+  async getNotifications(req: AuthedRequest, res: Response) {
+    try {
+      const { getPartnerNotifications } = await import("../../services/notification/notification.service");
+      const notifications = await getPartnerNotifications(req.user.id);
+      res.json({ success: true, data: notifications });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async markNotificationAsRead(req: AuthedRequest, res: Response) {
+    try {
+      const { markNotificationAsRead } = await import("../../services/notification/notification.service");
+      const notification = await markNotificationAsRead(req.params.id);
+      res.json({ success: true, data: notification });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async notifyPartner(req: AuthedRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { title, message, type } = req.body;
+      const { createPartnerNotification } = await import("../../services/notification/notification.service");
+      
+      const notification = await createPartnerNotification(id, {
+        title: title || "New Message from Admin",
+        message: message,
+        type: type || "INFO"
+      });
+      
+      res.json({ success: true, data: notification });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
 };
