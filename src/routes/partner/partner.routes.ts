@@ -64,6 +64,11 @@ router.get("/documents", partnerController.getPartnerDocuments);
 // Attachments
 router.post("/attachments", partnerController.createAttachment);
 
+// Notifications (Inbox)
+router.get("/notifications", partnerController.getNotifications);
+router.put("/notifications/:id/read", partnerController.markNotificationAsRead);
+router.patch("/notifications/:id/read", partnerController.markNotificationAsRead);
+
 // Support Tickets
 router.post("/support-tickets", ticketController.createCustomerTicket);
 router.get("/support-tickets", ticketController.getMyTickets);

@@ -1,0 +1,11 @@
+{
+  "id": "69970158d1e9c000a1297437",
+  "category": "CAR",
+  "name": "SEDAN",
+  "displayName": "Sedan AC - CNG/EV",
+  "pricePerKm": 20,
+  "baseFare": 600,
+  "isActive": true,
+  "createdAt": "2026-02-19T12:26:00.443Z",
+  "updatedAt": "2026-04-10T13:33:11.812Z"
+}
