@@ -32,6 +32,7 @@ enum RideStatus {
   CNR
   INITIATED
   PENDING
+  EXPIRED
 }
 
 enum AdminRole {
@@ -723,8 +724,15 @@ model Ride {
   paymentVerificationId String? @db.ObjectId
   paymentVerification   PaymentVerification? @relation("RideToPayment", fields: [paymentVerificationId], references: [id])
 
+  // Requested pickup time (for instant rides — allows explicit expiry tracking)
+  requestedPickupTime DateTime?
+
   // Support tickets linked to this ride
   supportTickets SupportTicket[] @relation("TicketRide")
+
+  @@index([status, partnerId])
+  @@index([scheduledDateTime])
+  @@index([requestedPickupTime])
 }
 
 // ============================================
@@ -802,13 +810,16 @@ enum DayOfWeek {
 // ============================================
 
 model PricingConfig {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  baseFare        Float    @default(20) // Flat base fare for all rides
-  riderPercentage Float    @default(80) // Percentage rider gets (e.g., 80%)
-  appCommission   Float    @default(20) // App commission percentage (e.g., 20%)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                       String   @id @default(auto()) @map("_id") @db.ObjectId
+  baseFare                 Float    @default(20) // Flat base fare for all rides
+  riderPercentage          Float    @default(80) // Percentage rider gets (e.g., 80%)
+  appCommission            Float    @default(20) // App commission percentage (e.g., 20%)
+  payLaterSurchargePercent Float    @default(2)  // Extra % charged when user chooses pay later
+  onlinePayDiscountPercent Float    @default(2)  // Discount % given when user pays online upfront
+  assignmentBufferMinutes  Int      @default(120) // Minutes after pickup time before ride expires
+  isActive                 Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 }
 
 model OtpCode {

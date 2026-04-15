@@ -104,6 +104,7 @@ router.delete("/peak-hour-charges/:id", peakHourController.deletePeakHourCharge)
 router.post("/rides", permissionMiddleware("rides"), adminController.createManualRide);
 router.get("/rides", permissionMiddleware("rides"), adminController.getAllRides);
 router.get("/rides/scheduled", permissionMiddleware("rides"), adminController.getScheduledRides);
+router.get("/rides/live-unassigned", permissionMiddleware("rides"), adminController.getLiveUnassignedRides);
 router.get("/rides/:id", permissionMiddleware("rides"), adminController.getRideById);
 router.patch("/rides/:id/status", permissionMiddleware("rides"), adminController.updateRideStatus);
 router.patch("/rides/:id/update", permissionMiddleware("rides"), adminController.updateRideDetails);

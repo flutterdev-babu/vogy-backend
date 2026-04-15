@@ -171,10 +171,10 @@ export default {
         category,
         subject,
         description,
-        customerType: userRole === "PARTNER" ? "PARTNER" : "USER",
+        customerType: userRole === "VENDOR" ? "VENDOR" : userRole === "PARTNER" ? "PARTNER" : "USER",
         customerId: userId,
         customerName: userName,
-        customerPhone: req.user?.account?.phone,
+        customerPhone: req.user?.account?.phone || req.user?.phone,
         rideId,
       });
 
@@ -195,7 +195,7 @@ export default {
       }
 
       const tickets = await ticketService.getTicketsByCustomer(
-        userRole === "PARTNER" ? "PARTNER" : "USER",
+        userRole === "VENDOR" ? "VENDOR" : userRole === "PARTNER" ? "PARTNER" : "USER",
         userId
       );
 
@@ -243,7 +243,7 @@ export default {
       }
 
       const msg = await ticketService.addMessage(req.params.id, {
-        senderType: userRole === "PARTNER" ? "PARTNER" : "USER",
+        senderType: userRole === "VENDOR" ? "VENDOR" : userRole === "PARTNER" ? "PARTNER" : "USER",
         senderId: userId,
         senderName: userName,
         message,
