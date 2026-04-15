@@ -2,4 +2,19 @@ node_modules
 # Keep environment variables out of version control
 .env
 
+# Database and build folders
 /generated/prisma
+dist
+
+# Logs and error reports
+*.log
+ts_errors.txt
+ts_errors_2.txt
+tsc_errors.txt
+users.log
+
+# IDE / Editor folders
+.vscode/
+
+# Temporary files
+tmp/
