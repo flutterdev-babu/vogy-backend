@@ -92,7 +92,7 @@ export async function getLiveUnassignedRides() {
   const candidates = await prisma.ride.findMany({
     where: {
       status: { in: ['UPCOMING', 'SCHEDULED'] },
-      partnerId: null,
+      OR: [{ partnerId: null }, { partnerId: { isSet: false } }],
     },
     include: {
       user: {
@@ -197,7 +197,7 @@ async function expireStaleRides(): Promise<number> {
     const candidates = await prisma.ride.findMany({
       where: {
         status: { in: ['UPCOMING', 'SCHEDULED'] },
-        partnerId: null,
+        OR: [{ partnerId: null }, { partnerId: { isSet: false } }],
       },
       select: {
         id: true,

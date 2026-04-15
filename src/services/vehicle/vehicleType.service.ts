@@ -5,8 +5,21 @@ export const createVehicleType = async (data: any) => {
 };
 
 export const getAllVehicleTypes = async () => {
-  return await prisma.vehicleType.findMany({
+  const types = await prisma.vehicleType.findMany({
     orderBy: { category: "asc" },
+  });
+  
+  return types.sort((a, b) => {
+    const baseA = a.baseFare || 0;
+    const baseB = b.baseFare || 0;
+    
+    if (baseA !== baseB) {
+      return baseA - baseB;
+    }
+    
+    const perKmA = a.pricePerKm || 0;
+    const perKmB = b.pricePerKm || 0;
+    return perKmA - perKmB;
   });
 };
 
