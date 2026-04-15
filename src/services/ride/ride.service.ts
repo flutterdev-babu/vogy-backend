@@ -1161,17 +1161,13 @@ export const updateRideStatus = async (
     throw new Error("Ride must be arrived before starting");
   }
 
-  if (status === "COMPLETED" && ride.status !== "STARTED" && ride.status !== "ONGOING") {
-    throw new Error("Ride must be started before completing");
-  }
-
   if (status === "ONGOING" && ride.status !== "STARTED" && ride.status !== "ARRIVED") {
     // Some flows might go from ARRIVED -> ONGOING or STARTED -> ONGOING
     throw new Error("Ride must be started or arrived before making it ongoing");
   }
 
-  // OTP Verification for moving to ONGOING status
-  if (status === "ONGOING") {
+  // OTP Verification for moving to STARTED or ONGOING status (Trip Beginning)
+  if (status === "STARTED" || status === "ONGOING") {
     // Get user to verify uniqueOtp
     if (!ride.userId) {
       throw new Error("User not found for this ride");
@@ -1187,7 +1183,7 @@ export const updateRideStatus = async (
     }
 
     if (!userOtp) {
-      throw new Error("User unique OTP is required to make the ride ongoing");
+      throw new Error(`User unique OTP is required to make the ride ${status.toLowerCase()}`);
     }
 
     if (user.uniqueOtp !== userOtp) {
@@ -1195,7 +1191,7 @@ export const updateRideStatus = async (
     }
 
     // Rental validation
-    if (ride.rideType === "RENTAL") {
+    if (status === "ONGOING" && ride.rideType === "RENTAL") {
       if (startingKm === undefined || startingKm < 0) {
         throw new Error("Valid starting KM is required to start a rental ride");
       }
@@ -1308,6 +1304,11 @@ export const updateRideStatus = async (
       },
     },
   });
+
+  // Ensure riderEarnings is not null for the returned object
+  if (updatedRide.riderEarnings === null || updatedRide.riderEarnings === undefined) {
+    (updatedRide as any).riderEarnings = ride.riderEarnings || 0;
+  }
 
   // Emit socket event based on status
   if (status === "ARRIVED") {
