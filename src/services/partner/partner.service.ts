@@ -502,6 +502,7 @@ export const getPartnerAnalytics = async (partnerId: string) => {
       completed: completedRides,
       cancelled: cancelledRides,
       completionRate: totalRides > 0 ? ((completedRides / totalRides) * 100).toFixed(2) : 0,
+      cancellationRate: totalRides > 0 ? ((cancelledRides / totalRides) * 100).toFixed(2) : 0,
     },
     earnings: {
       sessionEarnings: earningsData._sum.riderEarnings || 0,
@@ -874,4 +875,113 @@ export const getPartnerEarnings = async (partnerId: string) => {
       ...data,
     })),
   };
+};
+
+/* ============================================
+    VERIFY PARTNER DOCUMENT (Admin)
+============================================ */
+export const verifyPartnerDocument = async (partnerId: string, documentId: string, status: 'APPROVED' | 'REJECTED', adminId?: string) => {
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
+  if (!partner) throw new Error("Partner not found");
+
+  const updateData: any = {};
+  
+  if (status === 'REJECTED') {
+    switch (documentId) {
+      case 'pan_card':
+        updateData.panCardPhoto = null;
+        updateData.panNumber = null;
+        break;
+      case 'aadhaar_card':
+        updateData.aadhaarFrontPhoto = null;
+        updateData.aadhaarBackPhoto = null;
+        updateData.aadhaarNumber = null;
+        break;
+      case 'driving_license':
+        updateData.licenseImage = null;
+        break;
+      case 'cancelled_cheque':
+        updateData.cancelledChequePhoto = null;
+        updateData.accountNumber = null;
+        updateData.ifscCode = null;
+        break;
+      case 'profile_photo':
+        updateData.profileImage = null;
+        break;
+      default:
+        throw new Error("Invalid document ID");
+    }
+  } else if (status === 'APPROVED') {
+    // If we want to approve, maybe just audit log it. We don't have separate approved fields
+    // per document unless we use the attachment system properly, but for KYC fields, 
+    // we only have global verificationStatus.
+  }
+
+  if (adminId && status === 'REJECTED') {
+    updateData.updatedByAdminId = adminId;
+    // If one document is rejected, the overarching partner verification could be set to REJECTED or PENDING
+    updateData.verificationStatus = 'REJECTED'; 
+  }
+
+  const updatedPartner = await prisma.partner.update({
+    where: { id: partnerId },
+    data: updateData,
+  });
+
+  createAuditLog({
+    userId: adminId,
+    action: "STATUS_CHANGE",
+    module: "PARTNER",
+    entityId: partnerId,
+    description: `Partner document ${documentId} marked as ${status}`,
+    newData: updateData
+  });
+
+  return updatedPartner;
+};
+
+/* ============================================
+    SEND DIRECT NOTIFICATION
+============================================ */
+export const sendDirectNotification = async (partnerId: string, message: string, adminId?: string) => {
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
+  if (!partner) throw new Error("Partner not found");
+
+  // Create real notification record for the partner's inbox
+  const notification = await prisma.partnerNotification.create({
+    data: {
+      partnerId,
+      title: "Admin Message",
+      message,
+      type: "INFO",
+    }
+  });
+  
+  createAuditLog({
+    userId: adminId,
+    action: "UPDATE",
+    module: "PARTNER",
+    entityId: partnerId,
+    description: `Sent notification to partner: ${message}`,
+  });
+
+  return { success: true, data: notification };
+};
+
+export const getPartnerNotifications = async (partnerId: string) => {
+  return await prisma.partnerNotification.findMany({
+    where: { partnerId },
+    orderBy: { createdAt: 'desc' },
+    take: 50
+  });
+};
+
+export const markNotificationAsRead = async (notificationId: string, partnerId: string) => {
+  return await prisma.partnerNotification.update({
+    where: { 
+      id: notificationId,
+      partnerId // Security check
+    },
+    data: { isRead: true }
+  });
 };

@@ -394,6 +394,7 @@ model Partner {
   // NEW: Attachments (Centralized)
   attachments Attachment[]
   notifications Notification[]
+  notifications PartnerNotification[]
 
   updatedByAdminId String?  @db.ObjectId
   createdAt        DateTime @default(now())
@@ -1102,4 +1103,22 @@ model FraudLog {
 
   @@index([userId])
   @@index([ipAddress])
+}
+
+// ============================================
+// PARTNER NOTIFICATION MODEL
+// ============================================
+
+model PartnerNotification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  partnerId String   @db.ObjectId
+  partner   Partner  @relation(fields: [partnerId], references: [id])
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, SUCCESS, CRITICAL
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([partnerId])
 }
