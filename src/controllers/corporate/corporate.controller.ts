@@ -88,6 +88,26 @@ export default {
     }
   },
 
+  async getDashboardStats(req: AuthedRequest, res: Response) {
+    try {
+      const corporateId = req.params.id || req.user.id;
+      const stats = await corporateService.getDashboardStats(corporateId);
+      res.json({ success: true, data: stats });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async bookRide(req: AuthedRequest, res: Response) {
+    try {
+      const corporateId = req.user.id;
+      const ride = await corporateService.bookCorporateRide(corporateId, req.body);
+      res.status(201).json({ success: true, data: ride });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
   /* ============================================
       CORPORATE MANAGEMENT (Admin endpoints)
   ============================================ */
@@ -153,6 +173,33 @@ export default {
   async deleteCorporate(req: AuthedRequest, res: Response) {
     try {
       const result = await corporateService.deleteCorporate(req.params.id);
+      res.json({ success: true, data: result });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async getEmployees(req: AuthedRequest, res: Response) {
+    try {
+      const employees = await corporateService.getCorporateEmployees(req.user.id);
+      res.json({ success: true, data: employees });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async addEmployee(req: AuthedRequest, res: Response) {
+    try {
+      const employee = await corporateService.addCorporateEmployee(req.user.id, req.body);
+      res.json({ success: true, data: employee });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async deleteEmployee(req: AuthedRequest, res: Response) {
+    try {
+      const result = await corporateService.deleteCorporateEmployee(req.params.id, req.user.id);
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });

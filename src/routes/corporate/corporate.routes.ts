@@ -36,4 +36,15 @@ router.get("/billing/summary", corporateController.getCorporateBillingSummary);
 // Payment history
 router.get("/payments", corporateController.getCorporatePaymentHistory);
 
+// Dashboard
+router.get("/dashboard/stats", corporateController.getDashboardStats);
+
+// Bookings
+router.post("/bookings", corporateController.bookRide);
+
+// Employees
+router.get("/employees", corporateController.getEmployees);
+router.post("/employees", corporateController.addEmployee);
+router.delete("/employees/:id", corporateController.deleteEmployee);
+
 export default router;

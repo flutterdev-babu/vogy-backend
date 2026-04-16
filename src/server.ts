@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import http from "http";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 
 // Load environment variables before any other imports
 dotenv.config();
@@ -40,6 +41,7 @@ initializeSocket(server);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // ============================================
 // EXISTING ROUTES
@@ -133,6 +135,7 @@ const PORT = process.env.PORT || 5001;
 // Import startup utilities
 import { fixAgentCustomIds } from "./utils/fixCustomIds";
 import { migrateRidersToPartners } from "./utils/migrateRidersToPartners";
+import { startRideExpiryCron } from "./services/ride/expiry.service";
 
 server.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT} with Socket.IO`);
@@ -142,4 +145,7 @@ server.listen(PORT, async () => {
 
   // Fix any agents with missing or improper customIds
   await fixAgentCustomIds();
+
+  // Start the background cron jobs
+  startRideExpiryCron();
 });

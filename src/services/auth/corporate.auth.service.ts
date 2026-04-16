@@ -443,7 +443,7 @@ export const getCorporateBillingSummary = async (corporateId: string) => {
     ...corporate,
     totalBilled: billingStats._sum.totalAmount || 0,
     totalPaid: billingStats._sum.paidAmount || 0,
-    outstandingAmount: (billingStats._sum.totalAmount || 0) - (billingStats._sum.paidAmount || 0),
+    outstanding: (billingStats._sum.totalAmount || 0) - (billingStats._sum.paidAmount || 0),
     outstandingBillings,
     totalRides: rideStats._count,
     totalRideFare: rideStats._sum.totalFare || 0,

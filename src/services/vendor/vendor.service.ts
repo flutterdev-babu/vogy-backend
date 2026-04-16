@@ -532,8 +532,32 @@ export const getVendorDashboard = async (vendorId: string) => {
 export const getVendorAttachments = async (vendorId: string) => {
   return await prisma.attachment.findMany({
     where: { 
-      referenceId: vendorId,
-      referenceType: "VENDOR" 
+      vendorId: vendorId 
+    },
+    include: {
+      partner: {
+        select: {
+          id: true,
+          customId: true,
+          name: true,
+          phone: true,
+          status: true,
+          verificationStatus: true,
+          isOnline: true,
+        }
+      },
+      vehicle: {
+        include: {
+          vehicleType: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              category: true,
+            }
+          }
+        }
+      }
     },
     orderBy: { createdAt: "desc" },
   });
@@ -589,7 +613,19 @@ export const getVendorRideById = async (vendorId: string, rideId: string) => {
 export const getVendorEarnings = async (vendorId: string, period?: string) => {
   // Overall earnings
   const totalEarnings = await prisma.ride.aggregate({
-    where: { vendorId, status: "COMPLETED" },
+    where: { 
+      OR: [
+        { vendorId: vendorId },
+        { 
+          partner: {
+            vehicle: {
+              vendorId: vendorId
+            }
+          }
+        }
+      ],
+      status: "COMPLETED" 
+    },
     _sum: { totalFare: true, riderEarnings: true, commission: true },
     _count: true,
   });
@@ -597,7 +633,19 @@ export const getVendorEarnings = async (vendorId: string, period?: string) => {
   // By payment mode
   const byPaymentMode = await prisma.ride.groupBy({
     by: ["paymentMode"],
-    where: { vendorId, status: "COMPLETED" },
+    where: { 
+      OR: [
+        { vendorId: vendorId },
+        { 
+          partner: {
+            vehicle: {
+              vendorId: vendorId
+            }
+          }
+        }
+      ],
+      status: "COMPLETED" 
+    },
     _count: true,
     _sum: { totalFare: true },
   });
@@ -608,20 +656,32 @@ export const getVendorEarnings = async (vendorId: string, period?: string) => {
 
   const recentRides = await prisma.ride.findMany({
     where: {
-      vendorId,
+      OR: [
+        { vendorId: vendorId },
+        { 
+          partner: {
+            vehicle: {
+              vendorId: vendorId
+            }
+          }
+        }
+      ],
       status: "COMPLETED",
       createdAt: { gte: thirtyDaysAgo },
     },
     select: {
+      id: true,
       totalFare: true,
       riderEarnings: true,
       commission: true,
       createdAt: true,
+      partnerId: true,
+      vehicleId: true,
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
   });
 
-  // Group by date
+  // Group by date for legacy compatibility if needed, but the primary need is the summary/breakdown
   const dailyBreakdown: Record<string, { revenue: number; rides: number }> = {};
   recentRides.forEach((ride) => {
     const dateKey = ride.createdAt.toISOString().split("T")[0];
@@ -633,6 +693,21 @@ export const getVendorEarnings = async (vendorId: string, period?: string) => {
   });
 
   return {
+    summary: {
+      totalRevenue: totalEarnings._sum.totalFare || 0,
+      vendorEarnings: totalEarnings._sum.riderEarnings || 0,
+      vogyCommission: totalEarnings._sum.commission || 0,
+      rideCount: totalEarnings._count,
+    },
+    breakdown: recentRides.map(ride => ({
+      date: ride.createdAt.toISOString(),
+      partnerId: ride.partnerId || "N/A",
+      vehicleId: ride.vehicleId || "N/A",
+      totalFare: ride.totalFare || 0,
+      vogyCommission: ride.commission || 0,
+      vendorEarnings: ride.riderEarnings || 0,
+    })),
+    // Backward compatibility if any other component uses it
     total: {
       revenue: totalEarnings._sum.totalFare || 0,
       partnerEarnings: totalEarnings._sum.riderEarnings || 0,

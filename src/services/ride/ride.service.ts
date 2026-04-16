@@ -553,6 +553,7 @@ export const createManualRide = async (
     couponCode?: string;
     expectedFare?: number;
     corporateId?: string;
+    corporateEmployeeId?: string;
     advanceAmount?: number;
     transactionId?: string;
   }
@@ -581,10 +582,13 @@ export const createManualRide = async (
     throw new Error("Vehicle type is not available");
   }
 
-  // Validate scheduled date is in the future
+  // Validate scheduled date is not too far in the past (allow 10m buffer for immediate bookings)
   const scheduledDate = new Date(data.scheduledDateTime);
-  if (scheduledDate <= new Date()) {
-    throw new Error("Scheduled date must be in the future");
+  const nowWithBuffer = new Date();
+  nowWithBuffer.setMinutes(nowWithBuffer.getMinutes() - 10);
+  
+  if (scheduledDate < nowWithBuffer) {
+    throw new Error("Scheduled date must be current or in the future");
   }
 
   // Get active pricing config
@@ -677,6 +681,7 @@ export const createManualRide = async (
       altMobile: data.altMobile || null,
       paymentMode: data.paymentMode || "CASH",
       corporateId: data.corporateId || null,
+      corporateEmployeeId: data.corporateEmployeeId || null,
       advanceAmount: data.advanceAmount || null,
       transactionId: data.transactionId || null,
     },

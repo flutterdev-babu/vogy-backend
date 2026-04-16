@@ -11,6 +11,11 @@ export default {
 
   async createVehicle(req: AuthedRequest, res: Response) {
     try {
+      // If user is a VENDOR, automatically set vendorId
+      if (req.user?.role === "VENDOR") {
+        req.body.vendorId = req.user.id;
+      }
+
       const vehicle = await vehicleService.createVehicle(req.body);
       createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "VEHICLE", entityId: vehicle.id, description: `Created vehicle: ${req.body.registrationNumber || vehicle.id}`, newData: vehicle, ...getRequestContext(req) });
       res.status(201).json({ success: true, data: vehicle });

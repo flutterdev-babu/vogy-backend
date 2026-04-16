@@ -247,4 +247,29 @@ export default {
       res.status(500).json({ success: false, message: err.message });
     }
   },
+
+  async uploadFile(req: AuthedRequest, res: Response) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: "No file uploaded" });
+      }
+
+      // Generate the URL for the uploaded file
+      // In a real production app, this would be an absolute URL or stored in S3
+      const fileUrl = `/uploads/${req.file.filename}`;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          fileUrl,
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
 };

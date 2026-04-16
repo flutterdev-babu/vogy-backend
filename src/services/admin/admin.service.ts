@@ -67,7 +67,18 @@ export const getAllVehicleTypes = async () => {
     orderBy: { createdAt: "desc" },
   });
 
-  return vehicleTypes;
+  return vehicleTypes.sort((a, b) => {
+    const baseA = a.baseFare || 0;
+    const baseB = b.baseFare || 0;
+    
+    if (baseA !== baseB) {
+      return baseA - baseB;
+    }
+    
+    const perKmA = a.pricePerKm || 0;
+    const perKmB = b.pricePerKm || 0;
+    return perKmA - perKmB;
+  });
 };
 
 export const getVehicleTypeById = async (id: string) => {
@@ -115,11 +126,34 @@ export const updateVehicleType = async (
 export const deleteVehicleType = async (id: string) => {
   const vehicleType = await prisma.vehicleType.findUnique({
     where: { id },
+    include: {
+      _count: {
+        select: {
+          rides: true,
+          vehicles: true,
+          ownVehiclePartners: true
+        }
+      }
+    }
   });
 
   if (!vehicleType) {
     throw new Error("Vehicle type not found");
   }
+
+  // Prevent deletion if used in production records
+  if (vehicleType._count.rides > 0 || vehicleType._count.vehicles > 0 || vehicleType._count.ownVehiclePartners > 0) {
+    throw new Error("Cannot delete segment: It has active rides, vehicles, or partners assigned to it. Please deactivate it instead.");
+  }
+
+  // Clean up pricing configurations
+  await prisma.vehiclePricingGroup.deleteMany({
+    where: { vehicleTypeId: id }
+  });
+
+  await prisma.peakHourCharge.deleteMany({
+    where: { vehicleTypeId: id }
+  });
 
   await prisma.vehicleType.delete({
     where: { id },
@@ -155,6 +189,8 @@ export const updatePricingConfig = async (data: {
   baseFare?: number;
   riderPercentage: number;
   appCommission: number;
+  payLaterSurchargePercent?: number;
+  onlinePayDiscountPercent?: number;
 }) => {
   // Validate percentages
   if (data.riderPercentage + data.appCommission !== 100) {
@@ -173,6 +209,8 @@ export const updatePricingConfig = async (data: {
       baseFare: data.baseFare ?? 20,
       riderPercentage: data.riderPercentage,
       appCommission: data.appCommission,
+      payLaterSurchargePercent: data.payLaterSurchargePercent ?? 2,
+      onlinePayDiscountPercent: data.onlinePayDiscountPercent ?? 2,
       isActive: true,
     },
   });
@@ -332,7 +370,7 @@ export const getScheduledRides = async () => {
     where: {
       status: "SCHEDULED",
       isManualBooking: true,
-      partnerId: null,
+      OR: [{ partnerId: null }, { partnerId: { isSet: false } }],
     },
     include: {
       user: {
@@ -356,6 +394,10 @@ export const assignPartnerToRide = async (
   partnerId: string,
   adminId: string
 ) => {
+  // GUARD: Validate ride is still within assignment window (time-based)
+  const { validateRideAssignable } = require("../ride/expiry.service");
+  await validateRideAssignable(rideId);
+
   // Verify partner exists
   const partner = await prisma.partner.findUnique({
     where: { id: partnerId },
@@ -524,6 +566,21 @@ export const getRideById = async (id: string) => {
           uniqueOtp: true,
         },
       },
+      corporate: {
+        select: {
+          id: true,
+          customId: true,
+          companyName: true,
+          contactPerson: true,
+        }
+      },
+      corporateEmployee: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        }
+      },
       partner: {
         select: {
           id: true,
@@ -637,17 +694,65 @@ export const getRideOtpByAdmin = async (rideId: string) => {
 ============================================ */
 
 export const verifyAttachmentByAdmin = async (attachmentId: string, verificationStatus: VerificationStatus, adminId?: string) => {
-  const oldAttachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
-
   const attachment = await prisma.attachment.update({
     where: { id: attachmentId },
     data: {
       verificationStatus,
       ...(adminId && { updatedByAdminId: adminId })
     },
+    include: {
+      vendor: true,
+      partner: true,
+      vehicle: true,
+    }
   });
 
+  // If approved, check if we can verify the parent entity
+  if (verificationStatus === "VERIFIED") {
+    if (attachment.vendorId) {
+      await checkAndVerifyVendorDocs(attachment.vendorId);
+    } else if (attachment.partnerId) {
+      await checkAndVerifyPartnerDocs(attachment.partnerId);
+    } else if (attachment.vehicleId) {
+      await checkAndVerifyVehicleDocs(attachment.vehicleId);
+    }
+  } else if (verificationStatus === "REJECTED") {
+    // If rejected, ensure parent entity is NOT verified
+    if (attachment.vendorId) {
+      await prisma.vendor.update({ where: { id: attachment.vendorId }, data: { verificationStatus: "UNVERIFIED" } });
+    } else if (attachment.partnerId) {
+      await prisma.partner.update({ where: { id: attachment.partnerId }, data: { verificationStatus: "UNVERIFIED" } });
+    } else if (attachment.vehicleId) {
+      await prisma.vehicle.update({ where: { id: attachment.vehicleId }, data: { verificationStatus: "UNVERIFIED" } });
+    }
+  }
+
   return attachment;
+};
+
+// Helper functions to check if all necessary docs are verified
+const checkAndVerifyVendorDocs = async (vendorId: string) => {
+  const attachments = await prisma.attachment.findMany({ where: { vendorId } });
+  const allVerified = attachments.length > 0 && attachments.every(a => a.verificationStatus === "VERIFIED");
+  if (allVerified) {
+    await prisma.vendor.update({ where: { id: vendorId }, data: { verificationStatus: "VERIFIED" } });
+  }
+};
+
+const checkAndVerifyPartnerDocs = async (partnerId: string) => {
+  const attachments = await prisma.attachment.findMany({ where: { partnerId } });
+  const allVerified = attachments.length > 0 && attachments.every(a => a.verificationStatus === "VERIFIED");
+  if (allVerified) {
+    await prisma.partner.update({ where: { id: partnerId }, data: { verificationStatus: "VERIFIED" } });
+  }
+};
+
+const checkAndVerifyVehicleDocs = async (vehicleId: string) => {
+  const attachments = await prisma.attachment.findMany({ where: { vehicleId } });
+  const allVerified = attachments.length > 0 && attachments.every(a => a.verificationStatus === "VERIFIED");
+  if (allVerified) {
+    await prisma.vehicle.update({ where: { id: vehicleId }, data: { verificationStatus: "VERIFIED" } });
+  }
 };
 
 
@@ -1042,26 +1147,28 @@ export const createAttachment = async (data: {
         fileUrl: data.fileUrl,
         uploadedBy: data.uploadedBy || "ADMIN",
         updatedByAdminId: data.adminId,
-        verificationStatus: "VERIFIED",
+        verificationStatus: data.uploadedBy === "VENDOR" ? "UNVERIFIED" : "VERIFIED",
       },
     });
 
-    // Auto-verify the reference entity
-    if (data.referenceType === "PARTNER" && data.referenceId) {
-      await prisma.partner.update({
-        where: { id: data.referenceId },
-        data: { verificationStatus: "VERIFIED" }
-      });
-    } else if (data.referenceType === "VEHICLE" && data.referenceId) {
-      await prisma.vehicle.update({
-        where: { id: data.referenceId },
-        data: { verificationStatus: "VERIFIED" }
-      });
-    } else if (data.referenceType === "VENDOR" && data.referenceId) {
-      await prisma.vendor.update({
-        where: { id: data.referenceId },
-        data: { verificationStatus: "VERIFIED" }
-      });
+    // Auto-verify the reference entity ONLY if uploaded by an ADMIN
+    if (data.uploadedBy === "ADMIN") {
+      if (data.referenceType === "PARTNER" && data.referenceId) {
+        await prisma.partner.update({
+          where: { id: data.referenceId },
+          data: { verificationStatus: "VERIFIED" }
+        });
+      } else if (data.referenceType === "VEHICLE" && data.referenceId) {
+        await prisma.vehicle.update({
+          where: { id: data.referenceId },
+          data: { verificationStatus: "VERIFIED" }
+        });
+      } else if (data.referenceType === "VENDOR" && data.referenceId) {
+        await prisma.vendor.update({
+          where: { id: data.referenceId },
+          data: { verificationStatus: "VERIFIED" }
+        });
+      }
     }
 
     return attachment;
