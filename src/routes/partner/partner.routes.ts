@@ -75,5 +75,10 @@ router.get("/support-tickets", ticketController.getMyTickets);
 router.get("/support-tickets/:id", ticketController.getCustomerTicketById);
 router.post("/support-tickets/:id/messages", ticketController.addCustomerMessage);
 
+// Notifications
+router.get("/notifications", partnerController.getNotifications);
+router.put("/notifications/:id/read", partnerController.markNotificationAsRead);
+router.patch("/notifications/:id/read", partnerController.markNotificationAsRead);
+
 export default router;
 

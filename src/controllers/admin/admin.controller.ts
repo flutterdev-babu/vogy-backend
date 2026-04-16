@@ -231,7 +231,7 @@ export default {
 
   updatePricingConfig: async (req: AuthedRequest, res: Response) => {
     try {
-      const { baseFare, riderPercentage, appCommission } = req.body;
+      const { baseFare, riderPercentage, appCommission, payLaterSurchargePercent, onlinePayDiscountPercent } = req.body;
 
       if (riderPercentage === undefined || appCommission === undefined) {
         return res.status(400).json({
@@ -245,6 +245,8 @@ export default {
         baseFare: baseFare ? parseFloat(baseFare) : undefined,
         riderPercentage: parseFloat(riderPercentage),
         appCommission: parseFloat(appCommission),
+        payLaterSurchargePercent: payLaterSurchargePercent !== undefined ? parseFloat(payLaterSurchargePercent) : undefined,
+        onlinePayDiscountPercent: onlinePayDiscountPercent !== undefined ? parseFloat(onlinePayDiscountPercent) : undefined,
       });
 
       createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "UPDATE", module: "PRICING", entityId: config.id, description: `Updated pricing: Rider ${riderPercentage}%, Commission ${appCommission}%`, oldData: oldConfig, newData: config, ...getRequestContext(req) });
@@ -711,6 +713,28 @@ export default {
       return res.status(400).json({
         success: false,
         message: error.message || "Failed to get scheduled rides",
+      });
+    }
+  },
+
+  getLiveUnassignedRides: async (req: AuthedRequest, res: Response) => {
+    try {
+      const { getLiveUnassignedRides } = require("../../services/ride/expiry.service");
+      const result = await getLiveUnassignedRides();
+
+      return res.status(200).json({
+        success: true,
+        message: "Live unassigned rides retrieved successfully",
+        data: result.rides,
+        meta: {
+          totalCount: result.totalCount,
+          bufferMinutes: result.bufferMinutes,
+        },
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to get live unassigned rides",
       });
     }
   },

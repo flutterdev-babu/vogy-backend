@@ -104,6 +104,7 @@ router.delete("/peak-hour-charges/:id", peakHourController.deletePeakHourCharge)
 router.post("/rides", permissionMiddleware("rides"), adminController.createManualRide);
 router.get("/rides", permissionMiddleware("rides"), adminController.getAllRides);
 router.get("/rides/scheduled", permissionMiddleware("rides"), adminController.getScheduledRides);
+router.get("/rides/live-unassigned", permissionMiddleware("rides"), adminController.getLiveUnassignedRides);
 router.get("/rides/:id", permissionMiddleware("rides"), adminController.getRideById);
 router.patch("/rides/:id/status", permissionMiddleware("rides"), adminController.updateRideStatus);
 router.patch("/rides/:id/update", permissionMiddleware("rides"), adminController.updateRideDetails);
@@ -158,6 +159,7 @@ router.post("/partners/:id/assign-vehicle", permissionMiddleware("partners"), pa
 router.delete("/partners/:id/unassign-vehicle", permissionMiddleware("partners"), partnerController.unassignPartnerFromVehicle);
 router.get("/partners/:id/rides", permissionMiddleware("partners"), partnerController.getPartnerRides);
 router.get("/partners/:id/analytics", permissionMiddleware("partners"), partnerController.getPartnerAnalytics);
+router.post("/partners/:id/notify", permissionMiddleware("partners"), partnerController.notifyPartner);
 router.get("/partners/:id/earnings-stats", permissionMiddleware("partners"), partnerController.getEarningsStats);
 router.patch("/partners/:id/verify-document", permissionMiddleware("partners"), partnerController.verifyDocument);
 router.post("/partners/:id/notify", permissionMiddleware("partners"), partnerController.sendNotification);
