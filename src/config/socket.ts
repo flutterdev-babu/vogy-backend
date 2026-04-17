@@ -76,8 +76,12 @@ export const initializeSocket = (server: HttpServer): Server => {
             customId: true,
             name: true,
             phone: true,
+            ownVehicleNumber: true,
             vehicle: {
-              select: { vehicleType: { select: { name: true } } }
+              select: { 
+                registrationNumber: true,
+                vehicleType: { select: { name: true } } 
+              }
             },
             ownVehicleType: {
               select: { name: true }
@@ -91,9 +95,11 @@ export const initializeSocket = (server: HttpServer): Server => {
               customId: partner.customId,
               name: partner.name,
               phone: partner.phone,
+              registrationNumber: partner.vehicle?.registrationNumber || partner.ownVehicleNumber || "N/A",
               vehicleType: partner.vehicle?.vehicleType?.name || partner.ownVehicleType?.name || "Unknown",
               lat: data.lat,
               lng: data.lng,
+              isOnRide: !!data.rideId,
               timestamp: new Date().toISOString(),
             });
           }

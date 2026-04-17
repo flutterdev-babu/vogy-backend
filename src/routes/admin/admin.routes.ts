@@ -160,6 +160,9 @@ router.delete("/partners/:id/unassign-vehicle", permissionMiddleware("partners")
 router.get("/partners/:id/rides", permissionMiddleware("partners"), partnerController.getPartnerRides);
 router.get("/partners/:id/analytics", permissionMiddleware("partners"), partnerController.getPartnerAnalytics);
 router.post("/partners/:id/notify", permissionMiddleware("partners"), partnerController.notifyPartner);
+router.get("/partners/:id/earnings-stats", permissionMiddleware("partners"), partnerController.getEarningsStats);
+router.patch("/partners/:id/verify-document", permissionMiddleware("partners"), partnerController.verifyDocument);
+router.post("/partners/:id/notify", permissionMiddleware("partners"), partnerController.sendNotification);
 router.delete("/partners/:id", permissionMiddleware("partners"), partnerController.deletePartner);
 
 // ============================================
