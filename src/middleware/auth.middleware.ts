@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from "express";
 import { verifyToken } from "../utils/jwt";
 import { prisma } from "../config/prisma";
 
-export type AuthedRequest = Request & { user?: any };
+export type AuthedRequest = Request & { 
+  user?: any;
+  file?: any;
+  files?: any;
+};
 
 export const authMiddleware = (allowedRoles: string[] = []) => {
   return async (req: AuthedRequest, res: Response, next: NextFunction) => {
