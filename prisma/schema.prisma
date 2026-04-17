@@ -394,7 +394,7 @@ model Partner {
   // NEW: Attachments (Centralized)
   attachments Attachment[]
   notifications Notification[]
-  notifications PartnerNotification[]
+
 
   updatedByAdminId String?  @db.ObjectId
   createdAt        DateTime @default(now())
