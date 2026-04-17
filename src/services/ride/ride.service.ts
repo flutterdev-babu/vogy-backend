@@ -333,6 +333,7 @@ export const createRide = async (
     couponCode?: string;
     expectedFare?: number;
     corporateId?: string;
+    corporateEmployeeId?: string;
     advanceAmount?: number;
     transactionId?: string;
     idempotencyKey?: string;
@@ -487,6 +488,7 @@ export const createRide = async (
         altMobile: data.altMobile || null,
         paymentMode: data.paymentMode || "CASH",
         corporateId: data.corporateId || null,
+        corporateEmployeeId: data.corporateEmployeeId || null,
         advanceAmount: data.advanceAmount || null,
         transactionId: data.transactionId || null,
         idempotencyKey: data.idempotencyKey,
@@ -785,6 +787,19 @@ export const getRideById = async (rideId: string, userId: string) => {
           id: true,
           name: true,
           phone: true,
+        },
+      },
+      corporate: {
+        select: {
+          id: true,
+          companyName: true,
+        },
+      },
+      corporateEmployee: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
         },
       },
     },
