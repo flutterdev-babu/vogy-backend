@@ -21,6 +21,7 @@ import partnerRoutes from "./routes/partner/partner.routes";
 import agentRoutes from "./routes/agent/agent.routes";
 import corporateRoutes from "./routes/corporate/corporate.routes";
 import rideRoutes from "./routes/ride/ride.routes";
+import uploadRoutes from "./routes/upload/upload.routes";
 
 // Public routes
 import cityRoutes from "./routes/public/city.routes";
@@ -84,7 +85,11 @@ app.use("/api/agent", agentRoutes);
 // Corporate routes (auth + profile + rides + billing)
 app.use("/api/corporate", corporateRoutes);
 
+// Upload routes (file uploads direct to Cloudflare R2)
+app.use("/api/upload", uploadRoutes);
+
 // ============================================
+
 // PUBLIC ROUTES
 // ============================================
 
