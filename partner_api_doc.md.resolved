@@ -1,9 +1,9 @@
-# Vogy Partner Application - Full API Documentation
+# ARA Travels Partner Application - Full API Documentation
 
 This document covers all API endpoints, Socket.IO channels, and events required for integrating the Partner (mobile driver) application. 
 
 > **Important Conceptual Note:** 
-> Vogy refers to the driver entity as a **`PARTNER`**. Legacy references to `RIDER` might still be present in some socket events or endpoints for backward compatibility, but developers should operate under the assumption that the driver entity is `PARTNER`.
+> ARA Travels refers to the driver entity as a **`PARTNER`**. Legacy references to `RIDER` might still be present in some socket events or endpoints for backward compatibility, but developers should operate under the assumption that the driver entity is `PARTNER`.
 
 ---
 

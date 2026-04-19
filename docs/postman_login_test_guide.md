@@ -1,6 +1,6 @@
 # Testing User Login APIs with Postman
 
-The User Login process in Vogy is a two-step OTP-based flow. Follow these steps to test it in Postman.
+The User Login process in ARA Travels is a two-step OTP-based flow. Follow these steps to test it in Postman.
 
 ---
 

@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateEntityCustomId } from "../city/city.service";
 import { validatePhoneNumber } from "../../utils/phoneValidation";
+import { validateObjectId } from "../../utils/idValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 
@@ -37,6 +38,10 @@ export const registerPartner = async (data: {
   } else {
     throw new Error("Partner must have a valid license to register");
   }
+
+  // Validate ObjectIDs to prevent Prisma crashes
+  validateObjectId(data.cityCodeId, "cityCodeId");
+  validateObjectId(data.vendorId, "vendorId");
 
   // Check if partner already exists
   const existsByPhone = await prisma.partner.findUnique({

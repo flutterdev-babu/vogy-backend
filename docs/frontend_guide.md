@@ -1,6 +1,6 @@
 # Admin Dashboard - Frontend Integration Guide
 
-This document provides a comprehensive overview of the Vogy/Ara Admin Dashboard system, including the governance structure, entity relationships, and all available API endpoints.
+This document provides a comprehensive overview of the ARA Travels/Ara Admin Dashboard system, including the governance structure, entity relationships, and all available API endpoints.
 
 ---
 
