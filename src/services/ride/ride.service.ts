@@ -338,6 +338,7 @@ export const createRide = async (
     transactionId?: string;
     idempotencyKey?: string;
     paymentVerificationId?: string;
+    scheduledDateTime?: string | Date;
   }
 ) => {
   // 1. Idempotency Check
@@ -395,7 +396,8 @@ export const createRide = async (
   let totalFare = baseFare + (perKmPrice * billableKm);
 
   // NEW: Apply Peak Hour Adjustment
-  const peakAdjustment = await getPeakHourAdjustment(data.cityCodeId, data.vehicleTypeId, new Date());
+  const calculationDate = data.scheduledDateTime ? new Date(data.scheduledDateTime) : new Date();
+  const peakAdjustment = await getPeakHourAdjustment(data.cityCodeId, data.vehicleTypeId, calculationDate);
   if (peakAdjustment.fixedExtra > 0 || peakAdjustment.percentageExtra > 0) {
     const percentageAmount = (totalFare * peakAdjustment.percentageExtra) / 100;
     totalFare = Math.round(totalFare + peakAdjustment.fixedExtra + percentageAmount);
@@ -478,7 +480,8 @@ export const createRide = async (
         discountAmount: appliedDiscountAmount,
         riderEarnings: riderEarnings,
         commission: commission,
-        status: "UPCOMING",
+        status: data.scheduledDateTime ? "SCHEDULED" : "UPCOMING",
+        scheduledDateTime: data.scheduledDateTime ? new Date(data.scheduledDateTime) : null,
         isManualBooking: false,
         cityCodeId: data.cityCodeId,
         customId: customId,

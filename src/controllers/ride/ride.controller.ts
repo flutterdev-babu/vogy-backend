@@ -58,6 +58,7 @@ export default {
         expectedFare,
         advanceAmount,
         transactionId,
+        scheduledDateTime,
       } = req.body;
 
       // Validate required fields
@@ -90,6 +91,7 @@ export default {
         expectedFare: expectedFare ? parseFloat(expectedFare) : undefined,
         advanceAmount: advanceAmount ? parseFloat(advanceAmount) : undefined,
         transactionId,
+        scheduledDateTime,
       });
 
       createAuditLog({ userId, userName: req.user?.name, userRole: "USER", action: "CREATE", module: "RIDE", entityId: ride.id, description: `User created ride from ${pickupAddress} to ${dropAddress}`, ...getRequestContext(req) });

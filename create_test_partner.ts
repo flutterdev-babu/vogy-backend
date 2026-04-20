@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 async function main() {
     const phone = "+919999999999";
-    const email = "testpartner@vogy.com"; // Added unique email
+    const email = "testpartner@ara-travels.com"; // Added unique email
     const password = "Password123!";
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -12,7 +12,8 @@ async function main() {
         where: { phone },
         update: {
             password: hashedPassword,
-            status: "APPROVED",
+            status: "ACTIVE",
+            verificationStatus: "VERIFIED",
             email: email,
         },
         create: {
@@ -20,7 +21,8 @@ async function main() {
             phone,
             email: email,
             password: hashedPassword,
-            status: "APPROVED",
+            status: "ACTIVE",
+            verificationStatus: "VERIFIED",
         },
     });
 

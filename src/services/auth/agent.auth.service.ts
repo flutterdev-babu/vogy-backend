@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { validatePhoneNumber } from "../../utils/phoneValidation";
 import { generateEntityCustomId } from "../city/city.service";
+import { validateObjectId } from "../../utils/idValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
 
@@ -19,6 +20,9 @@ export const registerAgent = async (data: {
 }) => {
   // Validate phone number format (E.164)
   validatePhoneNumber(data.phone);
+
+  // Validate ObjectIDs to prevent Prisma crashes
+  validateObjectId(data.cityCodeId, "cityCodeId");
 
   // Check if agent already exists
   const existsByPhone = await prisma.agent.findUnique({
