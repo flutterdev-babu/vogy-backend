@@ -1,4 +1,4 @@
-# Vogy Ride Booking API & Socket Documentation
+# ARA Travels Ride Booking API & Socket Documentation
 
 This document provides technical details for the Ride Booking flow, including REST API endpoints and real-time Socket.IO events for the User (Customer) application.
 
@@ -17,7 +17,7 @@ Calculates estimated prices for all available vehicle types based on distance an
   {
     "distanceKm": 12.5,
     "cityCodeId": "uuid-of-city",
-    "couponCode": "VOGY50" (optional),
+    "couponCode": "ARA50" (optional),
     "rideType": "LOCAL" (optional, Enum: "AIRPORT" | "LOCAL" | "OUTSTATION" | "RENTAL")
   }
   ```
@@ -65,7 +65,7 @@ Requests an immediate ride. This triggers a broadcast to nearby partners.
   {
     "success": true,
     "message": "Ride created successfully",
-    "data": { "id": "uuid-of-ride", "customId": "VOGY-R-001", "status": "UPCOMING", ... }
+    "data": { "id": "uuid-of-ride", "customId": "ARA-R-001", "status": "UPCOMING", ... }
   }
   ```
 
