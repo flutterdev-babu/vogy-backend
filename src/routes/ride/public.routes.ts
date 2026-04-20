@@ -188,7 +188,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 // Get pricing config (public - for displaying pricing info)
 router.get("/pricing", async (req, res) => {
   try {
-    const pricingConfigResult = await prisma.pricingConfig.findFirst({
+    let pricingConfig: any = await prisma.pricingConfig.findFirst({
       where: { isActive: true },
       orderBy: { createdAt: "desc" },
     });
