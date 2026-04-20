@@ -18,7 +18,7 @@ export const isValidObjectId = (id: string): boolean => {
  * @param fieldName - Name of the field for the error message
  * @throws Error if ID is invalid
  */
-export const validateObjectId = (id: string, fieldName: string = "ID"): void => {
+export const validateObjectId = (id: string | undefined | null, fieldName: string = "ID"): void => {
   if (!id) return; // Allow empty/null if it's optional
   
   if (!isValidObjectId(id)) {
