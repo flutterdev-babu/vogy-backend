@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
@@ -74,5 +74,53 @@ export const generatePresignedUrl = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error generating presigned URL:', error);
     return res.status(500).json({ error: 'Failed to generate upload URL', details: error.message });
+  }
+};
+
+export const deleteFile = async (req: Request, res: Response) => {
+  try {
+    const { fileUrl } = req.body;
+
+    if (!fileUrl) {
+      return res.status(400).json({ error: 'fileUrl is required' });
+    }
+
+    // The frontend might send the full URL. We need to extract just the objectKey.
+    // E.g., https://your-public-url.com/profile_pictures/uuid.jpg -> profile_pictures/uuid.jpg
+    const publicBaseUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, '') || '';
+    
+    let objectKey = fileUrl;
+    
+    // If the URL contains the base URL, strip it out to get the pure objectKey
+    if (publicBaseUrl && fileUrl.startsWith(publicBaseUrl)) {
+      objectKey = fileUrl.replace(`${publicBaseUrl}/`, '');
+    } else if (fileUrl.startsWith('http')) {
+      // Fallback: If it's a full URL but doesn't match publicBaseUrl, try extracting path
+      const urlObj = new URL(fileUrl);
+      // substring(1) removes the leading '/'
+      objectKey = urlObj.pathname.substring(1);
+    }
+
+    // Cloudflare R2 bucket name
+    const bucketName = process.env.R2_BUCKET_NAME || '';
+
+    // Create the delete command
+    const command = new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: objectKey,
+    });
+
+    // Execute deletion using the existing s3Client
+    await s3Client.send(command);
+
+    return res.status(200).json({
+      success: true,
+      message: 'File deleted successfully',
+      deletedKey: objectKey
+    });
+
+  } catch (error: any) {
+    console.error('Error deleting file:', error);
+    return res.status(500).json({ error: 'Failed to delete file', details: error.message });
   }
 };
