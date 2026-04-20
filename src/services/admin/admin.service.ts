@@ -335,8 +335,10 @@ export const getActivePartnerLocations = async () => {
       isOnline: true,
       currentLat: true,
       currentLng: true,
+      ownVehicleNumber: true,
       vehicle: {
         select: {
+          registrationNumber: true,
           vehicleType: {
             select: { name: true, displayName: true, category: true }
           }
@@ -344,6 +346,18 @@ export const getActivePartnerLocations = async () => {
       },
       ownVehicleType: {
         select: { name: true, displayName: true, category: true }
+      },
+      rides: {
+        where: {
+          status: {
+            in: ['ACCEPTED', 'ARRIVED', 'STARTED', 'ONGOING']
+          }
+        },
+        select: {
+          id: true,
+          status: true
+        },
+        take: 1
       }
     }
   });
@@ -354,6 +368,8 @@ export const getActivePartnerLocations = async () => {
     name: p.name,
     phone: p.phone,
     isOnline: p.isOnline,
+    isOnRide: (p.rides ?? []).length > 0,
+    registrationNumber: p.vehicle?.registrationNumber || p.ownVehicleNumber || "N/A",
     lat: p.currentLat,
     lng: p.currentLng,
     vehicleType: p.vehicle?.vehicleType?.displayName || p.ownVehicleType?.displayName || "Unknown",

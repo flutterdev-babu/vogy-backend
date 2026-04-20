@@ -1,6 +1,0 @@
-Environment variables loaded from .env
-Prisma schema loaded from prisma\schema.prisma
-Error: 
-EPERM: operation not permitted, unlink 'C:\Users\bhara\Desktop\Flutter\VOGY_APP\vogy-backend\node_modules\.prisma\client\query_engine-windows.dll.node'
-
-
