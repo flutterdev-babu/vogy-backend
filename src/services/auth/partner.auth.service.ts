@@ -52,7 +52,7 @@ export const registerPartner = async (data: {
 
   // Note: Rider model has been removed - all drivers are now Partners
 
-  if (data.email) {
+  if (data.email && data.email.trim() !== "") {
     const existsByEmail = await prisma.partner.findUnique({
       where: { email: data.email },
     });
@@ -60,7 +60,7 @@ export const registerPartner = async (data: {
   }
 
   // Generate custom ID if cityCodeId provided
-  let customId = null;
+  let customId = `TMP-P-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   if (data.cityCodeId) {
     const cityCode = await prisma.cityCode.findUnique({
       where: { id: data.cityCodeId },
@@ -90,7 +90,7 @@ export const registerPartner = async (data: {
       lastName: data.lastName,
       name: `${data.firstName} ${data.lastName}`,
       phone: data.phone,
-      email: data.email || null,
+      email: data.email || `temp_p_${Date.now()}_${Math.floor(Math.random() * 10000)}@vogy.local`,
       password: hashedPassword,
       profileImage: data.profileImage || null,
       cityCodeId: data.cityCodeId || null,

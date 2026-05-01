@@ -42,7 +42,7 @@ export const registerAgent = async (data: {
   const hashedPassword = await hashPassword(data.password);
 
   // Generate custom ID if cityCodeId provided
-  let customId = null;
+  let customId = `TMP-A-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   if (data.cityCodeId) {
     const cityCode = await prisma.cityCode.findUnique({
       where: { id: data.cityCodeId },
@@ -57,7 +57,7 @@ export const registerAgent = async (data: {
       customId,
       name: data.name,
       phone: data.phone,
-      email: data.email || null,
+      email: data.email || `temp_a_${Date.now()}_${Math.floor(Math.random() * 10000)}@vogy.local`,
       password: hashedPassword,
       profileImage: data.profileImage || null,
     },

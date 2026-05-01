@@ -74,11 +74,21 @@ export default {
 
   async getAgentRides(req: AuthedRequest, res: Response) {
     try {
+      // Fetch rides associated with this agent's ID
+      const rides = await agentAuthService.getAgentRides(req.user.id);
+      
+      // Optionally also fetch rides linked by agentCode if they have one
       const agent = await agentAuthService.getAgentProfile(req.user.id);
-      if (!agent.agentCode) {
-        return res.json({ success: true, data: [], message: "No agent code assigned" });
+      if (agent.agentCode) {
+        const codeRides = await agentService.getAgentRides(agent.agentCode);
+        
+        // Merge rides and deduplicate by ID
+        const allRides = [...rides, ...codeRides];
+        const uniqueRides = Array.from(new Map(allRides.map(r => [r.id, r])).values());
+        
+        return res.json({ success: true, data: uniqueRides });
       }
-      const rides = await agentService.getAgentRides(agent.agentCode);
+      
       res.json({ success: true, data: rides });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });

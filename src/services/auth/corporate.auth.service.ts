@@ -76,7 +76,7 @@ export const registerCorporate = async (data: {
   }
 
   // Generate custom ID if cityCodeId provided
-  let customId = null;
+  let customId = `TMP-C-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   if (data.cityCodeId) {
     const cityCode = await prisma.cityCode.findUnique({
       where: { id: data.cityCodeId },

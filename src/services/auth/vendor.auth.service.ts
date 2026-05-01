@@ -62,7 +62,7 @@ export const registerVendor = async (data: {
   }
 
   // Generate custom ID if cityCodeId provided
-  let customId = null;
+  let customId = `TMP-V-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   if (data.cityCodeId) {
     const cityCode = await prisma.cityCode.findUnique({
       where: { id: data.cityCodeId },
@@ -81,7 +81,7 @@ export const registerVendor = async (data: {
       name: data.name,
       companyName: data.companyName,
       phone: data.phone,
-      email: data.email || null,
+      email: data.email || `temp_v_${Date.now()}_${Math.floor(Math.random() * 10000)}@vogy.local`,
       password: hashedPassword,
       address: data.address || null,
       agentId: data.agentId || null,
