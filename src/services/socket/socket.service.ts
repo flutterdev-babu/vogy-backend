@@ -5,6 +5,7 @@ import {
   emitToOnlineRiders,
   emitToRide,
 } from "../../config/socket";
+import { sanitizeRideForPartner } from "../../utils/sanitizeRide";
 
 /**
  * Socket events for ride lifecycle
@@ -53,7 +54,7 @@ export const emitRideRequestToDrivers = async (driverIds: string[], ride: any): 
     driverIds.map(async (driverId) => {
       emitToPartner(driverId, RideSocketEvents.RIDE_NEW_REQUEST, {
         message: "New ride request available",
-        ride,
+        ride: sanitizeRideForPartner(ride),
       });
     })
   );
@@ -99,7 +100,7 @@ export const emitRiderAssigned = (ride: any): void => {
   if (ride.partnerId) {
     emitToPartner(ride.partnerId, RideSocketEvents.RIDE_ASSIGNED, {
       message: "You have been assigned a new ride",
-      ride,
+      ride: sanitizeRideForPartner(ride),
     });
   }
 };
@@ -170,7 +171,7 @@ export const emitRideCompleted = (ride: any): void => {
   if (ride.partnerId) {
     emitToPartner(ride.partnerId, RideSocketEvents.RIDE_COMPLETED, {
       message: "Ride completed successfully",
-      ride,
+      ride: sanitizeRideForPartner(ride),
     });
   }
 
@@ -187,7 +188,7 @@ export const emitRideCancelled = (ride: any, cancelledBy: "USER" | "PARTNER" | "
   if (cancelledBy === "USER" && ride.partnerId) {
     emitToPartner(ride.partnerId, RideSocketEvents.RIDE_USER_CANCELLED, {
       message: "The user has cancelled the ride",
-      ride,
+      ride: sanitizeRideForPartner(ride),
     });
   }
 

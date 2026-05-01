@@ -193,15 +193,25 @@ router.get("/pricing", async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    const pricingConfig = pricingConfigResult || {
-      id: "",
-      baseFare: 20,
-      riderPercentage: 80,
-      appCommission: 20,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    if (!pricingConfig) {
+      // Return defaults if no config exists
+      pricingConfig = {
+        id: "",
+        baseFare: 20,
+        riderPercentage: 80,
+        appCommission: 20,
+        payLaterSurchargePercent: 2,
+        onlinePayDiscountPercent: 2,
+        assignmentBufferMinutes: 120,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+
+    if (!pricingConfig) {
+      throw new Error("Failed to load pricing configuration.");
+    }
 
     return res.status(200).json({
       success: true,

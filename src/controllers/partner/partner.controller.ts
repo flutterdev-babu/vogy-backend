@@ -357,9 +357,45 @@ export default {
 
   async getNotifications(req: AuthedRequest, res: Response) {
     try {
-      const { getPartnerNotifications } = await import("../../services/notification/notification.service");
-      const notifications = await getPartnerNotifications(req.user.id);
+      const notifications = await partnerService.getPartnerNotifications(req.user.id);
       res.json({ success: true, data: notifications });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  async verifyDocument(req: AuthedRequest, res: Response) {
+    try {
+      const { documentId, status } = req.body;
+      const adminId = req.user?.id;
+      if (!documentId || !status) {
+        return res.status(400).json({ success: false, message: "documentId and status are required" });
+      }
+      const partner = await partnerService.verifyPartnerDocument(req.params.id, documentId, status, adminId);
+      res.json({ success: true, data: partner });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async sendNotification(req: AuthedRequest, res: Response) {
+    try {
+      const { message } = req.body;
+      const adminId = req.user?.id;
+      if (!message) {
+        return res.status(400).json({ success: false, message: "message is required" });
+      }
+      const result = await partnerService.sendDirectNotification(req.params.id, message, adminId);
+      res.json({ success: true, data: result });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async getEarningsStats(req: AuthedRequest, res: Response) {
+    try {
+      const earnings = await partnerService.getPartnerEarnings(req.params.id);
+      res.json({ success: true, data: earnings });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
@@ -367,9 +403,9 @@ export default {
 
   async markNotificationAsRead(req: AuthedRequest, res: Response) {
     try {
-      const { markNotificationAsRead } = await import("../../services/notification/notification.service");
-      const notification = await markNotificationAsRead(req.params.id);
-      res.json({ success: true, data: notification });
+      const { id } = req.params;
+      await partnerService.markNotificationAsRead(id, req.user.id);
+      res.json({ success: true, message: "Notification marked as read" });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
