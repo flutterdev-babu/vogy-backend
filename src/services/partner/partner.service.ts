@@ -328,7 +328,7 @@ export const assignPartnerToVehicle = async (partnerId: string, vehicleId: strin
   const vehicle = await prisma.vehicle.findUnique({
     where: { id: vehicleId },
     include: {
-      partners: true,
+      partner: true,
     },
   });
   if (!vehicle) throw new Error("Vehicle not found");
