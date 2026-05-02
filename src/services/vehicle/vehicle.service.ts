@@ -249,7 +249,7 @@ export const getAllVehicles = async (filters?: {
           phone: true,
         },
       },
-      partners: {
+      partner: {
         select: {
           id: true,
           customId: true,
@@ -307,7 +307,7 @@ export const getVehicleById = async (vehicleId: string) => {
           email: true,
         },
       },
-      partners: {
+      partner: {
         select: {
           id: true,
           customId: true,
@@ -406,7 +406,7 @@ export const updateVehicle = async (
           companyName: true,
         },
       },
-      partners: {
+      partner: {
         select: {
           id: true,
           customId: true,
@@ -433,10 +433,10 @@ export const updateVehicle = async (
 ============================================ */
 export const reassignPartnerToVehicle = async (vehicleId: string, newPartnerId: string) => {
   // Get vehicle
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id: vehicleId },
-    include: { partners: true },
-  });
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      include: { partner: true },
+    });
 
   if (!vehicle) throw new Error("Vehicle not found");
 
@@ -457,15 +457,12 @@ export const reassignPartnerToVehicle = async (vehicleId: string, newPartnerId: 
   }
 
   // Unassign old partner if exists
-  if (vehicle.partners && vehicle.partners.length > 0) {
-    // Unassign all partners from this vehicle to be safe, or just the first one
-    for (const oldPartner of vehicle.partners) {
+    if (vehicle.partner) {
       await prisma.partner.update({
-        where: { id: oldPartner.id },
+        where: { id: vehicle.partner.id },
         data: { vehicleId: null },
       });
     }
-  }
 
   // Assign new partner
   await prisma.partner.update({
@@ -556,7 +553,7 @@ export const getAvailableVehicles = async (vehicleTypeId?: string, cityCodeId?: 
           companyName: true,
         },
       },
-      partners: {
+      partner: {
         select: {
           id: true,
           customId: true,
