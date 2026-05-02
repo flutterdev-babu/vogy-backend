@@ -34,9 +34,9 @@ const generateCustomId = async (
       where: { cityCode: { code: cityCode } },
     });
   } else if (entityType === "AGENT") {
-    // Agents manage city codes, so count by cityCodes (plural) relation
+    // Count agents by their primary registration city
     count = await prisma.agent.count({
-      where: { cityCodes: { some: { code: cityCode } } },
+      where: { cityCode: { code: cityCode } },
     });
   } else if (entityType === "CORPORATE") {
     count = await prisma.corporate.count({

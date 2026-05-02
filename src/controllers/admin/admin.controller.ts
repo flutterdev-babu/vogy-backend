@@ -39,6 +39,7 @@ import {
   createVendorByAdmin,
   createPartnerByAdmin,
   createAgentByAdmin,
+  createCorporateByAdmin,
   createManualRideByAdmin,
   getAdminDashboard,
   getRevenueAnalytics,
@@ -552,6 +553,7 @@ export default {
       createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "USER", entityId: user.id, description: `Created user: ${req.body.name || req.body.phone}`, newData: user, ...getRequestContext(req) });
       res.status(201).json({ success: true, message: "User created successfully", data: user });
     } catch (err: any) {
+      console.error("[ADMIN] User creation failed:", err);
       res.status(400).json({ success: false, message: err.message });
     }
   },
@@ -633,6 +635,7 @@ export default {
       createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "PARTNER", entityId: partner.id, description: `Created partner: ${req.body.name || req.body.phone}`, newData: partner, ...getRequestContext(req) });
       res.status(201).json({ success: true, message: "Partner created successfully", data: partner });
     } catch (err: any) {
+      console.error("[ADMIN] Partner creation failed:", err);
       res.status(400).json({ success: false, message: err.message });
     }
   },
@@ -779,6 +782,7 @@ export default {
       createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "VENDOR", entityId: vendor.id, description: `Created vendor: ${req.body.name || req.body.phone}`, newData: vendor, ...getRequestContext(req) });
       res.status(201).json({ success: true, message: "Vendor created successfully", data: vendor });
     } catch (err: any) {
+      console.error("[ADMIN] Vendor creation failed:", err);
       res.status(400).json({ success: false, message: err.message });
     }
   },
@@ -789,6 +793,18 @@ export default {
       createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "AGENT", entityId: agent.id, description: `Created agent: ${req.body.name || req.body.phone}`, newData: agent, ...getRequestContext(req) });
       res.status(201).json({ success: true, message: "Agent created successfully", data: agent });
     } catch (err: any) {
+      console.error("[ADMIN] Agent creation failed:", err);
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  createCorporate: async (req: AuthedRequest, res: Response) => {
+    try {
+      const corporate = await createCorporateByAdmin(req.body);
+      createAuditLog({ userId: req.user?.id, userName: req.user?.name, userRole: req.user?.role, action: "CREATE", module: "CORPORATE", entityId: corporate.id, description: `Created corporate: ${req.body.companyName || req.body.phone}`, newData: corporate, ...getRequestContext(req) });
+      res.status(201).json({ success: true, message: "Corporate created successfully", data: corporate });
+    } catch (err: any) {
+      console.error("[ADMIN] Corporate creation failed:", err);
       res.status(400).json({ success: false, message: err.message });
     }
   },

@@ -3,6 +3,7 @@ import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import fs from 'fs';
 import { s3Client } from '../../config/s3.config';
 
 const ALLOWED_MIME_TYPES = [
@@ -44,7 +45,24 @@ export const generatePresignedUrl = async (req: Request, res: Response) => {
     const objectKey = `${sanitizedFolder}${uniqueId}${extension}`;
 
     // Cloudflare R2 bucket name
-    const bucketName = process.env.R2_BUCKET_NAME || '';
+    const bucketName = process.env.R2_BUCKET_NAME;
+
+    // FALLBACK: If R2 is not configured, use local storage
+    if (!bucketName) {
+      console.warn("⚠️ R2_BUCKET_NAME not set. Falling back to local storage for development.");
+      const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api').replace(/\/$/, '');
+      const localUploadUrl = `${apiBaseUrl}/upload/local-put?key=${encodeURIComponent(objectKey)}`;
+      const finalPublicUrl = `${apiBaseUrl.replace('/api', '')}/uploads/${objectKey}`;
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          presignedUrl: localUploadUrl,
+          finalUrl: finalPublicUrl,
+          objectKey,
+        }
+      });
+    }
 
     // Create the command
     const command = new PutObjectCommand({
@@ -122,5 +140,44 @@ export const deleteFile = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error deleting file:', error);
     return res.status(500).json({ error: 'Failed to delete file', details: error.message });
+  }
+};
+
+/**
+ * Fallback handler for local PUT uploads when R2 is not configured.
+ * Saves the raw request body to the local 'uploads' directory.
+ */
+export const localPut = async (req: Request, res: Response) => {
+  try {
+    const { key } = req.query;
+    if (!key || typeof key !== 'string') {
+      return res.status(400).json({ error: 'Key is required' });
+    }
+
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const filePath = path.join(uploadsDir, key);
+    const dirPath = path.dirname(filePath);
+
+    // Ensure directory exists
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    // Write file
+    const fileStream = fs.createWriteStream(filePath);
+    req.pipe(fileStream);
+
+    fileStream.on('finish', () => {
+      res.status(200).json({ success: true, message: 'File uploaded locally' });
+    });
+
+    fileStream.on('error', (err) => {
+      console.error('Local file write error:', err);
+      res.status(500).json({ error: 'Failed to write file locally', details: err.message });
+    });
+
+  } catch (error: any) {
+    console.error('Local upload error:', error);
+    res.status(500).json({ error: 'Local upload failed', details: error.message });
   }
 };

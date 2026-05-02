@@ -2,7 +2,7 @@ import { prisma } from "../../config/prisma";
 import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateEntityCustomId } from "../city/city.service";
-import { validatePhoneNumber } from "../../utils/phoneValidation";
+import { validatePhoneNumber, normalizePhone } from "../../utils/phoneValidation";
 import { validateObjectId } from "../../utils/idValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
@@ -47,7 +47,8 @@ export const registerCorporate = async (data: {
   agentId?: string;
   cityCodeId?: string;  // For custom ID generation
 }) => {
-  // Validate phone number format (E.164)
+  // Normalize and validate phone number format (E.164)
+  data.phone = normalizePhone(data.phone);
   validatePhoneNumber(data.phone);
 
   // Validate ObjectIDs to prevent Prisma crashes
@@ -86,7 +87,7 @@ export const registerCorporate = async (data: {
   }
 
   // Hash password
-  const hashedPassword = await hashPassword(data.password);
+  const hashedPassword = await hashPassword(data.password || "Corporate@123");
 
   // Create corporate
   const corporate = await prisma.corporate.create({

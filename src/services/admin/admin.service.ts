@@ -1281,6 +1281,11 @@ export const createAgentByAdmin = async (data: any) => {
   return await agentAuthService.registerAgent(data);
 };
 
+export const createCorporateByAdmin = async (data: any) => {
+  const corporateAuthService = await import("../auth/corporate.auth.service");
+  return await corporateAuthService.registerCorporate(data);
+};
+
 export const createManualRideByAdmin = async (
   adminId: string,
   data: {
@@ -1519,6 +1524,11 @@ export const getAdminDashboard = async () => {
     activeRides,
     todayRides,
     todayNewUsers,
+    todayNewVendors,
+    todayNewPartners,
+    todayNewVehicles,
+    todayNewAgents,
+    todayNewCorporates,
     revenue,
     todayRevenue,
     onlinePartners,
@@ -1538,6 +1548,11 @@ export const getAdminDashboard = async () => {
     }),
     prisma.ride.count({ where: { createdAt: { gte: today } } }),
     prisma.user.count({ where: { createdAt: { gte: today } } }),
+    prisma.vendor.count({ where: { createdAt: { gte: today } } }),
+    prisma.partner.count({ where: { createdAt: { gte: today } } }),
+    prisma.vehicle.count({ where: { createdAt: { gte: today } } }),
+    prisma.agent.count({ where: { createdAt: { gte: today } } }),
+    prisma.corporate.count({ where: { createdAt: { gte: today } } }),
     prisma.ride.aggregate({
       where: { status: "COMPLETED" },
       _sum: { totalFare: true, riderEarnings: true, commission: true },
@@ -1551,12 +1566,12 @@ export const getAdminDashboard = async () => {
 
   return {
     entities: {
-      users: totalUsers,
-      vendors: totalVendors,
-      partners: totalPartners,
-      vehicles: totalVehicles,
-      agents: totalAgents,
-      corporates: totalCorporates,
+      users: { total: totalUsers, today: todayNewUsers },
+      vendors: { total: totalVendors, today: todayNewVendors },
+      partners: { total: totalPartners, today: todayNewPartners },
+      vehicles: { total: totalVehicles, today: todayNewVehicles },
+      agents: { total: totalAgents, today: todayNewAgents },
+      corporates: { total: totalCorporates, today: todayNewCorporates },
       onlinePartners,
     },
     rides: {

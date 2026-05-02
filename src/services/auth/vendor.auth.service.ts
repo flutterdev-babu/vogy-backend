@@ -2,7 +2,7 @@ import { prisma } from "../../config/prisma";
 import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateEntityCustomId } from "../city/city.service";
-import { validatePhoneNumber } from "../../utils/phoneValidation";
+import { validatePhoneNumber, normalizePhone } from "../../utils/phoneValidation";
 import { validateObjectId } from "../../utils/idValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
@@ -32,7 +32,8 @@ export const registerVendor = async (data: {
   accountNumber?: string;
   type?: "INDIVIDUAL" | "BUSINESS";
 }) => {
-  // Validate phone number format (E.164)
+  // Normalize and validate phone number format (E.164)
+  data.phone = normalizePhone(data.phone);
   validatePhoneNumber(data.phone);
 
   // Validate ObjectIDs to prevent Prisma crashes
@@ -126,7 +127,8 @@ export const registerVendor = async (data: {
     VENDOR LOGIN
 ============================================ */
 export const loginVendor = async (phone: string, password: string) => {
-  // Validate phone number format (E.164)
+  // Normalize and validate phone number format (E.164)
+  phone = normalizePhone(phone);
   validatePhoneNumber(phone);
 
   // Find vendor by phone
@@ -143,7 +145,10 @@ export const loginVendor = async (phone: string, password: string) => {
     },
   });
 
-  if (!vendor) throw new Error("Invalid phone or password");
+  if (!vendor) {
+    console.error(`[AUTH] Vendor login failed: Phone ${phone} not found`);
+    throw new Error("Invalid phone or password");
+  }
 
   // Check if vendor is suspended
   if (vendor.status === "SUSPENDED") {
@@ -152,7 +157,10 @@ export const loginVendor = async (phone: string, password: string) => {
 
   // Verify password
   const isPasswordValid = await comparePassword(password, vendor.password);
-  if (!isPasswordValid) throw new Error("Invalid phone or password");
+  if (!isPasswordValid) {
+    console.error(`[AUTH] Vendor login failed: Incorrect password for ${phone}`);
+    throw new Error("Invalid phone or password");
+  }
 
   // Generate JWT
   const token = jwt.sign({ id: vendor.id, role: "VENDOR" }, JWT_SECRET, {

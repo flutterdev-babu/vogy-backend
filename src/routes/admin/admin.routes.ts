@@ -222,6 +222,7 @@ router.delete("/agent-coupons/:id", permissionMiddleware("promotions"), agentCou
 // ============================================
 // CORPORATE MANAGEMENT
 // ============================================
+router.post("/corporates", permissionMiddleware("corporates"), adminController.createCorporate);
 router.get("/corporates", permissionMiddleware("corporates"), adminController.getAllCorporates);
 router.get("/corporates/:id", permissionMiddleware("corporates"), adminController.getCorporateById);
 router.put("/corporates/:id", permissionMiddleware("corporates"), adminController.updateCorporate);

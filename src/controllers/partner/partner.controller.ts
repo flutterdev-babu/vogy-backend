@@ -30,6 +30,7 @@ export default {
       const result = await partnerAuthService.loginPartner(phone, password, otp);
       res.json({ success: true, data: result });
     } catch (err: any) {
+      console.error("[PARTNER LOGIN ERROR]:", err);
       res.status(401).json({ success: false, message: err.message });
     }
   },
@@ -424,6 +425,37 @@ export default {
       });
       
       res.json({ success: true, data: notification });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+  async getFeedback(req: AuthedRequest, res: Response) {
+    try {
+      // Mock feedback data since Review model doesn't exist yet
+      const feedback = [
+        {
+          id: '1',
+          user: 'Rahul Sharma',
+          date: '2 days ago',
+          rating: 5,
+          comment: 'Excellent service! The driver was very professional and the car was clean.'
+        },
+        {
+          id: '2',
+          user: 'Priya Patel',
+          date: '1 week ago',
+          rating: 4,
+          comment: 'Very punctual. Safe driving.'
+        },
+        {
+          id: '3',
+          user: 'Amit Kumar',
+          date: '2 weeks ago',
+          rating: 5,
+          comment: 'Best taxi app I have used so far. Highly recommended!'
+        }
+      ];
+      res.json({ success: true, data: feedback });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }

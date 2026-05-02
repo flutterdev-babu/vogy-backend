@@ -249,7 +249,7 @@ export const getAllVehicles = async (filters?: {
           phone: true,
         },
       },
-      partner: {
+      partners: {
         select: {
           id: true,
           customId: true,
@@ -307,7 +307,7 @@ export const getVehicleById = async (vehicleId: string) => {
           email: true,
         },
       },
-      partner: {
+      partners: {
         select: {
           id: true,
           customId: true,
@@ -406,7 +406,7 @@ export const updateVehicle = async (
           companyName: true,
         },
       },
-      partner: {
+      partners: {
         select: {
           id: true,
           customId: true,
@@ -435,7 +435,7 @@ export const reassignPartnerToVehicle = async (vehicleId: string, newPartnerId: 
   // Get vehicle
   const vehicle = await prisma.vehicle.findUnique({
     where: { id: vehicleId },
-    include: { partner: true },
+    include: { partners: true },
   });
 
   if (!vehicle) throw new Error("Vehicle not found");
@@ -457,11 +457,14 @@ export const reassignPartnerToVehicle = async (vehicleId: string, newPartnerId: 
   }
 
   // Unassign old partner if exists
-  if (vehicle.partner) {
-    await prisma.partner.update({
-      where: { id: vehicle.partner.id },
-      data: { vehicleId: null },
-    });
+  if (vehicle.partners && vehicle.partners.length > 0) {
+    // Unassign all partners from this vehicle to be safe, or just the first one
+    for (const oldPartner of vehicle.partners) {
+      await prisma.partner.update({
+        where: { id: oldPartner.id },
+        data: { vehicleId: null },
+      });
+    }
   }
 
   // Assign new partner
@@ -553,7 +556,7 @@ export const getAvailableVehicles = async (vehicleTypeId?: string, cityCodeId?: 
           companyName: true,
         },
       },
-      partner: {
+      partners: {
         select: {
           id: true,
           customId: true,

@@ -30,6 +30,7 @@ export default {
       const result = await vendorAuthService.loginVendor(phone, password);
       res.json({ success: true, data: result });
     } catch (err: any) {
+      console.error("[VENDOR LOGIN ERROR]:", err);
       res.status(401).json({ success: false, message: err.message });
     }
   },
