@@ -1,7 +1,7 @@
 import { prisma } from "../../config/prisma";
 import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
-import { validatePhoneNumber } from "../../utils/phoneValidation";
+import { validatePhoneNumber, normalizePhone } from "../../utils/phoneValidation";
 import { generateEntityCustomId } from "../city/city.service";
 import { validateObjectId } from "../../utils/idValidation";
 
@@ -18,7 +18,8 @@ export const registerAgent = async (data: {
   profileImage?: string;
   cityCodeId?: string;
 }) => {
-  // Validate phone number format (E.164)
+  // Normalize and validate phone number format (E.164)
+  data.phone = normalizePhone(data.phone);
   validatePhoneNumber(data.phone);
 
   // Validate ObjectIDs to prevent Prisma crashes
@@ -39,7 +40,7 @@ export const registerAgent = async (data: {
   }
 
   // Hash password
-  const hashedPassword = await hashPassword(data.password);
+  const hashedPassword = await hashPassword(data.password || "Agent@123");
 
   // Generate custom ID if cityCodeId provided
   let customId = `TMP-A-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -60,6 +61,7 @@ export const registerAgent = async (data: {
       email: data.email || `temp_a_${Date.now()}_${Math.floor(Math.random() * 10000)}@vogy.local`,
       password: hashedPassword,
       profileImage: data.profileImage || null,
+      cityCodeId: data.cityCodeId || null,
     },
   });
 
@@ -72,19 +74,24 @@ export const registerAgent = async (data: {
     AGENT LOGIN
 ============================================ */
 export const loginAgent = async (phone: string, password: string) => {
-  // Validate phone number format (E.164)
+  // Normalize and validate phone number format (E.164)
+  phone = normalizePhone(phone);
   validatePhoneNumber(phone);
 
-  // Find agent by phone
-  const agent = await prisma.agent.findUnique({
-    where: { phone },
-  });
+  const agent = await prisma.agent.findUnique({ where: { phone } });
 
-  if (!agent) throw new Error("Invalid phone or password");
+  // Find agent by phone
+  if (!agent) {
+    console.error(`[AUTH] Agent login failed: Phone ${phone} not found`);
+    throw new Error("Invalid phone or password");
+  }
 
   // Verify password
   const isPasswordValid = await comparePassword(password, agent.password);
-  if (!isPasswordValid) throw new Error("Invalid phone or password");
+  if (!isPasswordValid) {
+    console.error(`[AUTH] Agent login failed: Incorrect password for ${phone}`);
+    throw new Error("Invalid phone or password");
+  }
 
   // Generate JWT
   const token = jwt.sign({ id: agent.id, role: "AGENT" }, JWT_SECRET, {

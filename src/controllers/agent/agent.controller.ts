@@ -30,6 +30,7 @@ export default {
       const result = await agentAuthService.loginAgent(phone, password);
       res.json({ success: true, data: result });
     } catch (err: any) {
+      console.error("[AGENT LOGIN ERROR]:", err);
       res.status(401).json({ success: false, message: err.message });
     }
   },
@@ -268,6 +269,44 @@ export default {
       res.json({ success: true, data: estimates });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  /* ============================================
+      ENTITY REGISTRATION (Agent-led)
+  ============================================ */
+
+  async registerVendor(req: AuthedRequest, res: Response) {
+    try {
+      // Auto-link to this agent
+      const data = { ...req.body, agentId: req.user.id };
+      const vendor = await vendorAuthService.registerVendor(data);
+      res.status(201).json({ success: true, data: vendor });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async registerPartner(req: AuthedRequest, res: Response) {
+    try {
+      // Auto-link to this agent (via vendorId if applicable, or direct if schema allows)
+      // For now, partners are usually under vendors, but if an agent is creating them, 
+      // we might need to handle assignment logic.
+      const partner = await partnerAuthService.registerPartner(req.body);
+      res.status(201).json({ success: true, data: partner });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  },
+
+  async registerCorporate(req: AuthedRequest, res: Response) {
+    try {
+      // Auto-link to this agent
+      const data = { ...req.body, agentId: req.user.id };
+      const corporate = await corporateAuthService.registerCorporate(data);
+      res.status(201).json({ success: true, data: corporate });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
     }
   },
 };

@@ -328,15 +328,12 @@ export const assignPartnerToVehicle = async (partnerId: string, vehicleId: strin
   const vehicle = await prisma.vehicle.findUnique({
     where: { id: vehicleId },
     include: {
-      partner: true,
+      partners: true,
     },
   });
   if (!vehicle) throw new Error("Vehicle not found");
 
-  // Check if vehicle is already assigned to another partner
-  if (vehicle.partner && vehicle.partner.id !== partnerId) {
-    throw new Error("Vehicle is already assigned to another partner");
-  }
+  // Assignment is now allowed even if other partners are assigned (shared vehicle/shifts)
 
   // Check if partner is already assigned to another vehicle
   if (partner.vehicleId && partner.vehicleId !== vehicleId) {

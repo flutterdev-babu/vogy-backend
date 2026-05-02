@@ -43,4 +43,57 @@ router.get("/users", agentController.getAllUsers);
 // Create a new user
 router.post("/users", agentController.createUser);
 
+/* ===============================
+        VENDOR MANAGEMENT
+================================ */
+
+// List agent's vendors
+router.get("/vendors", agentController.getAgentVendors);
+
+// Create a new vendor
+router.post("/vendors", agentController.registerVendor);
+
+/* ===============================
+        CORPORATE MANAGEMENT
+================================ */
+
+// List agent's corporates
+router.get("/corporates", agentController.getAgentCorporates);
+
+// Create a new corporate
+router.post("/corporates", agentController.registerCorporate);
+
+/* ===============================
+        PARTNER MANAGEMENT
+================================ */
+
+// List agent's partners
+router.get("/partners", agentController.getAgentPartners);
+
+// Create a new partner
+router.post("/partners", agentController.registerPartner);
+
+/* ===============================
+        VEHICLE MANAGEMENT
+================================ */
+
+// List agent's vehicles
+router.get("/vehicles", agentController.getAgentVehicles);
+
+/* ===============================
+        RIDE MANAGEMENT
+================================ */
+
+// Get fare estimate
+router.get("/rides/estimate", agentController.getFareEstimate);
+
+// Create manual ride
+router.post("/rides/manual", agentController.createManualRide);
+
+// Assign partner to ride
+router.post("/rides/:id/assign", agentController.assignPartnerToRide);
+
+// Update ride status
+router.patch("/rides/:id/status", agentController.updateRideStatus);
+
 export default router;

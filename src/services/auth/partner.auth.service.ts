@@ -2,7 +2,7 @@ import { prisma } from "../../config/prisma";
 import jwt from "jsonwebtoken";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { generateEntityCustomId } from "../city/city.service";
-import { validatePhoneNumber } from "../../utils/phoneValidation";
+import { validatePhoneNumber, normalizePhone } from "../../utils/phoneValidation";
 import { validateObjectId } from "../../utils/idValidation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret_jwt";
@@ -28,7 +28,8 @@ export const registerPartner = async (data: {
   licenseImage?: string;
   hasLicense: boolean;
 }) => {
-  // Validate phone number format (E.164)
+  // Normalize and validate phone number format (E.164)
+  data.phone = normalizePhone(data.phone);
   validatePhoneNumber(data.phone);
 
   // Validate license if hasLicense is true
@@ -124,7 +125,8 @@ export const registerPartner = async (data: {
     PARTNER LOGIN
 ============================================ */
 export const loginPartner = async (phone: string, password?: string, otp?: string) => {
-  // Validate phone number format (E.164)
+  // Normalize and validate phone number format (E.164)
+  phone = normalizePhone(phone);
   validatePhoneNumber(phone);
 
   if (!password && !otp) {
