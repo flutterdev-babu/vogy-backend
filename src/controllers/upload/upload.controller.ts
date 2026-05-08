@@ -181,3 +181,79 @@ export const localPut = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Local upload failed', details: error.message });
   }
 };
+
+/**
+ * Direct file upload handler (multipart/form-data)
+ * Uploads to R2 if configured, otherwise saves locally.
+ */
+export const uploadFile = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { folder } = req.body;
+    const file = req.file;
+
+    const extension = path.extname(file.originalname);
+    const uniqueId = uuidv4();
+    const sanitizedFolder = folder ? `${folder}/` : 'misc/';
+    const objectKey = `${sanitizedFolder}${uniqueId}${extension}`;
+
+    const bucketName = process.env.R2_BUCKET_NAME;
+
+    if (!bucketName) {
+      // Local fallback
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      const filePath = path.join(uploadsDir, objectKey);
+      const dirPath = path.dirname(filePath);
+
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+      }
+
+      fs.renameSync(file.path, filePath);
+
+      const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api').replace(/\/$/, '');
+      const finalUrl = `${apiBaseUrl.replace('/api', '')}/uploads/${objectKey}`;
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          url: finalUrl,
+          key: objectKey
+        }
+      });
+    }
+
+    // Upload to R2
+    const fileBuffer = fs.readFileSync(file.path);
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: objectKey,
+      ContentType: file.mimetype,
+      Body: fileBuffer,
+    });
+
+    await s3Client.send(command);
+    
+    // Clean up temp file
+    fs.unlinkSync(file.path);
+
+    const publicBaseUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, '') || '';
+    const finalUrl = `${publicBaseUrl}/${objectKey}`;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        url: finalUrl,
+        key: objectKey
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Direct upload error:', error);
+    res.status(500).json({ error: 'Upload failed', details: error.message });
+  }
+};
+
