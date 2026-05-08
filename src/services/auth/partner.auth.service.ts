@@ -160,7 +160,7 @@ export const loginPartner = async (phone: string, password?: string, otp?: strin
     },
   });
 
-  if (!partner) throw new Error("Invalid phone number");
+  if (!partner) throw new Error("This phone number is not registered. Please register first.");
 
   // Check if partner is suspended
   if (partner.status === "SUSPENDED") {
@@ -182,7 +182,7 @@ export const loginPartner = async (phone: string, password?: string, otp?: strin
   } else if (password) {
     // Verify password logic
     const isPasswordValid = await comparePassword(password, partner.password);
-    if (!isPasswordValid) throw new Error("Invalid phone or password");
+    if (!isPasswordValid) throw new Error("Incorrect password. Please try again.");
   }
 
   // Generate JWT

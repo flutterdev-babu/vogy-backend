@@ -85,14 +85,14 @@ export const loginAgent = async (phone: string, password: string) => {
   // Find agent by phone
   if (!agent) {
     console.error(`[AUTH] Agent login failed: Phone ${phone} not found`);
-    throw new Error("Invalid phone or password");
+    throw new Error("This phone number is not registered. Please register first.");
   }
 
   // Verify password
   const isPasswordValid = await comparePassword(password, agent.password);
   if (!isPasswordValid) {
     console.error(`[AUTH] Agent login failed: Incorrect password for ${phone}`);
-    throw new Error("Invalid phone or password");
+    throw new Error("Incorrect password. Please try again.");
   }
 
   // Generate JWT
