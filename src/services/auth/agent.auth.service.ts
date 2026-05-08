@@ -17,6 +17,7 @@ export const registerAgent = async (data: {
   password: string;
   profileImage?: string;
   cityCodeId?: string;
+  agentCode?: string;
 }) => {
   // Normalize and validate phone number format (E.164)
   data.phone = normalizePhone(data.phone);
@@ -62,6 +63,7 @@ export const registerAgent = async (data: {
       password: hashedPassword,
       profileImage: data.profileImage || null,
       cityCodeId: data.cityCodeId || null,
+      agentCode: data.agentCode || `AG-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
     },
   });
 

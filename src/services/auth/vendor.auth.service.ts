@@ -209,7 +209,7 @@ export const getVendorProfile = async (vendorId: string) => {
               category: true,
             },
           },
-          partner: {
+          partners: {
             select: {
               id: true,
               customId: true,
