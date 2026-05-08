@@ -147,7 +147,7 @@ export const loginVendor = async (phone: string, password: string) => {
 
   if (!vendor) {
     console.error(`[AUTH] Vendor login failed: Phone ${phone} not found`);
-    throw new Error("Invalid phone or password");
+    throw new Error("This phone number is not registered. Please register first.");
   }
 
   // Check if vendor is suspended
@@ -159,7 +159,7 @@ export const loginVendor = async (phone: string, password: string) => {
   const isPasswordValid = await comparePassword(password, vendor.password);
   if (!isPasswordValid) {
     console.error(`[AUTH] Vendor login failed: Incorrect password for ${phone}`);
-    throw new Error("Invalid phone or password");
+    throw new Error("Incorrect password. Please try again.");
   }
 
   // Generate JWT

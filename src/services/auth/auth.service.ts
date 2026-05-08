@@ -29,6 +29,7 @@ export const registerUser = async (data: any) => {
     // If the user exists but has no password, they likely registered via OTP only.
     // Allow them to "register" their email and password now to enable dual login.
     if (!exists.password) {
+      const normalizedEmail = data.email ? data.email.toLowerCase().trim() : exists.email;
       const uniqueOtp = exists.uniqueOtp || (await generateUnique4DigitOtp());
       const hashedPassword = data.password ? await hashPassword(data.password) : null;
 
@@ -36,7 +37,7 @@ export const registerUser = async (data: any) => {
         where: { id: exists.id },
         data: {
           name: data.name || exists.name,
-          email: data.email || exists.email,
+          email: normalizedEmail,
           password: hashedPassword,
           uniqueOtp: uniqueOtp,
         },
@@ -59,7 +60,7 @@ export const registerUser = async (data: any) => {
     data: {
       name: data.name,
       phone: phone,
-      email: data.email || null,
+      email: data.email ? data.email.toLowerCase().trim() : null,
       password: hashedPassword,
       profileImage: data.profileImage || null,
       uniqueOtp: uniqueOtp,
@@ -215,9 +216,11 @@ export const registerAdmin = async (data: {
   password: string;
   role?: "SUPERADMIN" | "SUBADMIN";
 }) => {
+  const normalizedEmail = data.email.toLowerCase().trim();
+
   // Check if admin already exists
   const exists = await prisma.admin.findUnique({
-    where: { email: data.email },
+    where: { email: normalizedEmail },
   });
 
   if (exists) throw new Error("Admin with this email already exists");
@@ -229,7 +232,7 @@ export const registerAdmin = async (data: {
   const admin = await prisma.admin.create({
     data: {
       name: data.name,
-      email: data.email,
+      email: normalizedEmail,
       password: hashedPassword,
       role: data.role || "SUBADMIN",
     },
@@ -245,17 +248,19 @@ export const registerAdmin = async (data: {
     ADMIN LOGIN
 ============================================ */
 export const loginAdmin = async (email: string, password: string) => {
+  const normalizedEmail = email.toLowerCase().trim();
+
   // Find admin by email
   const admin = await prisma.admin.findUnique({
-    where: { email },
+    where: { email: normalizedEmail },
   });
 
-  if (!admin) throw new Error("Invalid email or password");
+  if (!admin) throw new Error("This email is not registered as an admin.");
 
   // Verify password
   const isPasswordValid = await comparePassword(password, admin.password);
 
-  if (!isPasswordValid) throw new Error("Invalid email or password");
+  if (!isPasswordValid) throw new Error("Incorrect password. Please try again.");
 
   // Generate JWT
   const token = signToken({ id: admin.id, role: "ADMIN" });
@@ -274,9 +279,11 @@ export const loginAdmin = async (email: string, password: string) => {
     USER LOGIN (EMAIL/PASSWORD)
 ============================================ */
 export const loginUser = async (email: string, password: string) => {
+  const normalizedEmail = email.toLowerCase().trim();
+
   // Find user by email
   const user = await prisma.user.findFirst({
-    where: { email },
+    where: { email: normalizedEmail },
   });
 
   if (!user) {

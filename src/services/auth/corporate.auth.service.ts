@@ -55,6 +55,9 @@ export const registerCorporate = async (data: {
   validateObjectId(data.cityCodeId, "cityCodeId");
   validateObjectId(data.agentId, "agentId");
 
+  // Normalize and validate email
+  data.email = data.email.toLowerCase().trim();
+
   // Check if corporate already exists
   const existsByPhone = await prisma.corporate.findUnique({
     where: { phone: data.phone },
@@ -156,9 +159,12 @@ export const registerCorporate = async (data: {
     CORPORATE LOGIN
 ============================================ */
 export const loginCorporate = async (email: string, password: string) => {
+  // Normalize email
+  const normalizedEmail = email.toLowerCase().trim();
+
   // Find corporate by email
   const corporate = await prisma.corporate.findUnique({
-    where: { email },
+    where: { email: normalizedEmail },
     include: {
       agent: {
         select: {
@@ -170,7 +176,7 @@ export const loginCorporate = async (email: string, password: string) => {
     },
   });
 
-  if (!corporate) throw new Error("Invalid email or password");
+  if (!corporate) throw new Error("This email is not registered. Please register first.");
 
   // Check if corporate is suspended
   if (corporate.status === "SUSPENDED") {
@@ -179,7 +185,7 @@ export const loginCorporate = async (email: string, password: string) => {
 
   // Verify password
   const isPasswordValid = await comparePassword(password, corporate.password);
-  if (!isPasswordValid) throw new Error("Invalid email or password");
+  if (!isPasswordValid) throw new Error("Incorrect password. Please try again.");
 
   // Generate JWT
   const token = jwt.sign({ id: corporate.id, role: "CORPORATE" }, JWT_SECRET, {
