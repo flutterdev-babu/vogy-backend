@@ -240,7 +240,7 @@ export const getAgentVehicles = async (agentId: string, filters?: {
     where,
     include: {
       vehicleType: true,
-      partner: {
+      partners: {
         select: { id: true, name: true, phone: true, customId: true },
       },
       vendor: {
