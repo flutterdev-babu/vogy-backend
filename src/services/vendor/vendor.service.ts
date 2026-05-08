@@ -114,7 +114,7 @@ export const getVendorById = async (vendorId: string) => {
               pricePerKm: true,
             },
           },
-          partners: {
+          partner: {
             select: {
               id: true,
               name: true,
@@ -264,7 +264,7 @@ export const getVendorVehicles = async (vendorId: string) => {
           pricePerKm: true,
         },
       },
-      partners: {
+      partner: {
         select: {
           id: true,
           name: true,

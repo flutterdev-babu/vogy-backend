@@ -374,7 +374,7 @@ model Partner {
   cityCode   CityCode? @relation(fields: [cityCodeId], references: [id])
 
   // Assigned vehicle from vendor (one partner per vehicle)
-  vehicleId String?  @db.ObjectId
+  vehicleId String?  @unique @db.ObjectId
   vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
 
   // Vendor relationship
@@ -440,7 +440,7 @@ model Vehicle {
   vendor   Vendor? @relation(fields: [vendorId], references: [id])
 
   // Assigned partner/driver (optional - one partner per vehicle)
-  partners Partner[]
+  partner Partner?
 
   isAvailable Boolean @default(true)
   isActive    Boolean @default(true) // DEPRECATED: use status
